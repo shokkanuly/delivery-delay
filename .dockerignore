@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.db
+*.sqlite3
+ml/artifacts/
+.env
+.venv/
+venv/
+.git/
+.DS_Store

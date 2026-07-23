@@ -1,0 +1,24 @@
+# Core stack for the delivery-delay MVP (all already used by this project).
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.3
+scipy>=1.10
+
+# Optional: LightGBM is a drop-in replacement for the default
+# HistGradientBoostingClassifier (see train.py::make_model). It needs libomp
+# on macOS ("brew install libomp"). The project runs fully without it.
+# lightgbm>=4.0
+
+# --- application layer ---
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+python-multipart>=0.0.9        # CSV upload for /predict/batch
+sqlalchemy>=2.0
+streamlit>=1.30
+requests>=2.31
+joblib>=1.3
+
+# Postgres driver — used by Docker/production. Local dev uses SQLite and does
+# not need this; it's here so the Docker image can talk to Postgres.
+psycopg[binary]>=3.1

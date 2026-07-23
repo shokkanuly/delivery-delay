@@ -1,0 +1,55 @@
+# Full stack: Postgres + one-shot seed/train + API + dashboard.
+#   cp .env.example .env && docker compose up --build
+# Dashboard: http://localhost:8501   API docs: http://localhost:8000/docs
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: bigroup
+      POSTGRES_PASSWORD: bigroup
+      POSTGRES_DB: deliverydb
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bigroup -d deliverydb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Runs once: populate Postgres, then train + save the model artifact to the
+  # shared 'artifacts' volume that the api reads.
+  seed:
+    build: .
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes: ["artifacts:/app/ml/artifacts"]
+    command: ["sh", "-c", "python -m db.seed && python -m ml.train"]
+
+  api:
+    build: .
+    env_file: .env
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    volumes: ["artifacts:/app/ml/artifacts"]
+    ports: ["8000:8000"]
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  dashboard:
+    build: .
+    env_file: .env
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_started
+    ports: ["8501:8501"]
+    command: ["streamlit", "run", "dashboard/app.py",
+              "--server.port", "8501", "--server.address", "0.0.0.0",
+              "--server.headless", "true"]
+
+volumes:
+  pgdata:
+  artifacts:
