@@ -1,22 +1,135 @@
-# Delivery-Delay Prediction — MVP (BI Group)
+<div align="center">
 
-Flags construction-material deliveries likely to arrive **late** *before* they do,
-with a per-delivery "why" and an honest baseline comparison. Three layers:
+# 🚧 Delivery-Delay Prediction
 
-```
-[CSV / Postgres] → [causal features] → [model + snapshot] → [FastAPI] → [Streamlit dashboard]
-      Data                     ML                                    Application
-```
+### Predict which construction-material deliveries will arrive late — *before they do* — and explain why.
 
-The model **provably beats the supplier-average baseline** (5-fold CV: PR-AUC
-0.86 vs 0.73, +0.13 lift with a CI clear of zero) and every risk score comes with
-its top risk drivers.
+![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikit-learn&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
+
+*A 12-week hackathon MVP for BI Group — Kazakhstan's largest construction company.*
+*Three layers, Data → ML → Application, running end-to-end from one command.*
+
+</div>
 
 ---
 
-## Quickstart — local (SQLite, zero setup)
+## 🎯 The problem
+
+On a large construction site, one late delivery of concrete, rebar, or finishing
+materials cascades: idle crews, a missed pour, a slipped schedule, penalty costs.
+
+Today the site only learns a delivery is late **when it is already late** — too
+late to re-sequence the day's work or lean on the supplier. Procurement and site
+managers have **no early-warning signal**, and no way to see *which* of the
+hundreds of in-flight orders are the risky ones. It's all reactive.
+
+## ✅ What we built — and why
+
+A system that scores every delivery's **risk of arriving late, ahead of time**,
+ranks them, and explains each flag — so a non-technical site manager can act on
+the top red rows *this morning*.
+
+| Capability | Why it matters |
+|---|---|
+| 🔴 **Risk score + red/yellow/green band**, sorted riskiest-first | Turns hundreds of orders into a short, actionable watch-list |
+| 💬 **Per-delivery "why"** (top risk drivers) | People act on flags they understand — not black-box scores |
+| 📊 **Always shown against an honest baseline** | Proves the ML actually adds value over "just check the supplier's track record" |
+| 🧠 **Leakage-free, cold-start-safe modeling** | The numbers hold up when real data replaces the demo data |
+| ⚙️ **CSV upload · retrain button · REST API** | Fits a real procurement workflow, not just a notebook |
+| 🐳 **SQLite+one command → Postgres+Docker** | Laptop demo today, pilot deployment tomorrow |
+
+## 🏗️ Architecture
+
+Three layers with a clean seam between them. The model is trained offline and
+frozen into a **self-contained artifact** so the API can score deliveries
+*statelessly* — no recomputation of history per request.
+
+```mermaid
+flowchart LR
+    subgraph DATA["🗄️  Data Layer"]
+        CSV["CSV upload /<br/>manual entry"]
+        DB[("PostgreSQL<br/>(SQLite for dev)")]
+    end
+    subgraph ML["🧠  ML Layer"]
+        FE["Causal feature<br/>engineering"]
+        TRAIN["Train + CV vs baseline"]
+        ART[("Model artifact<br/>+ feature snapshot")]
+    end
+    subgraph APP["🖥️  Application Layer"]
+        API["FastAPI"]
+        DASH["Streamlit<br/>dashboard"]
+    end
+
+    CSV --> DB
+    DB --> FE --> TRAIN --> ART
+    ART --> API
+    DB --> API
+    API --> DASH
+    CSV -. "batch score" .-> API
+
+    classDef d fill:#e3f2fd,stroke:#1565c0,color:#0d47a1;
+    classDef m fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c;
+    classDef a fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
+    class CSV,DB d; class FE,TRAIN,ART m; class API,DASH a;
+```
+
+**Deep dive:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — data flow, the
+stateless-prediction design decision, the DB schema, and the core ML in detail.
+
+## 🔬 The core: making the numbers *trustworthy*
+
+The hard part of a delivery-delay model isn't the model — it's **not fooling
+yourself**. Four traps sink most attempts. Each is solved and demonstrated live
+by `python3 run.py`:
+
+| # | Trap | How we handle it | Where |
+|---|------|------------------|-------|
+| 1 | **Small data → overfit & fake accuracy** | Regularized model, few features, k-fold CV **with confidence intervals**, always vs. a baseline | [`ml/train.py`](ml/train.py) |
+| 2 | **Leakage** — the future leaking into the past | **Causal features**: a delivery only ever sees other deliveries *completed before it was ordered* | [`ml/features.py`](ml/features.py) |
+| 3 | **Cold start** — a brand-new supplier has no history | **3-level empirical-Bayes shrinkage** supplier → material×route → global; weather = seasonal normal, not forecast | [`ml/features.py`](ml/features.py) |
+| 4 | **"Late" isn't universal** | Per-material **grace windows** (concrete: 0 days; finishing tiles: 3) | [`ml/labeling.py`](ml/labeling.py) |
+
+Three ideas worth stealing:
+
+1. **Causality is a boundary, not a metric.** Because each row's features depend
+   only on its past, ordinary k-fold CV is *already* leakage-free — and `run.py`
+   prints the leaky-vs-causal gap so you can see the fantasy accuracy you'd
+   otherwise have shipped.
+2. **Cold start is smoothing, not a special case.** `rate = (late + k·fallback)/(n + k)`
+   — with zero history it *equals* the material×route fallback and never returns
+   `NaN`. This same math is frozen into the artifact so `/predict` stays stateless.
+3. **Weather must be honest at prediction time.** Forecasts are reliable ~10 days
+   out; lead times reach 45 — so the live feature is the **seasonal normal**.
+
+## 📈 Results (synthetic demo data, 5-fold CV)
+
+| Metric | Baseline (supplier avg) | **Model** | Lift |
+|---|:---:|:---:|:---:|
+| Avg Precision (PR-AUC) | 0.732 | **0.858** | **+0.126** |
+| ROC-AUC | 0.683 | **0.831** | **+0.148** |
+| F1 @0.5 | 0.702 | **0.790** | **+0.088** |
+
+Every lift's 95% CI clears zero — credible evidence the model beats the baseline.
+*Numbers are on the synthetic generator; the **methodology** is the deliverable —
+swap in real data before reading into any absolute figure.*
+
+## 🚀 Quickstart
 
 Commands use `python3` (macOS ships no bare `python`).
+
+**One command** — ensures a trained model, then starts the API + dashboard:
+
+```bash
+./start.sh
+```
+
+<details>
+<summary>Or run the steps manually</summary>
 
 ```bash
 python3 -m pip install -r requirements.txt
@@ -30,120 +143,70 @@ python3 -m ml.train
 ```bash
 python3 -m uvicorn api.main:app --reload
 ```
-
-API + interactive docs: http://localhost:8000/docs
-
-In a second terminal:
-
 ```bash
 python3 -m streamlit run dashboard/app.py
 ```
+</details>
 
-Dashboard: http://localhost:8501
-
-**Shortcut:** `./start.sh` ensures a trained model, then starts the API and
-dashboard together (Ctrl-C stops both).
-
-## Quickstart — Docker (Postgres, full stack)
+**Full stack on Postgres (Docker):**
 
 ```bash
-cp .env.example .env
-docker compose up --build
+cp .env.example .env && docker compose up --build
 ```
 
-Compose starts Postgres, seeds it, trains the model, then serves the API
-(`:8000`) and dashboard (`:8501`).
+Dashboard → http://localhost:8501 · API docs → http://localhost:8000/docs
 
-## Verify the ML core on its own
+**Verify the ML core alone:**
 
 ```bash
 python3 run.py
 ```
-```bash
-python3 -m ml.predict
-```
-`run.py` prints the four-problem correctness report (below); `ml.predict` scores
-sample deliveries with their "why" drivers.
 
----
-
-## Project layout
-
-```
-ml/         data_sim · labeling · features · baseline · train · predict   (+ artifacts/)
-db/         models.py (SQLAlchemy) · database.py · seed.py
-api/        main.py (FastAPI) · schemas.py
-dashboard/  app.py (Streamlit)
-run.py      ML-correctness demo        ROADMAP.md   build stages + status
-Dockerfile  docker-compose.yml  .env.example
-```
-
-## API
+## 🔌 API
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET  | `/health` | liveness + model info |
-| GET  | `/metrics` | CV model-vs-baseline scorecard |
-| POST | `/predict` | score one delivery → risk + drivers |
-| POST | `/predict/batch` | score an uploaded CSV |
-| GET  | `/deliveries/{project_id}` | a project's deliveries, risk-sorted |
-| POST | `/train` | retrain and hot-swap the served model |
+| `GET`  | `/health` | liveness + model info |
+| `GET`  | `/metrics` | CV model-vs-baseline scorecard |
+| `POST` | `/predict` | score one delivery → risk + drivers |
+| `POST` | `/predict/batch` | score an uploaded CSV |
+| `GET`  | `/deliveries/{project_id}` | a project's deliveries, risk-sorted |
+| `POST` | `/train` | retrain and hot-swap the served model |
 
-Interactive docs at `/docs`. Required fields for scoring:
-`supplier_id, material_type, route_type, quantity, order_date, promised_date`.
+## 📁 Project structure
 
----
+```
+ml/         data_sim · labeling · features · baseline · train · predict · ingest   (+ artifacts/)
+db/         models.py (SQLAlchemy) · database.py · seed.py
+api/        main.py (FastAPI) · schemas.py
+dashboard/  app.py (Streamlit)
+run.py                ML-correctness demo (the four traps)
+sample_deliveries.csv real-data schema template
+start.sh              one-command local run
+docs/ARCHITECTURE.md  the deep dive
+Dockerfile · docker-compose.yml · ROADMAP.md
+```
 
-## The ML-correctness core (why the numbers are trustworthy)
+## 🗃️ Using real BI Group data
 
-Four issues sink most delivery-delay demos. Each is solved and demonstrated by
-`python run.py`:
+Drop a CSV in the [canonical schema](sample_deliveries.csv) and point the paths
+at it — `ml/ingest.py` validates columns, parses dates, and drops bad rows:
 
-| # | Problem | Fix | File |
-|---|---------|-----|------|
-| 4 | **Label** — "late" isn't universal | per-material **grace window**; binary `is_late` | `ml/labeling.py` |
-| 2 | **Leakage** — future leaks into past | **causal** features: only deliveries *completed before this one was ordered* | `ml/features.py` |
-| 3 | **Cold start** — new supplier, no history | 3-level **shrinkage** supplier → material×route → global; weather = seasonal normal | `ml/features.py` |
-| 1 | **Small data** — overfit & fake accuracy | regularized model, few features, **k-fold CV + CIs** vs the **baseline** | `ml/train.py` |
+```bash
+python3 -m ml.ingest your_deliveries.csv     # validate first
+python3 -m db.seed your_deliveries.csv        # load into the DB
+```
 
-Three ideas worth keeping:
+Then `load_training_frame(csv_path="your_deliveries.csv")` /
+`fit_and_save(csv_path=...)` to train on it. Required columns (rename
+`route → route_type`): `supplier_id, material_type, route_type, quantity,
+order_date, promised_date, actual_date` (+ optional `project_site`).
 
-1. **Causality is a boundary.** A row's features depend only on its past, so plain
-   k-fold CV is already leakage-free. `run.py` prints the leaky-vs-causal gap so
-   you can see the fantasy accuracy you'd otherwise ship.
-2. **Cold start is smoothing, not a special case.** `rate = (late + k·fallback)/(n + k)`
-   — with no history it *equals* the material×route fallback; it never returns NaN.
-   This same math is frozen into the model artifact so `/predict` is stateless
-   (see [ROADMAP.md](ROADMAP.md) "Key design decision").
-3. **Weather must be honest at prediction time.** Forecasts are reliable ~10 days
-   out; lead times reach 45 — so the live feature is the **seasonal normal**.
+## 📍 Status
 
-> **Note on leakage in the schema:** `suppliers.avg_delay_days` / `on_time_rate`
-> are display-only rollups. They are deliberately **not** model features — the ML
-> layer recomputes supplier rates causally to avoid leaking the future.
+All six build stages complete — see [`ROADMAP.md`](ROADMAP.md). Runs on synthetic
+data; the real-data seam is `ml/ingest.py`.
 
----
+## 📄 License
 
-## Plugging in real BI Group data
-
-- **Deliveries:** drop a CSV in the canonical schema (see `sample_deliveries.csv`)
-  and point the paths at it: `python3 -m db.seed your.csv` and
-  `load_training_frame(csv_path="your.csv")` / `fit_and_save(csv_path="your.csv")`.
-  `ml/ingest.py` validates columns, parses dates, and drops bad rows — check a
-  file first with `python3 -m ml.ingest your.csv`. Required columns (rename
-  `route → route_type`): `supplier_id, material_type, route_type, quantity,
-  order_date, promised_date, actual_date` (+ optional `project_site`).
-- **Postgres:** set `DATABASE_URL=postgresql+psycopg://user:pass@host:5432/db`.
-- **Retrain cadence:** rerun `python3 -m ml.train` (weekly, or after each
-  project's data lands). It refreshes the model and the feature snapshot together.
-
-## Tuning knobs (business inputs, not code problems)
-
-- **Grace-day table** — `ml/labeling.py::DEFAULT_GRACE_DAYS`. The single most
-  important business input; set it with the site teams.
-- **`k_shrink`** — higher = more conservative toward fallbacks when history is thin.
-- **Model** — `ml/train.py::make_model()` has a one-line LightGBM/XGBoost swap.
-
-> The synthetic late-rate (~55%) is a property of the simulator, not a forecast.
-> The **methodology** — causal features, baseline, CIs, explainability — is the
-> deliverable; swap in real data before reading into any absolute number.
+[MIT](LICENSE) © 2026 shokkanuly

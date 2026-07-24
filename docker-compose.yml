@@ -8,7 +8,10 @@ services:
       POSTGRES_USER: bigroup
       POSTGRES_PASSWORD: bigroup
       POSTGRES_DB: deliverydb
-    ports: ["5432:5432"]
+    # Not published to the host: api/seed reach Postgres over the compose network
+    # at db:5432. Uncomment to expose it to host SQL clients, picking a free port
+    # so it can't clash with a local Postgres already on 5432:
+    # ports: ["5433:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bigroup -d deliverydb"]
