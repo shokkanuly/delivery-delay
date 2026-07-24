@@ -61,6 +61,20 @@ def metrics() -> dict:
     return get_artifact()["metrics"]
 
 
+@app.post("/train")
+def train() -> dict:
+    """Retrain on the current data source and hot-swap the served model.
+
+    Synchronous (training takes seconds at MVP scale). Clears the cached artifact
+    so subsequent requests use the fresh model.
+    """
+    fit_and_save()
+    get_artifact.cache_clear()
+    art = get_artifact()
+    return {"status": "retrained", "trained_rows": art["trained_rows"],
+            "metrics": art["metrics"]}
+
+
 @app.post("/predict", response_model=PredictionOut)
 def predict_one(delivery: DeliveryIn) -> dict:
     scored = score([delivery.model_dump()], get_artifact())

@@ -25,10 +25,14 @@ def _supplier_rollups(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def seed(n: int = 1200, seed_val: int = 7) -> dict:
+def seed(n: int = 1200, seed_val: int = 7, csv_path: str | None = None) -> dict:
     Base.metadata.drop_all(bind=engine)
     init_db()
-    df = add_labels(generate_deliveries(n=n, seed=seed_val), LabelConfig())
+    if csv_path:
+        from ml.ingest import load_deliveries_csv
+        df = add_labels(load_deliveries_csv(csv_path, require_actual=True), LabelConfig())
+    else:
+        df = add_labels(generate_deliveries(n=n, seed=seed_val), LabelConfig())
 
     session = SessionLocal()
     try:
@@ -77,4 +81,7 @@ def seed(n: int = 1200, seed_val: int = 7) -> dict:
 
 
 if __name__ == "__main__":
-    print("seeded:", seed())
+    import sys
+
+    csv = sys.argv[1] if len(sys.argv) > 1 else None
+    print("seeded:", seed(csv_path=csv))

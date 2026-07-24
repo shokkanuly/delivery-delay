@@ -41,6 +41,9 @@ python3 -m streamlit run dashboard/app.py
 
 Dashboard: http://localhost:8501
 
+**Shortcut:** `./start.sh` ensures a trained model, then starts the API and
+dashboard together (Ctrl-C stops both).
+
 ## Quickstart — Docker (Postgres, full stack)
 
 ```bash
@@ -84,6 +87,7 @@ Dockerfile  docker-compose.yml  .env.example
 | POST | `/predict` | score one delivery → risk + drivers |
 | POST | `/predict/batch` | score an uploaded CSV |
 | GET  | `/deliveries/{project_id}` | a project's deliveries, risk-sorted |
+| POST | `/train` | retrain and hot-swap the served model |
 
 Interactive docs at `/docs`. Required fields for scoring:
 `supplier_id, material_type, route_type, quantity, order_date, promised_date`.
@@ -122,11 +126,13 @@ Three ideas worth keeping:
 
 ## Plugging in real BI Group data
 
-- **Deliveries:** replace `generate_deliveries(...)` in `db/seed.py` and
-  `ml/train.load_training_frame()` with your CSV/ETL load. Required columns
-  (rename `route → route_type` from the plan's schema):
-  `supplier_id, project_site, material_type, route_type, quantity, order_date,
-  promised_date, actual_date`.
+- **Deliveries:** drop a CSV in the canonical schema (see `sample_deliveries.csv`)
+  and point the paths at it: `python3 -m db.seed your.csv` and
+  `load_training_frame(csv_path="your.csv")` / `fit_and_save(csv_path="your.csv")`.
+  `ml/ingest.py` validates columns, parses dates, and drops bad rows — check a
+  file first with `python3 -m ml.ingest your.csv`. Required columns (rename
+  `route → route_type`): `supplier_id, material_type, route_type, quantity,
+  order_date, promised_date, actual_date` (+ optional `project_site`).
 - **Postgres:** set `DATABASE_URL=postgresql+psycopg://user:pass@host:5432/db`.
 - **Retrain cadence:** rerun `python3 -m ml.train` (weekly, or after each
   project's data lands). It refreshes the model and the feature snapshot together.

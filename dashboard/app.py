@@ -79,6 +79,20 @@ c4.metric("Features", health["n_features"])
 st.caption("PR-AUC (Average Precision), 5-fold cross-validated. Baseline = "
            "supplier historical average. Demo runs on synthetic data.")
 
+with st.expander("⚙️ Retrain model"):
+    st.write("Retrain on the current data source and hot-swap the served model.")
+    if st.button("Retrain now"):
+        with st.spinner("Retraining…"):
+            rr = requests.post(f"{API_URL}/train", timeout=300)
+        if rr.status_code == 200:
+            j = rr.json()
+            st.success(f"Retrained on {j['trained_rows']} rows · "
+                       f"PR-AUC {j['metrics']['ap']['model']:.3f} "
+                       f"(lift {j['metrics']['ap']['lift']:+.3f} vs baseline)")
+            st.rerun()
+        else:
+            st.error(f"{rr.status_code}: {rr.text}")
+
 tab_upload, tab_browse = st.tabs(["📤 Upload CSV", "🏗️ Browse projects"])
 
 with tab_upload:

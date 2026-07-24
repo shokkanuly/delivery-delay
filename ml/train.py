@@ -125,16 +125,24 @@ def metrics_summary(folds: pd.DataFrame) -> dict:
     return out
 
 
-def load_training_frame(n: int = 1200, seed: int = 7) -> pd.DataFrame:
-    """MVP: synthetic data. Swap this for a SELECT from the deliveries table."""
-    return add_labels(generate_deliveries(n=n, seed=seed), LabelConfig())
+def load_training_frame(n: int = 1200, seed: int = 7,
+                        csv_path: str | None = None) -> pd.DataFrame:
+    """Synthetic by default; pass csv_path to train on a real deliveries CSV
+    (validated via ml.ingest). Swap either for a SELECT from the deliveries table."""
+    if csv_path:
+        from ml.ingest import load_deliveries_csv
+        df = load_deliveries_csv(csv_path, require_actual=True)
+    else:
+        df = generate_deliveries(n=n, seed=seed)
+    return add_labels(df, LabelConfig())
 
 
 def fit_and_save(path=ARTIFACT_PATH, n: int = 1200, seed: int = 7,
-                 k_shrink: float = 8.0, prior_late_rate: float = 0.35):
+                 k_shrink: float = 8.0, prior_late_rate: float = 0.35,
+                 csv_path: str | None = None):
     """Train on all data, snapshot the causal rate tables, and persist everything
     /predict needs into one joblib artifact. Returns (artifact, cv_folds)."""
-    df = load_training_frame(n=n, seed=seed)
+    df = load_training_frame(n=n, seed=seed, csv_path=csv_path)
     X, y, _ = build_features(df, k_shrink=k_shrink, prior_late_rate=prior_late_rate)
     folds = cross_validate(X, y)                       # honest held-out metrics
     model = make_model(seed).fit(X.to_numpy(dtype=float), y.to_numpy())

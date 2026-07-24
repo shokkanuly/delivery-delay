@@ -1,0 +1,7 @@
+supplier_id,project_site,material_type,route_type,quantity,order_date,promised_date,actual_date
+S01,astana_north,ready_mix_concrete,urban,80,2025-02-03,2025-02-10,2025-02-12
+S02,almaty_ring,rebar,intercity,45,2025-02-05,2025-02-20,2025-02-19
+S03,shymkent_hub,tiles_finishing,cross_border,20,2025-02-08,2025-03-01,2025-03-06
+S01,astana_north,cement,urban,120,2025-02-10,2025-02-17,2025-02-17
+S04,astana_south,bricks,intercity,60,2025-02-12,2025-02-28,2025-03-02
+S02,almaty_ring,insulation,urban,30,2025-02-15,2025-02-25,2025-02-24
