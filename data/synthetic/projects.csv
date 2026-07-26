@@ -1,0 +1,11 @@
+project_id,name,location,priority,start_date,end_date
+PRJ_001,Nurly Zhol Residence,Almaty,low,2026-01-28,2026-08-25
+PRJ_002,Alatau Towers,Aktobe,medium,2026-01-14,2026-11-26
+PRJ_003,Green Line Business Center,Karagandy,medium,2026-01-06,2026-11-08
+PRJ_004,Saryarka Housing Complex,Shymkent,high,2026-02-03,2026-10-04
+PRJ_005,Caspian Waterfront,Shymkent,medium,2026-02-23,2026-09-03
+PRJ_006,Silk Road Mall,Atyrau,medium,2026-01-04,2026-12-24
+PRJ_007,Kokserek Park Residences,Almaty,low,2026-02-21,2026-11-08
+PRJ_008,Turan Business Hub,Aktobe,medium,2026-02-19,2027-01-25
+PRJ_009,Bereke Family Homes,Astana,low,2026-01-17,2026-11-15
+PRJ_010,Zharyk Industrial Park,Almaty,medium,2026-02-07,2026-12-24

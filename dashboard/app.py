@@ -93,7 +93,72 @@ with st.expander("⚙️ Retrain model"):
         else:
             st.error(f"{rr.status_code}: {rr.text}")
 
-tab_upload, tab_browse = st.tabs(["📤 Upload CSV", "🏗️ Browse projects"])
+tab_platform, tab_upload, tab_browse = st.tabs(
+    ["🏢 Project overview", "📤 Upload CSV", "🏗️ Browse deliveries"])
+
+with tab_platform:
+    st.caption("All three engines for one site: delay risk · resource schedule · "
+               "sequencing flags.")
+    try:
+        projects = api_get("/projects")["projects"]
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Could not load projects: {exc}")
+        projects = []
+
+    if projects:
+        labels = {f"{p['project_id']} — {p['name']} ({p['location']}, {p['priority']})":
+                  p["project_id"] for p in projects}
+        pick = st.selectbox("Project", list(labels), key="platform_project")
+        with st.spinner("Running all three engines…"):
+            ov = api_get(f"/projects/{labels[pick]}/overview")
+
+        dly, sch, seq = ov["delay_prediction"], ov["resource_schedule"], ov["sequencing"]
+        bands = dly.get("bands", {}) or {}
+        k = st.columns(4)
+        k[0].metric("🔴 High-risk deliveries", bands.get("red", 0),
+                    f"of {dly.get('scored', 0)} scored")
+        k[1].metric("🚚 Bookings scheduled", sch["stats"].get("assigned", 0),
+                    f"{sch['stats'].get('unassigned', 0)} unresolved",
+                    delta_color="inverse")
+        k[2].metric("⚠️ Sequencing flags",
+                    seq["counts"].get("premature_delivery", 0),
+                    f"of {seq['counts'].get('total', 0)} deliveries",
+                    delta_color="inverse")
+        k[3].metric("🛣️ Travel", f"{sch['stats'].get('total_travel_km', 0):,} km",
+                    f"{sch['stats'].get('resources_used', 0)} resources")
+
+        e1, e2, e3 = st.columns(3)
+        with e1:
+            st.markdown("**⚡ Top delay risks**")
+            top = dly.get("top_risks", [])
+            if top:
+                t = pd.DataFrame(top)[["supplier_id", "material_type", "risk", "risk_band"]]
+                st.dataframe(t.style.apply(_color_rows, axis=1).format({"risk": "{:.2f}"}),
+                             use_container_width=True, height=260, hide_index=True)
+            else:
+                st.info("No deliveries for this project.")
+        with e2:
+            st.markdown("**🚚 Resource assignments**")
+            a = pd.DataFrame(sch.get("assignments", []))
+            if not a.empty:
+                st.dataframe(a[["booking_id", "resource_type", "assigned_resource_id",
+                                "travel_km"]],
+                             use_container_width=True, height=260, hide_index=True)
+                st.caption(f"{sch['stats'].get('raw_conflicts_before', 0)} raw conflicts → "
+                           f"**{sch['stats'].get('double_bookings_after', 0)}** double-bookings "
+                           f"({sch['stats'].get('solve_seconds', 0)}s)")
+            else:
+                st.info("No bookings for this project.")
+        with e3:
+            st.markdown("**⚠️ Sequencing issues**")
+            f = pd.DataFrame(seq.get("flagged", []))
+            if not f.empty:
+                st.dataframe(f[["material_type", "required_phase", "reason"]],
+                             use_container_width=True, height=260, hide_index=True)
+            else:
+                st.success("No sequencing problems found.")
+
+tab_upload, tab_browse = tab_upload, tab_browse
 
 with tab_upload:
     st.write("CSV columns required: "

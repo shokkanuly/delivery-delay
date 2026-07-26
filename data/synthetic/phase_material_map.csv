@@ -1,0 +1,9 @@
+phase_name,required_materials
+site_prep,formwork;timber
+foundation,cement;rebar;concrete_mix
+structural_frame,steel_beams;rebar;prefab_panels;modular_units
+envelope_facade,bricks;glass_facade;cement
+mep_rough_in,pipes
+insulation_drywall,insulation
+finishing,glass_facade;insulation
+handover,

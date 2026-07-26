@@ -1,11 +1,9 @@
-"""BI Group delivery-delay API.
+"""Construction Logistics Platform API — one service, three engines.
 
-Endpoints (from the plan):
-  GET  /health                     liveness + model info
-  GET  /metrics                    CV model-vs-baseline scorecard
-  POST /predict                    score a single delivery
-  POST /predict/batch              score an uploaded CSV
-  GET  /deliveries/{project_id}    list a project's deliveries, risk-sorted
+  Engine 1 · delay prediction   /predict, /predict/batch, /deliveries/{id}, /train
+  Engine 2 · resource scheduler /schedule            (api/routers/schedule.py)
+  Engine 3 · sequence validator /validate            (api/routers/validate.py)
+  Platform                      /health, /metrics, /projects/{id}/overview
 
 The trained artifact is loaded once and cached. Scoring is stateless -- it reads
 the frozen feature snapshot inside the artifact (see ROADMAP), so no per-request
@@ -20,13 +18,22 @@ import pandas as pd
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from api.routers import schedule as schedule_router
+from api.routers import validate as validate_router
 from api.schemas import DeliveryIn, PredictionOut
 from db.database import get_session
 from db.models import Delivery
 from ml.predict import REQUIRED_FIELDS, load_artifact, score
 from ml.train import ARTIFACT_PATH, fit_and_save
 
-app = FastAPI(title="BI Group Delivery-Delay API", version="0.1.0")
+app = FastAPI(
+    title="Construction Logistics Platform",
+    description="Delay prediction · resource scheduling · sequencing validation",
+    version="0.2.0",
+)
+
+app.include_router(schedule_router.router)
+app.include_router(validate_router.router)
 
 
 @lru_cache
@@ -52,7 +59,75 @@ def _prediction_fields(row: pd.Series) -> dict:
 def health() -> dict:
     art = get_artifact()
     return {"status": "ok", "trained_rows": art["trained_rows"],
-            "n_features": len(art["feature_columns"])}
+            "n_features": len(art["feature_columns"]),
+            "engines": ["delay_prediction", "resource_scheduler", "sequence_validator"]}
+
+
+@app.get("/projects")
+def list_projects() -> dict:
+    """Master project list — shared by all three engines."""
+    from api.data_sources import read_synthetic
+    return {"projects": read_synthetic("projects.csv").to_dict("records")}
+
+
+@app.get("/projects/{project_id}/overview")
+def project_overview(project_id: str) -> dict:
+    """All three engines for one project, side by side.
+
+    This is the platform view: delay risk, resource conflicts and sequencing
+    flags for a single site in one response -- one platform solving three cost
+    problems, rather than three disconnected demos.
+    """
+    from api.data_sources import read_synthetic
+    from api.routers.schedule import _run as run_schedule
+    from api.routers.validate import _run as run_validate
+
+    projects = read_synthetic("projects.csv")
+    row = projects[projects["project_id"] == project_id]
+    if row.empty:
+        raise HTTPException(status_code=404, detail=f"Unknown project {project_id}")
+
+    # Engine 1 — delay risk on this project's deliveries
+    deliveries = read_synthetic("delay_prediction.csv")
+    d = deliveries[deliveries["project_id"] == project_id]
+    delay_block: dict = {"scored": 0}
+    if not d.empty:
+        recs = d.rename(columns={"project_site": "site"})[
+            ["supplier_id", "material_type", "route_type", "quantity",
+             "order_date", "promised_date"]
+        ].to_dict("records")
+        scored = score(recs, get_artifact())
+        merged = []
+        for src, (_, s) in zip(d.to_dict("records"), scored.iterrows()):
+            merged.append({"delivery_id": src["delivery_id"],
+                           "supplier_id": src["supplier_id"],
+                           "material_type": src["material_type"],
+                           "promised_date": src["promised_date"],
+                           **_prediction_fields(s)})
+        merged.sort(key=lambda x: x["risk"], reverse=True)
+        bands = pd.Series([m["risk_band"] for m in merged]).value_counts().to_dict()
+        delay_block = {"scored": len(merged), "bands": bands, "top_risks": merged[:10]}
+
+    # Engine 2 — scheduling for this project's bookings
+    bookings = read_synthetic("booking_requests.csv")
+    pb = bookings[bookings["project_id"] == project_id]
+    schedule_block = run_schedule(pb) if not pb.empty else {"stats": {}, "assignments": []}
+
+    # Engine 3 — sequencing flags for this project
+    md = read_synthetic("material_deliveries.csv")
+    pm = md[md["project_id"] == project_id]
+    validate_block = (run_validate(pm, read_synthetic("build_phases.csv"), score=True)
+                      if not pm.empty else {"counts": {}, "deliveries": []})
+
+    return {
+        "project": row.iloc[0].to_dict(),
+        "delay_prediction": delay_block,
+        "resource_schedule": {"stats": schedule_block["stats"],
+                              "assignments": schedule_block["assignments"][:20]},
+        "sequencing": {"counts": validate_block["counts"],
+                       "flagged": [r for r in validate_block["deliveries"]
+                                   if r.get("predicted_flag")][:20]},
+    }
 
 
 @app.get("/metrics")
