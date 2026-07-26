@@ -44,4 +44,7 @@ class PredictionOut(BaseModel):
     supplier_late_rate: float
     supplier_n_prior: int
     lead_time_days: int
+    # "if it slips, by how much" — check /metrics.delay_days_head.beats_baseline
+    # before presenting this as a firm estimate.
+    expected_delay_days: float | None = None
     drivers: list[Driver]

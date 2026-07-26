@@ -19,7 +19,8 @@ API_URL = os.getenv("API_URL", "http://localhost:8000")
 BAND_COLOR = {"red": "#f8d7da", "yellow": "#fff3cd", "green": "#d1e7dd"}
 DISPLAY_COLS = ["delivery_id", "supplier_id", "material_type", "route_type",
                 "quantity", "order_date", "promised_date", "risk", "risk_band",
-                "supplier_late_rate", "supplier_n_prior", "lead_time_days", "status"]
+                "expected_delay_days", "supplier_late_rate", "supplier_n_prior",
+                "lead_time_days", "status"]
 
 st.set_page_config(page_title="BI Group — Delivery Delay Risk", layout="wide")
 
@@ -79,6 +80,17 @@ c3.metric("Training rows", f"{health['trained_rows']:,}")
 c4.metric("Features", health["n_features"])
 st.caption("PR-AUC (Average Precision), 5-fold cross-validated. Baseline = "
            "supplier historical average. Demo runs on synthetic data.")
+
+# Be explicit when the days-estimate head is no better than predicting the mean.
+_dh = (api_get("/metrics") or {}).get("delay_days_head", {})
+if _dh and "mae_days_model" in _dh and not _dh.get("beats_baseline"):
+    st.warning(
+        f"**`expected_delay_days` is not reliable on this data.** The days-estimate "
+        f"head scores MAE {_dh['mae_days_model']:.2f} days versus {_dh['mae_days_baseline']:.2f} "
+        "for simply predicting the average — no better than a constant. Treat the "
+        "risk score as the signal; read the day count as rough context only.",
+        icon="⚠️",
+    )
 
 with st.expander("⚙️ Retrain model"):
     st.write("Retrain on the current data source and hot-swap the served model.")

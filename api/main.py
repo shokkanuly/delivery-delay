@@ -18,8 +18,10 @@ import pandas as pd
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from api.routers import monitoring as monitoring_router
 from api.routers import schedule as schedule_router
 from api.routers import validate as validate_router
+from api.routers.monitoring import log_predictions
 from api.schemas import DeliveryIn, PredictionOut
 from db.database import get_session
 from db.models import Delivery
@@ -34,6 +36,18 @@ app = FastAPI(
 
 app.include_router(schedule_router.router)
 app.include_router(validate_router.router)
+app.include_router(monitoring_router.router)
+
+
+def _log_safely(db: Session, records: list[dict], scored: pd.DataFrame) -> None:
+    """Record served predictions for later scoring against reality.
+
+    Best-effort by design: an audit-log failure must never take down scoring.
+    """
+    try:
+        log_predictions(db, records, scored, get_artifact().get("model_version", "unknown"))
+    except Exception:  # noqa: BLE001
+        db.rollback()
 
 
 @lru_cache
@@ -45,12 +59,14 @@ def get_artifact() -> dict:
 
 
 def _prediction_fields(row: pd.Series) -> dict:
+    delay = row.get("expected_delay_days")
     return {
         "risk": float(row["risk"]),
         "risk_band": str(row["risk_band"]),
         "supplier_late_rate": float(row["supplier_late_rate"]),
         "supplier_n_prior": int(row["supplier_n_prior"]),
         "lead_time_days": int(row["lead_time_days"]),
+        "expected_delay_days": (None if delay is None or pd.isna(delay) else float(delay)),
         "drivers": row["drivers"],
     }
 
@@ -132,8 +148,16 @@ def project_overview(project_id: str) -> dict:
 
 @app.get("/metrics")
 def metrics() -> dict:
-    """Cross-validated model-vs-baseline scorecard (for the dashboard header)."""
-    return get_artifact()["metrics"]
+    """Cross-validated model-vs-baseline scorecard (for the dashboard header).
+
+    `delay_days_head` carries its own `beats_baseline` flag: on the current data
+    the expected-delay regressor does NOT beat predicting the mean, so consumers
+    should present that number with a caveat rather than as a firm estimate.
+    """
+    art = get_artifact()
+    return {**art["metrics"],
+            "delay_days_head": art.get("delay_metrics", {}),
+            "model_version": art.get("model_version")}
 
 
 @app.post("/train")
@@ -151,13 +175,16 @@ def train() -> dict:
 
 
 @app.post("/predict", response_model=PredictionOut)
-def predict_one(delivery: DeliveryIn) -> dict:
-    scored = score([delivery.model_dump()], get_artifact())
+def predict_one(delivery: DeliveryIn, db: Session = Depends(get_session)) -> dict:
+    rec = delivery.model_dump()
+    scored = score([rec], get_artifact())
+    _log_safely(db, [rec], scored)
     return _prediction_fields(scored.iloc[0])
 
 
 @app.post("/predict/batch")
-def predict_batch(file: UploadFile = File(...)) -> dict:
+def predict_batch(file: UploadFile = File(...),
+                  db: Session = Depends(get_session)) -> dict:
     try:
         raw = pd.read_csv(io.BytesIO(file.file.read()))
     except Exception as exc:  # noqa: BLE001 - surface any parse error to the client
@@ -169,8 +196,10 @@ def predict_batch(file: UploadFile = File(...)) -> dict:
                             detail=f"CSV missing required columns: {sorted(missing)}")
 
     scored = score(raw, get_artifact())
+    records = raw.to_dict("records")
+    _log_safely(db, records, scored)
     rows = []
-    for src, (_, s) in zip(raw.to_dict("records"), scored.iterrows()):
+    for src, (_, s) in zip(records, scored.iterrows()):
         rows.append({**src, **_prediction_fields(s)})
     rows.sort(key=lambda r: r["risk"], reverse=True)
     return {"count": len(rows), "rows": rows}

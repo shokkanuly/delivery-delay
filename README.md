@@ -118,6 +118,32 @@ Every lift's 95% CI clears zero — credible evidence the model beats the baseli
 *Numbers are on the synthetic generator; the **methodology** is the deliverable —
 swap in real data before reading into any absolute figure.*
 
+### The number that actually convinces people
+
+```bash
+python3 -m scripts.evidence_loop
+```
+
+Trains on the **oldest 80%** of deliveries and predicts the **newest 20%** — a
+time-ordered holdout, so every scored delivery happens *after* everything the
+model saw. On those 440 unseen deliveries:
+
+| Risk band | Deliveries | **Actually ran late** |
+|---|:---:|:---:|
+| 🟢 green | 286 | **24.8%** |
+| 🟡 yellow | 52 | **40.4%** |
+| 🔴 red | 102 | **74.5%** |
+
+Red slipped **3× more often than green** on data the model had never seen. That
+claim needs no ML background to believe — and `/outcomes` + `/accuracy` keep
+recomputing it from real outcomes as they arrive.
+
+> **Known limits, stated plainly.** Recall at the 0.5 threshold is 0.45 — the
+> model catches under half of late deliveries; lower the threshold to trade
+> precision for coverage. And `expected_delay_days` does **not** beat predicting
+> the mean (MAE 4.20 vs 4.19 days), so the risk score is the trustworthy signal,
+> not the day count.
+
 ## 🚀 Quickstart
 
 Commands use `python3` (macOS ships no bare `python`).
@@ -172,6 +198,12 @@ python3 run.py
 | `POST` | `/predict/batch` | score an uploaded CSV |
 | `GET`  | `/deliveries/{project_id}` | a project's deliveries, risk-sorted |
 | `POST` | `/train` | retrain and hot-swap the served model |
+| `POST` | `/schedule` · `/schedule/demo` | conflict-free resource assignment (engine 2) |
+| `POST` | `/validate` · `/validate/demo` | sequencing flags (engine 3) |
+| `GET`  | `/projects/{id}/overview` | **all three engines for one site** |
+| `POST` | `/outcomes` | record what actually happened |
+| `GET`  | `/accuracy` | realized accuracy of served predictions |
+| `GET`  | `/predictions` | the prediction audit trail |
 
 ## 📁 Project structure
 

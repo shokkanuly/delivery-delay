@@ -121,6 +121,15 @@ def score(records, artifact: dict | None = None) -> pd.DataFrame:
             "lead_time_days": raw["lead_time_days"].astype(int).to_numpy(),
         }
     )
+    # Second head: expected days late. Reported for every row (it answers "if this
+    # slips, by how much?"), so read it together with `risk` -- a large day count
+    # on a green delivery is a low-probability, high-impact case, not a warning.
+    reg = artifact.get("delay_regressor")
+    if reg is not None:
+        out["expected_delay_days"] = np.round(np.clip(reg.predict(Xv), 0, None), 1)
+    else:
+        out["expected_delay_days"] = np.nan
+
     out["drivers"] = [_drivers(model, Xv[i], cols, medians) for i in range(len(records))]
     return out
 
@@ -144,6 +153,7 @@ if __name__ == "__main__":
     for rec, (_, row) in zip(samples, res.iterrows()):
         print(f"\n{rec['supplier_id']} | {rec['material_type']} | {rec['route_type']}")
         print(f"  risk={row['risk']:.2f} ({row['risk_band']})  "
+              f"expected_delay={row['expected_delay_days']}d  "
               f"supplier_hist={row['supplier_late_rate']} n={row['supplier_n_prior']}")
         for d in row["drivers"]:
             print(f"    - {d['factor']} = {d['value']}  (+{d['impact']})")

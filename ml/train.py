@@ -19,11 +19,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 from sklearn.metrics import average_precision_score, f1_score, roc_auc_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import KFold, StratifiedKFold
 
 import pathlib
+from datetime import datetime, timezone
 
 import joblib
 
@@ -52,6 +53,54 @@ def make_model(seed: int = 0):
         validation_fraction=0.15,
         random_state=seed,
     )
+
+
+def make_delay_regressor(seed: int = 0):
+    """Second head: how many days late, given that a delivery IS late.
+
+    Deliberately separate from the classifier rather than a multi-output model:
+    "will it slip?" and "by how much?" have different populations (the regressor
+    only ever sees late rows) and different error costs, and two small models are
+    easier to validate than one joint one at this data scale.
+    """
+    return HistGradientBoostingRegressor(
+        max_depth=3, learning_rate=0.05, max_iter=400,
+        l2_regularization=1.0, min_samples_leaf=15,
+        early_stopping=True, validation_fraction=0.15, random_state=seed,
+    )
+
+
+def evaluate_delay_regressor(X: pd.DataFrame, delay_days: pd.Series,
+                             is_late: pd.Series, n_splits: int = 5, seed: int = 0) -> dict:
+    """CV mean-absolute-error on LATE rows, against a predict-the-mean baseline.
+
+    MAE is in days -- directly interpretable to a site manager ("we're typically
+    within N days"). The baseline is the train-fold mean delay: if the model
+    can't beat that, the days estimate is not worth showing.
+    """
+    mask = is_late.astype(bool).to_numpy()
+    Xl = X.to_numpy(dtype=float)[mask]
+    yl = delay_days.to_numpy(dtype=float)[mask]
+    if len(yl) < 50:
+        return {"n_late_rows": int(len(yl)), "note": "too few late rows to validate"}
+
+    model_maes, base_maes = [], []
+    for tr, te in KFold(n_splits, shuffle=True, random_state=seed).split(Xl):
+        m = make_delay_regressor(seed).fit(Xl[tr], yl[tr])
+        model_maes.append(float(np.mean(np.abs(yl[te] - m.predict(Xl[te])))))
+        base_maes.append(float(np.mean(np.abs(yl[te] - yl[tr].mean()))))
+
+    mm, mh = _ci95(np.array(model_maes))
+    bm, bh = _ci95(np.array(base_maes))
+    dm, dh = _ci95(np.array(base_maes) - np.array(model_maes))   # positive = better
+    return {
+        "n_late_rows": int(len(yl)),
+        "mae_days_model": float(round(mm, 3)), "mae_days_model_ci": float(round(mh, 3)),
+        "mae_days_baseline": float(round(bm, 3)), "mae_days_baseline_ci": float(round(bh, 3)),
+        "mae_improvement_days": float(round(dm, 3)),
+        "mae_improvement_ci": float(round(dh, 3)),
+        "beats_baseline": bool(dm - dh > 0),
+    }
 
 
 def _ci95(x: np.ndarray):
@@ -146,13 +195,31 @@ def fit_and_save(path=ARTIFACT_PATH, n: int = 1200, seed: int = 7,
     X, y, _ = build_features(df, k_shrink=k_shrink, prior_late_rate=prior_late_rate)
     folds = cross_validate(X, y)                       # honest held-out metrics
     model = make_model(seed).fit(X.to_numpy(dtype=float), y.to_numpy())
+
+    # Second head: expected delay in days, fitted on late rows only.
+    late_mask = y.astype(bool).to_numpy()
+    delay_metrics = evaluate_delay_regressor(X, df["delay_days"], y, seed=seed)
+    delay_regressor = None
+    if late_mask.sum() >= 50:
+        delay_regressor = make_delay_regressor(seed).fit(
+            X.to_numpy(dtype=float)[late_mask],
+            df["delay_days"].to_numpy(dtype=float)[late_mask],
+        )
+
+    trained_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     artifact = {
         "model": model,
+        "delay_regressor": delay_regressor,
         "feature_columns": list(X.columns),
         "feature_medians": {k: float(v) for k, v in X.median().to_dict().items()},
         "snapshot": build_snapshot(df, k_shrink=k_shrink, prior_late_rate=prior_late_rate),
         "metrics": metrics_summary(folds),
+        "delay_metrics": delay_metrics,
         "trained_rows": int(len(df)),
+        "trained_at": trained_at,
+        # Stamped onto every logged prediction so realized accuracy can always be
+        # traced back to the exact model that produced it.
+        "model_version": f"{trained_at[:16]}-n{len(df)}-f{len(X.columns)}",
     }
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -161,6 +228,21 @@ def fit_and_save(path=ARTIFACT_PATH, n: int = 1200, seed: int = 7,
 
 
 if __name__ == "__main__":
-    artifact, folds = fit_and_save()
-    print(f"saved artifact -> {ARTIFACT_PATH}  ({artifact['trained_rows']} rows)\n")
+    import sys
+
+    csv = next((a for a in sys.argv[1:] if not a.startswith("-")), None)
+    artifact, folds = fit_and_save(csv_path=csv)
+    print(f"saved artifact -> {ARTIFACT_PATH}  ({artifact['trained_rows']} rows, "
+          f"version {artifact['model_version']})\n")
     print(summarize(folds))
+    dm = artifact["delay_metrics"]
+    if "mae_days_model" in dm:
+        verdict = "beats baseline" if dm["beats_baseline"] else "no clear win"
+        print(f"\n  Expected delay (days, late rows only, n={dm['n_late_rows']})")
+        print(f"  {'MAE days':<24} baseline {dm['mae_days_baseline']:.2f} "
+              f"+/-{dm['mae_days_baseline_ci']:.2f}   "
+              f"model {dm['mae_days_model']:.2f} +/-{dm['mae_days_model_ci']:.2f}   "
+              f"better by {dm['mae_improvement_days']:+.2f} "
+              f"+/-{dm['mae_improvement_ci']:.2f}  [{verdict}]")
+    else:
+        print(f"\n  Expected delay head skipped: {dm.get('note')}")
