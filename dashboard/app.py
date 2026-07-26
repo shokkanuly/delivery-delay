@@ -61,7 +61,8 @@ def show_scored_table(df: pd.DataFrame, context: str) -> None:
         st.write("No single dominant risk driver for this delivery.")
 
 
-st.title("🚧 Delivery-Delay Risk — BI Group")
+st.title("🚧 Construction Logistics Platform — BI Group")
+st.caption("Delay prediction · resource scheduling · sequencing validation")
 
 try:
     health = api_get("/health")
@@ -114,18 +115,17 @@ with tab_platform:
 
         dly, sch, seq = ov["delay_prediction"], ov["resource_schedule"], ov["sequencing"]
         bands = dly.get("bands", {}) or {}
+        # plain captions, not st.metric deltas: these are context labels, and a
+        # delta would render a misleading up/down arrow on them.
         k = st.columns(4)
-        k[0].metric("🔴 High-risk deliveries", bands.get("red", 0),
-                    f"of {dly.get('scored', 0)} scored")
-        k[1].metric("🚚 Bookings scheduled", sch["stats"].get("assigned", 0),
-                    f"{sch['stats'].get('unassigned', 0)} unresolved",
-                    delta_color="inverse")
-        k[2].metric("⚠️ Sequencing flags",
-                    seq["counts"].get("premature_delivery", 0),
-                    f"of {seq['counts'].get('total', 0)} deliveries",
-                    delta_color="inverse")
-        k[3].metric("🛣️ Travel", f"{sch['stats'].get('total_travel_km', 0):,} km",
-                    f"{sch['stats'].get('resources_used', 0)} resources")
+        k[0].metric("🔴 High-risk deliveries", bands.get("red", 0))
+        k[0].caption(f"of {dly.get('scored', 0)} scored")
+        k[1].metric("🚚 Bookings scheduled", sch["stats"].get("assigned", 0))
+        k[1].caption(f"{sch['stats'].get('unassigned', 0)} unresolved")
+        k[2].metric("⚠️ Sequencing flags", seq["counts"].get("premature_delivery", 0))
+        k[2].caption(f"of {seq['counts'].get('total', 0)} deliveries")
+        k[3].metric("🛣️ Travel", f"{sch['stats'].get('total_travel_km', 0):,} km")
+        k[3].caption(f"{sch['stats'].get('resources_used', 0)} resources mobilised")
 
         e1, e2, e3 = st.columns(3)
         with e1:
