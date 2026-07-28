@@ -85,13 +85,22 @@ returns all three engines for one site; dashboard "Project overview" tab.
 on the oldest 80% and predicts the newest 20%: green 24.8% / yellow 40.4% /
 red 74.5% actually ran late.
 
-## Stage 11 — Test suite + CI  `[ ]`
-pytest covering the leakage guard, cold-start fallback, scheduler no-overlap
-invariant, validator recall, and API smoke; GitHub Actions on every push.
+## Stage 11 — Test suite + CI  `[x]`
+55 pytest tests: leakage guard, cold-start fallback, scheduler no-overlap
+invariant, validator recall, ingest validation, API smoke across all three
+engines, and regressions for the two seed bugs. Mutation-checked — injecting
+leakage into features.py and disabling AddNoOverlap both make the suite fail.
+GitHub Actions runs them on 3.11 + 3.12 and builds the Docker image.
 
-## Stage 12 — Deploy to a live URL  `[ ]`
-Docker stack has never been run end-to-end (config validated only). Then a
-public demo URL so judges click instead of cloning.
+## Stage 12 — Docker end-to-end  `[x]`
+`docker compose up --build` verified: Postgres healthy, seed+train completes,
+all three engines answer over HTTP, dashboard serves. Fixed the compose seed to
+read the same CSV as training (it previously seeded from the old generator, so
+every supplier cold-started inside the container).
+
+## Stage 13 — Public demo URL  `[ ]`
+`render.yaml` blueprint is ready. Needs a Render account: New -> Blueprint ->
+pick this repo. Cannot be done without the account owner.
 
 ## Known gaps (deliberate)
 - 3-class status head (`early` is 4.3% of rows — too thin to learn honestly).

@@ -1,0 +1,52 @@
+# Render blueprint — a public demo URL for judges.
+#
+#   1. push this repo to GitHub (done)
+#   2. render.com -> New -> Blueprint -> pick this repo
+#   3. Render reads this file and provisions everything below
+#
+# Free tier note: instances sleep after ~15 min idle and take ~30s to wake, so
+# open the dashboard a minute before demoing. The free Postgres expires after 90
+# days; for a longer pilot move `plan: free` to a paid tier.
+databases:
+  - name: logistics-db
+    databaseName: deliverydb
+    user: bigroup
+    plan: free
+
+services:
+  # --- API: seeds + trains on first boot, then serves all three engines ---
+  - type: web
+    name: logistics-api
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      python -m db.seed data/synthetic/delay_prediction.csv
+      python -m ml.train data/synthetic/delay_prediction.csv
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: logistics-db
+          property: connectionString
+      - key: PYTHONPATH
+        value: .
+
+  # --- Dashboard: talks to the API above ---
+  - type: web
+    name: logistics-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run dashboard/app.py
+      --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: API_URL
+        fromService:
+          type: web
+          name: logistics-api
+          property: hostport
+      - key: PYTHONPATH
+        value: .

@@ -28,7 +28,12 @@ services:
       db:
         condition: service_healthy
     volumes: ["artifacts:/app/ml/artifacts"]
-    command: ["sh", "-c", "python -m db.seed && python -m ml.train"]
+    # Both steps read the SAME source, so the deliveries table and the trained
+    # model share one supplier vocabulary. Seeding from one source and training
+    # on another makes every lookup miss and silently fall back to cold-start.
+    command: ["sh", "-c",
+              "python -m db.seed data/synthetic/delay_prediction.csv && \
+               python -m ml.train data/synthetic/delay_prediction.csv"]
 
   api:
     build: .
