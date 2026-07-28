@@ -26,7 +26,15 @@ def _supplier_rollups(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def seed(n: int = 1200, seed_val: int = 7, csv_path: str | None = None) -> dict:
-    Base.metadata.drop_all(bind=engine)
+    """Reload the master tables (projects, suppliers, deliveries) from source.
+
+    Destructive for those three tables only. `prediction_log` is deliberately
+    PRESERVED: it is the record of predictions actually served and scored against
+    reality, and re-seeding reference data must never destroy that evidence.
+    """
+    Base.metadata.drop_all(bind=engine,
+                           tables=[Delivery.__table__, Supplier.__table__,
+                                   Project.__table__])
     init_db()
     if csv_path:
         from ml.ingest import load_deliveries_csv
@@ -55,10 +63,12 @@ def seed(n: int = 1200, seed_val: int = 7, csv_path: str | None = None) -> dict:
                 material_types=list(r["material_types"]),
             ))
 
-        # deliveries (all synthetic rows are delivered, so status is known)
-        for _, d in df.iterrows():
+        # deliveries. `delivery_id` only exists on the synthetic generator's
+        # frames -- ml.ingest normalises real CSVs to the canonical columns and
+        # drops it -- so fall back to a sequential id.
+        for i, (_, d) in enumerate(df.iterrows(), start=1):
             session.add(Delivery(
-                id=int(d["delivery_id"]),
+                id=int(d["delivery_id"]) if "delivery_id" in df.columns else i,
                 supplier_id=d["supplier_id"],
                 project_id=proj_id[d["project_site"]],
                 material_type=d["material_type"],

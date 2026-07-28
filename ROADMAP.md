@@ -58,3 +58,43 @@ honest. Postgres is the store-of-record; the snapshot refreshes on retrain.
   `.env.example`; README run instructions.
 - **Depends on:** Stages 3 & 4.
 - **Done when:** `docker compose config` validates; README documents the run.
+
+---
+
+# Phase 2 — Construction Logistics Platform
+
+Three engines, one FastAPI service, one dashboard, shared master data
+(`data/synthetic/`). Engine 1 is the proven module; 2 and 3 are its natural
+extensions.
+
+## Stage 7 — Resource scheduler (engine 2)  `[x]`
+OR-Tools CP-SAT, optional intervals + AddNoOverlap. On 260 synthetic bookings:
+99 raw conflicts → 260/260 assigned, **0 double-bookings** (independently
+verified from the output), OPTIMAL in ~0.2s, 19/28 resources used.
+
+## Stage 8 — Sequence validator (engine 3)  `[x]`
+R1 premature delivery + R2 material/phase mismatch. **Precision 1.0 / recall
+1.0** vs the ground-truth flag column.
+
+## Stage 9 — Unified API + platform dashboard  `[x]`
+`/schedule`, `/validate` mounted alongside `/predict`; `/projects/{id}/overview`
+returns all three engines for one site; dashboard "Project overview" tab.
+
+## Stage 10 — Evidence loop  `[x]`
+`prediction_log` + `/outcomes` + `/accuracy`. `scripts/evidence_loop.py` trains
+on the oldest 80% and predicts the newest 20%: green 24.8% / yellow 40.4% /
+red 74.5% actually ran late.
+
+## Stage 11 — Test suite + CI  `[ ]`
+pytest covering the leakage guard, cold-start fallback, scheduler no-overlap
+invariant, validator recall, and API smoke; GitHub Actions on every push.
+
+## Stage 12 — Deploy to a live URL  `[ ]`
+Docker stack has never been run end-to-end (config validated only). Then a
+public demo URL so judges click instead of cloning.
+
+## Known gaps (deliberate)
+- 3-class status head (`early` is 4.3% of rows — too thin to learn honestly).
+- `expected_delay_days` does not beat predicting the mean; flagged in the UI.
+- Recall 0.45 at threshold 0.5 — set the cutoff from real intervention costs.
+- All data is synthetic; `ml/ingest.py` is the real-data seam.
