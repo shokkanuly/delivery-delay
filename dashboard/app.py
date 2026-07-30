@@ -190,16 +190,24 @@ with tab_upload:
             show_scored_table(df, context="upload")
 
 with tab_browse:
-    pid = st.number_input("Project ID", min_value=1, max_value=4, value=1, step=1)
     try:
-        data = api_get(f"/deliveries/{int(pid)}", limit=500)
+        _projects = api_get("/projects")["projects"]
+    except Exception:  # noqa: BLE001
+        _projects = []
+    _labels = {f"{p['project_id']} — {p['name']}": p["project_id"] for p in _projects}
+    if not _labels:
+        st.info("No projects found. Run `python3 -m db.seed` first.")
+        st.stop()
+    pid = _labels[st.selectbox("Project", list(_labels), key="browse_project")]
+    try:
+        data = api_get(f"/deliveries/{pid}", limit=500)
         df = pd.DataFrame(data["deliveries"])
         counts = df["risk_band"].value_counts().to_dict()
         s1, s2, s3 = st.columns(3)
         s1.metric("🔴 High risk", counts.get("red", 0))
         s2.metric("🟡 Medium", counts.get("yellow", 0))
         s3.metric("🟢 Low", counts.get("green", 0))
-        st.success(f"Project {int(pid)}: {len(df)} deliveries, risk-sorted "
+        st.success(f"Project {pid}: {len(df)} deliveries, risk-sorted "
                    "(predicted risk shown alongside actual status).")
         show_scored_table(df, context="browse")
     except Exception as exc:  # noqa: BLE001

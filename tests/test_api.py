@@ -51,30 +51,30 @@ class TestPredict:
 
 
 class TestScheduler:
-    def test_demo_has_no_double_bookings(self, api_client):
-        j = api_client.get("/schedule/demo").json()
+    def test_demo_has_no_double_bookings(self, seeded_client):
+        j = seeded_client.get("/schedule/demo").json()
         assert j["stats"]["double_bookings_after"] == 0
         assert j["stats"]["raw_conflicts_before"] > 0
 
-    def test_payload_scheduling(self, api_client):
+    def test_payload_scheduling(self, seeded_client):
         payload = [{"booking_id": "B1", "project_id": "PRJ_001",
                     "project_priority": "high", "resource_type": "crane",
                     "requested_start": "2026-03-01T08:00:00",
                     "requested_end": "2026-03-01T18:00:00"}]
-        j = api_client.post("/schedule", json=payload).json()
+        j = seeded_client.post("/schedule", json=payload).json()
         assert j["stats"]["assigned"] == 1
 
-    def test_empty_payload_is_400(self, api_client):
-        assert api_client.post("/schedule", json=[]).status_code == 400
+    def test_empty_payload_is_400(self, seeded_client):
+        assert seeded_client.post("/schedule", json=[]).status_code == 400
 
 
 class TestValidator:
-    def test_demo_scores_against_ground_truth(self, api_client):
-        j = api_client.get("/validate/demo").json()
+    def test_demo_scores_against_ground_truth(self, seeded_client):
+        j = seeded_client.get("/validate/demo").json()
         assert j["metrics_vs_ground_truth"]["recall"] == 1.0
 
-    def test_payload_flags_premature(self, api_client):
-        j = api_client.post("/validate", json=[{
+    def test_payload_flags_premature(self, seeded_client):
+        j = seeded_client.post("/validate", json=[{
             "project_id": "P1", "material_type": "cement",
             "required_phase": "foundation", "delivery_date": "2026-03-01",
             "phase_start_date": "2026-03-20", "phase_end_date": "2026-04-01"}]).json()
@@ -82,13 +82,13 @@ class TestValidator:
 
 
 class TestPlatformView:
-    def test_overview_returns_all_three_engines(self, api_client):
-        j = api_client.get("/projects/PRJ_001/overview").json()
+    def test_overview_returns_all_three_engines(self, seeded_client):
+        j = seeded_client.get("/projects/PRJ_001/overview").json()
         assert {"delay_prediction", "resource_schedule", "sequencing"} <= set(j)
         assert j["project"]["project_id"] == "PRJ_001"
 
-    def test_unknown_project_is_404(self, api_client):
-        assert api_client.get("/projects/NOPE/overview").status_code == 404
+    def test_unknown_project_is_404(self, seeded_client):
+        assert seeded_client.get("/projects/NOPE/overview").status_code == 404
 
 
 class TestEvidenceLoop:

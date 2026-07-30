@@ -82,8 +82,8 @@ def health() -> dict:
 @app.get("/projects")
 def list_projects() -> dict:
     """Master project list — shared by all three engines."""
-    from api.data_sources import read_synthetic
-    return {"projects": read_synthetic("projects.csv").to_dict("records")}
+    from api.data_sources import read_reference
+    return {"projects": read_reference("projects.csv").to_dict("records")}
 
 
 @app.get("/projects/{project_id}/overview")
@@ -94,17 +94,17 @@ def project_overview(project_id: str) -> dict:
     flags for a single site in one response -- one platform solving three cost
     problems, rather than three disconnected demos.
     """
-    from api.data_sources import read_synthetic
+    from api.data_sources import read_reference
     from api.routers.schedule import _run as run_schedule
     from api.routers.validate import _run as run_validate
 
-    projects = read_synthetic("projects.csv")
+    projects = read_reference("projects.csv")
     row = projects[projects["project_id"] == project_id]
     if row.empty:
         raise HTTPException(status_code=404, detail=f"Unknown project {project_id}")
 
     # Engine 1 — delay risk on this project's deliveries
-    deliveries = read_synthetic("delay_prediction.csv")
+    deliveries = read_reference("delay_prediction.csv")
     d = deliveries[deliveries["project_id"] == project_id]
     delay_block: dict = {"scored": 0}
     if not d.empty:
@@ -125,14 +125,14 @@ def project_overview(project_id: str) -> dict:
         delay_block = {"scored": len(merged), "bands": bands, "top_risks": merged[:10]}
 
     # Engine 2 — scheduling for this project's bookings
-    bookings = read_synthetic("booking_requests.csv")
+    bookings = read_reference("booking_requests.csv")
     pb = bookings[bookings["project_id"] == project_id]
     schedule_block = run_schedule(pb) if not pb.empty else {"stats": {}, "assignments": []}
 
     # Engine 3 — sequencing flags for this project
-    md = read_synthetic("material_deliveries.csv")
+    md = read_reference("material_deliveries.csv")
     pm = md[md["project_id"] == project_id]
-    validate_block = (run_validate(pm, read_synthetic("build_phases.csv"), score=True)
+    validate_block = (run_validate(pm, read_reference("build_phases.csv"), score=True)
                       if not pm.empty else {"counts": {}, "deliveries": []})
 
     return {
@@ -157,6 +157,8 @@ def metrics() -> dict:
     art = get_artifact()
     return {**art["metrics"],
             "delay_days_head": art.get("delay_metrics", {}),
+            "status_head": art.get("status_metrics", {}),
+            "threshold_baseline": art.get("threshold_baseline", {}),
             "model_version": art.get("model_version")}
 
 
@@ -206,7 +208,7 @@ def predict_batch(file: UploadFile = File(...),
 
 
 @app.get("/deliveries/{project_id}")
-def deliveries_for_project(project_id: int, limit: int = 500,
+def deliveries_for_project(project_id: str, limit: int = 500,
                            db: Session = Depends(get_session)) -> dict:
     rows = (db.query(Delivery)
               .filter(Delivery.project_id == project_id)

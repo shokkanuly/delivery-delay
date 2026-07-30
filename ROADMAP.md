@@ -102,8 +102,27 @@ every supplier cold-started inside the container).
 `render.yaml` blueprint is ready. Needs a Render account: New -> Blueprint ->
 pick this repo. Cannot be done without the account owner.
 
-## Known gaps (deliberate)
-- 3-class status head (`early` is 4.3% of rows — too thin to learn honestly).
+## Stage 14 — Full brief completion  `[x]`
+Every remaining item from the written brief:
+- **All 7 CSVs in the database** — resources, booking_requests, build_phases,
+  phase_material_map, material_deliveries added as tables; every engine now
+  reads through `api/data_sources.read_reference` (DB first, bundled CSV only
+  when a table is empty). Project ids unified on the `PRJ_*` business key.
+- **Delay -> scheduler coupling wired** — `/schedule` computes each booking's
+  risk from engine 1 (deliveries due within 14 days of the slot) and passes it
+  to the solver, which prefers local resources for at-risk slots. 193/260
+  bookings carry a risk, 110 high — it discriminates instead of firing on all.
+- **`distance_km` is a model feature** — observed distance when supplied, else
+  the route-class median learned at training time.
+- **3-class status head** — `early`/`on_time`/`late`, with its own config.
+- **Threshold baseline** — the brief's `on_time_rate < 0.7` rule, scored.
+- **Isolation Forest** — secondary unsupervised anomaly layer, reported
+  separately so it never dilutes the rules' recall.
+
+## Known limits (measured, stated plainly)
+- `early` is 2% of rows: 3-class F1 for it is ~0.05. The class is effectively
+  unpredictable at this volume, exactly as expected.
 - `expected_delay_days` does not beat predicting the mean; flagged in the UI.
 - Recall 0.45 at threshold 0.5 — set the cutoff from real intervention costs.
 - All data is synthetic; `ml/ingest.py` is the real-data seam.
+- Deploying to a public URL needs the account owner (`render.yaml` is ready).

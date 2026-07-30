@@ -15,6 +15,34 @@ import numpy as np
 import pandas as pd
 
 
+class ThresholdRuleBaseline:
+    """The brief's stated rule: flag late when the supplier's on-time rate < 0.7.
+
+    Implemented against the CAUSAL supplier rate (1 - supplier_late_rate) rather
+    than the shipped `supplier_on_time_rate_hist` column, which is a single
+    constant per supplier correlating 0.975 with that supplier's full-period
+    outcome -- i.e. future information. Same rule, honest inputs.
+
+    Reported alongside the smoother SupplierAverageBaseline because it is the
+    acceptance check the brief actually specified.
+    """
+
+    def __init__(self, on_time_threshold: float = 0.7):
+        self.on_time_threshold = on_time_threshold
+
+    def fit(self, X=None, y=None) -> "ThresholdRuleBaseline":
+        return self
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        on_time_rate = 1.0 - X["supplier_late_rate"].to_numpy()
+        return (on_time_rate < self.on_time_threshold).astype(int)
+
+    def predict_proba_late(self, X: pd.DataFrame) -> np.ndarray:
+        """A hard rule has no scores; expose the decision as 0/1 so it can be
+        scored with the same metrics as everything else."""
+        return self.predict(X).astype(float)
+
+
 class SupplierAverageBaseline:
     """P(late) = causal, cold-start-shrunk supplier historical late-rate."""
 

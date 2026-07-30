@@ -18,7 +18,8 @@ from __future__ import annotations
 import pandas as pd
 
 CANONICAL_COLUMNS = ["supplier_id", "project_site", "material_type", "route_type",
-                     "quantity", "order_date", "promised_date", "actual_date"]
+                     "quantity", "distance_km", "order_date", "promised_date",
+                     "actual_date"]
 CORE_REQUIRED = ["supplier_id", "material_type", "route_type", "quantity",
                  "order_date", "promised_date"]
 DATE_COLUMNS = ["order_date", "promised_date", "actual_date"]

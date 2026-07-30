@@ -11,7 +11,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ml.features import seasonal_severity, supplier_features_from_snapshot
+from ml.features import (
+    ROUTE_DEFAULT_KM,
+    seasonal_severity,
+    supplier_features_from_snapshot,
+)
 from ml.train import ARTIFACT_PATH
 
 # internal feature name -> label for the dashboard/API
@@ -23,6 +27,7 @@ FRIENDLY = {
     "promised_month": "Delivery month",
     "promised_dow": "Delivery weekday",
     "quantity": "Order quantity",
+    "distance_km": "Haul distance (km)",
     "weather_severity": "Seasonal weather severity",
 }
 RISK_BINS = [-0.01, 0.33, 0.66, 1.01]
@@ -57,6 +62,12 @@ def _row_features(rec: dict, snapshot: dict) -> dict:
         snapshot, rec["material_type"], rec["route_type"], rec["supplier_id"]
     )
     month = int(promised.month)
+    # observed distance when the caller supplies it, else the route-class median
+    # learned at training time (stored in the snapshot)
+    distance = rec.get("distance_km")
+    if distance is None or pd.isna(distance):
+        distance = snapshot.get("route_distance_km", {}).get(
+            rec["route_type"], ROUTE_DEFAULT_KM.get(rec["route_type"], 500.0))
     return {
         "supplier_late_rate": sup_rate,
         "supplier_n_prior": n_prior,
@@ -65,6 +76,7 @@ def _row_features(rec: dict, snapshot: dict) -> dict:
         "promised_month": month,
         "promised_dow": int(promised.dayofweek),
         "quantity": float(rec["quantity"]),
+        "distance_km": float(distance),
         "weather_severity": seasonal_severity(month),
         f"mat_{rec['material_type']}": 1.0,
         f"route_{rec['route_type']}": 1.0,
@@ -129,6 +141,14 @@ def score(records, artifact: dict | None = None) -> pd.DataFrame:
         out["expected_delay_days"] = np.round(np.clip(reg.predict(Xv), 0, None), 1)
     else:
         out["expected_delay_days"] = np.nan
+
+    # Third head: the brief's 3-class status. Check
+    # /metrics.status_head.per_class_f1 before trusting the `early` class.
+    status_model = artifact.get("status_model")
+    if status_model is not None:
+        out["predicted_status"] = status_model.predict(Xv)
+    else:
+        out["predicted_status"] = None
 
     out["drivers"] = [_drivers(model, Xv[i], cols, medians) for i in range(len(records))]
     return out

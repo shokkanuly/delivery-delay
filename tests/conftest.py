@@ -78,6 +78,17 @@ def temp_db(tmp_path, monkeypatch):
 
 
 @pytest.fixture()
+def seeded_client(temp_db):
+    """API client against a DB seeded with the full platform data set."""
+    temp_db["seed"].seed()
+    from fastapi.testclient import TestClient
+
+    import api.main as main
+    with TestClient(main.app) as client:
+        yield client
+
+
+@pytest.fixture()
 def api_client(temp_db):
     """TestClient backed by the throwaway DB."""
     from fastapi.testclient import TestClient

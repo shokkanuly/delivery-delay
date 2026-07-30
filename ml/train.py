@@ -103,6 +103,73 @@ def evaluate_delay_regressor(X: pd.DataFrame, delay_days: pd.Series,
     }
 
 
+def evaluate_threshold_baseline(X: pd.DataFrame, y: pd.Series) -> dict:
+    """Score the brief's `on_time_rate < 0.7` rule so its acceptance check is
+    reported in the terms it was written in."""
+    from ml.baseline import ThresholdRuleBaseline
+    from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+
+    pred = ThresholdRuleBaseline().predict(X)
+    yv = y.to_numpy()
+    return {
+        "rule": "predict late when supplier on-time rate < 0.7",
+        "accuracy": float(round(accuracy_score(yv, pred), 4)),
+        "precision": float(round(precision_score(yv, pred, zero_division=0), 4)),
+        "recall": float(round(recall_score(yv, pred, zero_division=0), 4)),
+        "f1": float(round(f1_score(yv, pred, zero_division=0), 4)),
+    }
+
+
+def make_status_model(seed: int = 0):
+    """3-class head (early / on_time / late) — needs its own configuration.
+
+    Two departures from the binary classifier, both measured rather than assumed:
+      * `class_weight="balanced"` — `early` is ~2% of rows, so unweighted
+        multiclass log-loss simply learns to never predict it.
+      * patient early stopping — multiclass validation loss plateaus early and
+        then improves; the binary settings stopped after ~11 iterations and the
+        model collapsed onto the majority class (late F1 0.04). With these,
+        late F1 ~0.41 and `early` is predicted at all.
+    """
+    return HistGradientBoostingClassifier(
+        max_depth=3, learning_rate=0.05, max_iter=300,
+        l2_regularization=1.0, min_samples_leaf=20,
+        class_weight="balanced",
+        early_stopping=True, validation_fraction=0.2, n_iter_no_change=40,
+        random_state=seed,
+    )
+
+
+def evaluate_status_classifier(X: pd.DataFrame, status: pd.Series,
+                               n_splits: int = 5, seed: int = 0) -> dict:
+    """CV the 3-class head (early / on_time / late) the brief asked for.
+
+    Reported PER CLASS on purpose: `early` is a small minority, and a flattering
+    macro average would hide that the model barely predicts it at all.
+    """
+    from sklearn.metrics import classification_report
+
+    yv = status.to_numpy()
+    Xv = X.to_numpy(dtype=float)
+    counts = pd.Series(yv).value_counts().to_dict()
+    if min(counts.values()) < n_splits:
+        return {"note": "a class has too few rows to cross-validate",
+                "class_counts": counts}
+
+    preds = np.empty(len(yv), dtype=object)
+    for tr, te in StratifiedKFold(n_splits, shuffle=True, random_state=seed).split(Xv, yv):
+        preds[te] = make_status_model(seed).fit(Xv[tr], yv[tr]).predict(Xv[te])
+
+    rep = classification_report(yv, preds.astype(str), output_dict=True, zero_division=0)
+    return {
+        "class_counts": {k: int(v) for k, v in counts.items()},
+        "accuracy": float(round(rep["accuracy"], 4)),
+        "macro_f1": float(round(rep["macro avg"]["f1-score"], 4)),
+        "per_class_f1": {c: float(round(rep[c]["f1-score"], 4))
+                         for c in counts if c in rep},
+    }
+
+
 def _ci95(x: np.ndarray):
     """Mean and 95% CI half-width (t-based, small-sample honest)."""
     x = np.asarray(x, dtype=float)
@@ -206,15 +273,26 @@ def fit_and_save(path=ARTIFACT_PATH, n: int = 1200, seed: int = 7,
             df["delay_days"].to_numpy(dtype=float)[late_mask],
         )
 
+    # Third head: the brief's 3-class status (early / on_time / late).
+    status = add_labels(df, LabelConfig(mode="three_class"))["delivery_status"]
+    status_metrics = evaluate_status_classifier(X, status, seed=seed)
+    status_model = None
+    if "per_class_f1" in status_metrics:
+        status_model = make_status_model(seed).fit(X.to_numpy(dtype=float), status.to_numpy())
+
     trained_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     artifact = {
         "model": model,
         "delay_regressor": delay_regressor,
+        "status_model": status_model,
+        "status_classes": (list(status_model.classes_) if status_model is not None else []),
         "feature_columns": list(X.columns),
         "feature_medians": {k: float(v) for k, v in X.median().to_dict().items()},
         "snapshot": build_snapshot(df, k_shrink=k_shrink, prior_late_rate=prior_late_rate),
         "metrics": metrics_summary(folds),
         "delay_metrics": delay_metrics,
+        "status_metrics": status_metrics,
+        "threshold_baseline": evaluate_threshold_baseline(X, y),
         "trained_rows": int(len(df)),
         "trained_at": trained_at,
         # Stamped onto every logged prediction so realized accuracy can always be

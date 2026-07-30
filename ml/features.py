@@ -37,6 +37,24 @@ _CLIMATOLOGY = {
 }
 FORECAST_HORIZON_DAYS = 10  # beyond this, forecasts are unreliable -> use normals
 
+# Fallback haul distance per route class, used when a row carries no distance_km
+# (and no snapshot median is available). Order-time knowledge, so no leakage.
+ROUTE_DEFAULT_KM = {"urban": 30.0, "intercity": 600.0, "cross_border": 1500.0}
+
+
+def distance_series(df: pd.DataFrame, route_medians: dict | None = None) -> pd.Series:
+    """Observed haul distance per row, with a route-class fallback.
+
+    distance_km is known when the order is placed, so unlike weather it can be
+    used directly -- no forecast problem, no leakage.
+    """
+    fallback = df["route_type"].map(
+        lambda r: (route_medians or {}).get(r, ROUTE_DEFAULT_KM.get(r, 500.0))
+    ).astype(float)
+    if "distance_km" not in df.columns:
+        return fallback
+    return pd.to_numeric(df["distance_km"], errors="coerce").fillna(fallback)
+
 
 def seasonal_severity(month: int) -> float:
     return _CLIMATOLOGY.get(int(month), 0.3)
@@ -133,6 +151,7 @@ def build_features(
     X["promised_month"] = month
     X["promised_dow"] = df["promised_date"].dt.dayofweek
     X["quantity"] = df["quantity"]
+    X["distance_km"] = distance_series(df).to_numpy()
     X["weather_severity"] = month.map(seasonal_severity)
     # low-cardinality categoricals: one-hot is fine and uses no target info
     X = pd.concat(
@@ -161,9 +180,16 @@ def build_snapshot(df: pd.DataFrame, k_shrink: float = 8.0,
     """
     mr = df.groupby(["material_type", "route_type"])["is_late"].agg(["sum", "size"])
     sup = df.groupby("supplier_id")["is_late"].agg(["sum", "size"])
+    route_medians = (
+        {str(k): float(v) for k, v in
+         pd.to_numeric(df["distance_km"], errors="coerce")
+           .groupby(df["route_type"]).median().dropna().items()}
+        if "distance_km" in df.columns else {}
+    )
     return {
         "k_shrink": float(k_shrink),
         "prior_late_rate": float(prior_late_rate),
+        "route_distance_km": route_medians,
         "global": {"sum": float(df["is_late"].sum()), "n": int(len(df))},
         "mr": {idx: {"sum": float(r["sum"]), "n": int(r["size"])}
                for idx, r in mr.iterrows()},
