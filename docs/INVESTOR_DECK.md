@@ -1,236 +1,191 @@
 # SitePulse — LaunchZone Startup Competition Pitch Package
-## Complete Pitch Deck, Market Sizing, Unit Economics, and Rubric Defense
-**Target Scoring:** 88–94 / 100 on LaunchZone Official Evaluation Matrix  
-**Project:** SitePulse (Construction Logistics & Heavy Equipment Optimization)  
-**Target Pilot Partner:** Regional Construction Holdings (Piloting with BI Group)
+## Slide script, market sizing, unit economics and Q&A preparation
+
+**Project:** SitePulse — delivery-risk and equipment-dispatch software for construction holdings
+**Stage:** Working software on synthetic data. No paying customers or signed pilot yet.
+**Target first pilot partner:** BI Group (not yet signed)
+
+> **Where the numbers come from.** Every figure below is computed by
+> [`business/economics.py`](../business/economics.py) and served at
+> `GET /economics`. Each assumption there is tagged with its source (founder
+> estimate, interview, demo site). `tests/test_pitch_claims.py` fails if this
+> deck quotes a number the module does not produce. To change a number,
+> change the assumption, not this file.
+
+> **Before pitching, fill every `[FILL: …]` marker** with a fact you can show,
+> or delete the sentence.
 
 ---
 
-# SECTION 1: SLIDE-BY-SLIDE PITCH DECK SCRIPT
+# SECTION 1: SLIDE-BY-SLIDE SCRIPT
 
+## SLIDE 1: Hook & Title
+* **Headline:** SitePulse: know which deliveries will slip, and dispatch your equipment without clashes.
+* **Presenter script (15 sec):**
+  > *"On a large Astana site, the site manager usually finds out rebar is late when the truck doesn't arrive. Meanwhile the holding's mobile cranes and concrete pumps are booked by phone and WhatsApp across several sites. SitePulse gives them a ranked list of risky deliveries and a clash-free equipment plan before the working day starts. It runs today. The data is still synthetic, and I'm here to get it onto real sites."*
+
+---
+
+## SLIDE 2: Problem & Customer Evidence
+* **Headline:** Late materials and clashing equipment bookings stall crews and burn money.
+* **The three pain points:**
+  1. **Delivery slips without warning.** Supplier promises are the only signal, so idle crews and postponed pours cascade down the critical path.
+  2. **Equipment booked by phone and chat.** Mobile cranes, pumps and hoists are shared across trades and sites; clashes surface on the day.
+  3. **Materials arrive before their phase.** Early deliveries choke laydown areas and get damaged by weather.
+* **Customer interviews** (notes: [`CUSTDEV_LOG.md`](CUSTDEV_LOG.md)):
+  * 10 interviews: 7 site logistics managers and 3 chief procurement officers across regional developers. `[FILL: company names you can confirm on stage]`
+  * **[FILL: N] of 7** logistics managers coordinate equipment on paper logbooks or WhatsApp groups.
+  * Interviewees reported booking clashes **3–5 times per week**.
+  * Interviewees said they learn of a delivery slip only when the truck fails to arrive at the gate.
+  * Interviewees estimated concrete loss from queueing trucks at about **$28,000 per high-rise project**. This anchors the base case on slide 6.
+
+---
+
+## SLIDE 3: Market & Why Now
+* **Headline:** A $7.56M beachhead in Kazakhstan and Uzbekistan, inside a $134M regional market.
+
+| Layer | Definition | Sites | Value |
+|---|---|---|---|
+| **Regional market** | Major multi-storey sites across Central Asia, Caucasus and CIS × $42k/yr | 3,200 (founder estimate, `[FILL: source]`) | **$134M** |
+| **Beachhead** | Active major sites of the top-15 developer holdings in KZ and UZ × $42k/yr | 180 (founder estimate, `[FILL: source]`) | **$7.56M** |
+| **Year-3 target** | Paid active sites at end of year 3 | 35 (**19%** of the beachhead) | **35 sites · $1.47M ARR** |
+
+* Sizing is bottom-up (sites × list price). The global construction-software market is not used because it isn't addressable by this product.
+* **Why now:**
+  1. **Material inflation.** `[FILL: cite a source for rebar/cement price rises in KZ, or cut]` Buffer waste costs more than it used to.
+  2. **Street staging rules.** `[FILL: cite the akimat rule on street staging / idling trucks, or cut]`
+  3. **ERP modernization.** Holdings are moving delivery records into 1C/SAP, which makes the delivery history exportable.
+
+---
+
+## SLIDE 4: Solution — one morning dispatch board, three modules
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        SITEPULSE PITCH DECK                            │
-│  "Autonomous Logistics Intelligence & Crane Dispatch for Construction" │
-└────────────────────────────────────────────────────────────────────────┘
+  [ 1C / SAP delivery records ] ──► Delay risk: which deliveries will slip, and why
+  [ Equipment booking requests ] ─► Dispatch: which unit serves which booking, no clashes
+  [ Build phase schedule ]      ──► Sequence check: which deliveries arrive before their phase
+                                           │
+                                           ▼
+                                [ Morning dispatch board ]
 ```
+1. **Delay risk.** A gradient-boosted classifier (scikit-learn HistGradientBoosting) ranks open deliveries by the risk they arrive late and lists the top drivers. New suppliers fall back to material-and-route history instead of failing.
+2. **Equipment dispatch.** Assigns each fixed-time booking to a free unit of the right type (mobile crane, pump, hoist) across the holding's sites. It never double-books a unit, prefers nearby units, and moves at-risk bookings toward local units. When demand exceeds the fleet it drops the lowest-priority bookings and says which. It uses Google OR-Tools CP-SAT. **Limit:** it does not yet re-time bookings on a single fixed tower crane; that is the next scheduler stage.
+3. **Sequence check.** Flags deliveries dated before their build phase starts, or not on that phase's material list. It is a deterministic rule, so its usefulness depends on the phase schedule being up to date.
 
 ---
 
-## SLIDE 1: The Hook & Title
-* **Headline:** SitePulse: Autonomous Logistics & Crane Dispatch for High-Rise Construction.
-* **Sub-headline:** Eliminating supplier delays, crane deadlocks, and staging bottlenecks before site operations stall.
-* **Presenter Script (15 sec):**
-  > *"Every morning across Astana, Almaty, and Tashkent, construction superintendents wake up to the same nightmare: three concrete trucks arrive simultaneously for a single tower crane, while critical structural rebar is delayed by a week without warning. We built SitePulse — the first integrated logistics command platform that predicts delivery slips, mathematically eliminates crane double-bookings, and enforces build phase sequencing."*
+## SLIDE 5: Product, Demo & Validation Status
+* **Headline:** Working software. Synthetic data. Here is exactly what is and isn't proven.
+* **Built:** FastAPI backend, Streamlit dashboard, web console, SQLite/Postgres, Docker Compose, GitHub Actions CI and an automated test suite. `[FILL: public demo URL, or "demo video"]`
+* **Proven (tested on every commit):**
+  * No equipment unit is ever double-booked. This is a correctness property of the solver, like a calendar lock; it is not a measure of business impact.
+  * Every delivery dated before its phase start is flagged.
+  * The delay model uses only information available at order time: a test fails if future data leaks in.
+* **Not yet proven:** whether real deliveries are as predictable as the synthetic ones.
+  * On synthetic data: PR-AUC 0.858 vs 0.732 for a supplier-average baseline. On a time-ordered holdout, deliveries flagged red ran late about 3× as often as green ones.
+  * The synthetic generator *encodes* supplier reliability, season, route and lead time as delay drivers. So these results show the pipeline works end to end. They do not show real-world accuracy. Real accuracy is measured in pilot weeks 3–4 on the customer's own delivery history.
+  * Recall at the default cutoff is 0.45. The expected-delay-days estimate does not beat predicting the average, so only the risk score is used for decisions.
 
 ---
 
-## SLIDE 2: Problem & CustDev Proof (Rubric Item 1: 12 pts)
-* **Headline:** Logistics Friction Erases 4–7% of Construction Margins.
-* **The 3 Critical Pain Points:**
-  1. **Unannounced Supplier Delays:** Traditional tracking relies on subjective supplier promises. When rebar or ready-mix concrete slips, specialized trade crews sit idle ($1,200/day per idle crew).
-  2. **Crane & Unload Bay Deadlocks:** Tower cranes cost $180–$350/hour to operate. Subcontractors fight over hook time; delivery trucks queue on city streets, triggering municipal fines.
-  3. **Premature Material Staging:** Facade panels arriving before the concrete frame is ready choke laydown yards, suffer weather degradation (-35°C in Astana, +40°C in Shymkent), and require double-handling ($45,000+ per site).
-* **Primary CustDev Proof (Real Field Evidence):**
-  * **Interviews Conducted:** 7 Site Logistics Managers and 3 Chief Procurement Officers across major regional developers (BI Group, Bazis-A, RAMS).
-  * **Key Finding 1:** 83% of site dispatchers manage crane time on **paper logbooks or informal WhatsApp group chats**. Overlapping booking conflicts occur **3 to 5 times per week**.
-  * **Key Finding 2:** Average delivery delay visibility is **0 hours** — site teams discover a shipment is missing only when the truck fails to appear at the security gate.
-  * **Key Finding 3:** Perishable ready-mix concrete spoilage caused by crane contention costs an average of **$28,000 per high-rise project**.
+## SLIDE 6: Business Model & Customer ROI
+* **Pricing:**
+  * **Pilot:** $15k flat for 8 weeks on 2 sites, credited against the first annual contract.
+  * **Standard site:** $3,500 / site / month ($42k per site per year): up to 4 cranes, 500 deliveries/month.
+  * **Flagship site:** $4,800 per site per month: more than 4 cranes, more than 1,000 deliveries/month. Full range: $3,500 – $4,800 / site / month.
+  * **Portfolio:** 25% discount for 10+ sites.
+* **Customer ROI (demo Site B: 24 floors, 6 cranes, $3.5M logistics budget):** losses avoided per site-year, compared with the $42k licence:
+
+| Scenario | Crane idle days avoided (per crane) | Concrete loss avoided | Delay-penalty days avoided | Losses avoided | × licence | Share of logistics budget |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Conservative | 1 | 0.5% of concrete value | 2 | **$46k** | **1.1×** | 1.3% |
+| **Base** | 2 | 1% (≈ the interview figure) | 5 | **$103k** | **2.5×** | 2.9% |
+| Upside | 4 | 2% | 10 | **$207k** | **4.9×** | 5.9% |
+
+* **The claim to make:** in the base case, every $1 of licence avoids about $2.50 of losses. Even the conservative case covers the licence. These inputs are founder assumptions that the pilot replaces with measured values.
 
 ---
 
-## SLIDE 3: Market Opportunity: TAM / SAM / SOM & "Why Now" (Rubric Item 2: 12 pts)
-* **Headline:** A $134M Regional Addressable Market in High-Rise & Commercial Construction.
+## SLIDE 7: Unit Economics & Financial Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ TAM: $15.2B Global Construction Logistics & Site Management Software    │
-│  └── SAM: $134M Central Asia & CIS Urban Construction Tech              │
-│       └── SOM: $7.56M Top 15 Developer Holdings in Kazakhstan & Uzbekistan│
-│            (3-Year Target: 35 Sites = $1.47M ARR)                       │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-* **Market Calculations:**
-  * **TAM (Total Addressable Market):** **$15.2B** global construction management software market (growing at 10.4% CAGR to 2030).
-  * **SAM (Serviceable Addressable Market):** **$134M**. ~3,200 active major commercial and residential multi-story sites in Central Asia, the Caucasus, and CIS (3,200 sites × $42,000/yr software budget).
-  * **SOM (Serviceable Obtainable Market):** **$7.56M ARR**. The top 15 developer holdings in Kazakhstan and Uzbekistan (BI Group, Bazis-A, Highvill, RAMS, Murad Buildings, Golden House) operate ~180 active major sites simultaneously ($42,000 ACV × 180 sites).
-  * **Year 3 Beachhead Goal:** 35 active sites across 3 lead holdings = **$1.47M ARR**.
-* **"Why Now" (Macro Drivers):**
-  1. **Supply Chain Shock & Material Inflation:** Raw material prices (rebar, cement) increased 20–30% in Central Asia over recent seasons; developers can no longer absorb buffer waste.
-  2. **Urban Density & Staging Bans:** Akimats in Astana and Almaty have banned street staging and idling concrete trucks outside site fences — crane unloading must be scheduled down to the minute.
-  3. **1C:Enterprise Modernization:** Central Asian developers are modernizing legacy 1C systems to digital construction workflows; SitePulse plugs directly into 1C read APIs.
-
----
-
-## SLIDE 4: The Solution & 3-Engine Architecture (Rubric Item 3: 14 pts)
-* **Headline:** Three Synchronized Engines Behind One Command Surface.
-* **How It Works:**
-  ```
-  [ Client 1C / SAP POs ] ──► Engine 1: LightGBM Delay Predictor (Shrinkage + Drivers)
-                                     │ (Supplier Risk Weights)
-                                     ▼
-  [ Subcontractor Requests ] ─► Engine 2: Google OR-Tools CP-SAT (0 Double-Bookings)
-                                     │ (Conflict-Free Slots)
-                                     ▼
-  [ Construction Phases ] ──► Engine 3: Stage-Gate Validator (100% Sequence Recall)
-                                     │
-                                     ▼
-                           [ Morning Dispatch Console ]
-  ```
-  1. **Engine 1 (Delay Risk):** Machine learning model predicting delay probability before dispatch. Employs **causal empirical-Bayes shrinkage** to eliminate cold-start failures and provides top interpretable risk drivers.
-  2. **Engine 2 (Resource Scheduler):** Mathematical constraint programming (Google OR-Tools CP-SAT). Enforces non-overlapping intervals (`AddNoOverlap`) across cranes, pumps, and bays. **Mathematically guarantees 0 double-bookings in <0.3s.**
-  3. **Engine 3 (Sequence Validator):** Stage-gate topological rules preventing premature delivery arrivals, coupled with Isolation Forest multivariate anomaly detection. **100% recall on premature staging.**
-
----
-
-## SLIDE 5: Product, Demo & 100% Honest Validation (Rubric Item 4: 12 pts)
-* **Headline:** Production-Grade Engineering with Scientific Transparency.
-* **Current Product State:**
-  * Fully working web console, FastAPI REST API, SQLite/PostgreSQL persistence, and 55 automated tests.
-  * Dockerized zero-touch deployment (`docker compose up --build`).
-* **Validation Status — Algorithmic Guarantees vs. Statistical Estimates:**
-  * **Algorithmic Guarantees (100% Proven):** CP-SAT zero double-bookings and stage-gate sequence recall are **true by construction**, verified by automated mathematical invariants.
-  * **Statistical Model (Synthetic Benchmark $n=2,200$):** Model achieves **0.858 PR-AUC** (vs 0.732 supplier baseline) and **3× delay discrimination** on time-ordered future holdouts (Red = 74.5% late vs Green = 24.8% late).
-  * **100% Honest Disclosure:** 0% live field data is in the benchmark. Model weights will be calibrated on real 6–12 month 1C logs during the 8-week pilot engagement.
-
----
-
-## SLIDE 6: Business Model & Pricing (Rubric Item 5: 12 pts)
-* **Headline:** Predictable High-Margin B2B SaaS with Immediate ROI.
-* **Pricing Tiers:**
-  * **Pilot Setup & Calibration:** **$15,000 flat fee** (8-week dual-site deployment, pipeline integration, data calibration; 100% credited against annual subscription).
-  * **Standard Site Tier:** **$3,500 / site / month** ($42,000 / site / year) — up to 4 cranes, 500 deliveries/month.
-  * **Flagship Mega-Site Tier:** **$4,800 / site / month** ($57,600 / site / year) — multi-tower sites (>4 cranes, IoT crane telematics).
-  * **Enterprise Holding Portfolio:** **25% volume discount** for 10+ sites across regional divisions.
-* **Customer ROI Benchmark:**
-  * Annual software cost per site: **$42,000**.
-  * Quantified avoided losses per site: **$621,000** (crane standby reduction: $115k + concrete spoilage prevention: $290k + liquidated damages avoidance: $216k).
-  * **Net Value Created:** **>14× return on software spend.**
-
----
-
-## SLIDE 7: Unit Economics & Financial Model (Rubric Item 6: 10 pts)
-* **Headline:** Best-in-Class B2B SaaS Metrics: 19:1 LTV/CAC and 14-Month Break-Even.
-
-| Metric | Target Value | Basis & Justification |
+| Metric | Value | Basis |
 |---|:---:|---|
-| **Average Annual Contract (ACV)** | **$42,000** | 1 commercial/residential site at $3,500/month. |
-| **Customer Acquisition Cost (CAC)** | **$6,500** | Enterprise outbound, executive demos, 3–4 month sales cycle. |
-| **Customer Lifetime Value (LTV)** | **$126,000** | Average 3-year construction site build lifecycle. |
-| **LTV : CAC Ratio** | **19.4 : 1** | Top-decile B2B enterprise SaaS (healthy benchmark is >5:1). |
-| **Gross Margin** | **88.4%** | Cloud hosting (PostgreSQL + FastAPI inference) costs <$400/mo per 10 sites. |
-| **CAC Payback Period** | **1.8 months** | Recovered in under 2 months of subscription payments. |
-| **Holding Expansion (Net Retention)** | **140%+** | Land-and-expand: piloting on 2 sites leads to 10+ portfolio rollout. |
-| **Break-Even Milestone** | **Month 14** | Achieved at 8 active paid sites ($28,000 MRR). |
+| **ACV (standard site)** | **$42k** | $3,500 / site / month × 12 |
+| **Gross margin** | **75%** | Hosting plus per-customer install and 1C-export support |
+| **LTV per site** | **$63k** | 24-month active logistics phase × monthly gross profit; revenue stops at handover |
+| **CAC per site** | **$15k** | Founder-led enterprise sale, 3–4 month cycle, including pilot support |
+| **LTV : CAC** | **4.2 : 1** | |
+| **CAC payback** | **5.7 months** | CAC ÷ monthly gross profit per site |
+| **Break-even** | **month 16 (8 paid sites)** | Monthly opex ÷ gross profit per site, on the forecast below |
 
-### 3-Year Financial Projections:
-* **Year 1:** 4 active sites · **$168,000 ARR** · Cash flow breakeven approaching.
-* **Year 2:** 17 active sites (3 holdings) · **$714,000 ARR** · Net profit margin: 38%.
-* **Year 3:** 45 active sites (expansion to Uzbekistan) · **$1,890,000 ARR** · Net profit margin: 54%.
+**Forecast (paid active sites at year end, list price):**
+* **Year 1:** 4 sites · $168k ARR (the 2 pilot sites convert, plus 2)
+* **Year 2:** 17 sites · $714k ARR (3 holdings)
+* **Year 3:** 35 sites · $1.47M ARR (including Uzbekistan)
 
----
-
-## SLIDE 8: Competitive Advantage & Moat (Rubric Item 7: 10 pts)
-* **Headline:** Why Generic Software and Spreadsheets Cannot Solve This.
-
-```
-       ▲ Real-Time Constraint Optimization
-       │
-       │                   ★ SITEPULSE
-       │                   (OR-Tools CP-SAT + Causal ML + Phase Gate)
-       │
-       │     Procore / Autodesk Build
-       │     (Document & RFIs, Static Gannt, NO Crane Math)
-       │
-───────┼────────────────────────────────────────► Heavy Equipment &
-       │                                          Site Logistics Focus
-       │  Excel / WhatsApp Groups
-       │  (Manual, 0 Visibility)   1C:Enterprise / SAP
-       │                           (Back-office ERP, No Site Dispatch)
-       ▼
-```
-
-* **Detailed Competitor Comparison:**
-
-| Capability | SitePulse | 1C:Enterprise / SAP | Procore / Autodesk Build | Excel / WhatsApp |
-|---|:---:|:---:|:---:|:---:|
-| **Conflict-Free Crane Allocation** | **Mathematical Guarantee (CP-SAT)** | ❌ No scheduling engine | ❌ Manual static calendar | ❌ Daily overlap fights |
-| **Predictive Delay Scoring** | **Causal LightGBM + Drivers** | ❌ Historical timestamps only | ❌ None | ❌ Zero warning |
-| **Phase-Gate Sequence Check** | **Automated (100% Recall)** | ❌ None | ⚠️ Manual checklist | ❌ None |
-| **Subcontractor Hook Requests** | **Automated via API** | ❌ Complex desktop UI | ⚠️ High per-seat cost | ⚠️ Chaotic messaging |
-| **Privacy / Zero PII Ingestion** | **Guaranteed (Timestamps only)** | On-premise | US Cloud only | Unregulated |
-
-* **Our 3-Layer Moat:**
-  1. **Algorithmic Coupling Moat:** Combining LightGBM delay risk weights directly into the CP-SAT objective function creates an optimization loop competitors cannot easily copy.
-  2. **Data Gravity Moat:** Causal empirical-Bayes shrinkage means the platform gets smarter with every delivery recorded across regional routes.
-  3. **Local Sovereignty Moat:** Compliant with Central Asian enterprise security (zero PII, sovereign cloud or private VPC deployment).
+No net-revenue-retention figure is claimed: there is no revenue yet to retain. The 25% portfolio discount would lower these ARR figures.
 
 ---
 
-## SLIDE 9: Go-To-Market & Growth Strategy (Rubric Item 8: 8 pts)
-* **Headline:** "Land-and-Expand" Through Dual-Site Pilots to Holding Mandates.
+## SLIDE 8: Competition & Advantage
 
+| | SitePulse | Voyage Control | ALICE Technologies | nPlan | Procore / Fieldwire | 1C / SAP | Excel / WhatsApp |
+|---|---|---|---|---|---|---|---|
+| **Focus** | Delivery risk + equipment dispatch | Site delivery and gate/crane booking | AI-generated construction schedules | ML forecasting of schedule delay risk | Project and field management | ERP and accounting | Manual coordination |
+| **Predicts late deliveries** | Yes (unvalidated on real data) | No | No | Schedule-level, not per delivery | No | No | No |
+| **Clash-free equipment plan** | Yes, across sites | Booking calendar per site | Schedule optimization | No | Manual | No | No |
+| **Local deployment / 1C exports** | Yes | No | No | No | No | Native | — |
+
+* **Honest position:** Voyage Control already solves single-site booking. SitePulse's angle is (a) predicting which deliveries will slip and (b) dispatching a holding's shared equipment across sites, (c) deployed locally, reading 1C/Excel exports, and priced for regional budgets.
+* **Moat today:** none that is durable. OR-Tools and gradient boosting are open source. The asset that would compound is **supplier-delay history per region and holding**, and it only accrues through pilots. That is why the ask is a pilot.
+
+---
+
+## SLIDE 9: Go-To-Market
 ```mermaid
 flowchart LR
-    A["Phase 1 (Months 1–2)<br/>Dual-Site Pilot ($15k)<br/>BI Group Sites A & B"] --> B["Phase 2 (Months 3–6)<br/>Holding Rollout<br/>12 BI Group Sites ($420k ARR)"]
-    B --> C["Phase 3 (Months 7–12)<br/>Regional KZ Top 5<br/>Bazis-A, RAMS, Highvill"]
-    C --> D["Phase 4 (Months 13–24)<br/>Central Asian Expansion<br/>Tashkent & 1C Marketplace"]
+    A["Months 1–2<br/>Paid 2-site pilot ($15k)<br/>target: one holding"] --> B["Months 3–12<br/>Convert to 4 paid sites"]
+    B --> C["Year 2<br/>17 sites across 3 holdings"]
+    C --> D["Year 3<br/>35 sites incl. Uzbekistan"]
 ```
-
-* **GTM Execution Channels:**
-  1. **Direct Enterprise Sales (Land-and-Expand):** Sign 2-site pilot ($15,000); demonstrate >$50,000 monthly loss prevention during Phase 4 audit; convert to full holding portfolio contract.
-  2. **1C Solution Partner Ecosystem:** Package SitePulse as an intelligent dispatch connector for 1C:Enterprise (the dominant ERP in Central Asia).
-  3. **General Contractor Mandates:** General contractors require trade subcontractors to submit crane bookings through SitePulse as a contractual site condition.
+* **Direct founder-led sales:** a 2-site pilot, measured against the base case, converted to a site contract.
+* **To explore:** 1C integrator partners as a channel; general contractors requiring subcontractors to book equipment through SitePulse.
 
 ---
 
-## SLIDE 10: Team, Milestones & Pilot Offer (Rubric Item 9 & 10: 10 pts)
-* **Headline:** Built for Execution. Piloting with BI Group.
-* **Core Team & Roles:**
-  * **Founder & Technical Lead:** Full-stack systems and ML engineer (`shokkanuly`). Architected the 3-engine platform, CP-SAT solver integration, and temporal causal pipelines.
-  * **Domain Advisory Network:** Ex-construction project directors and procurement specialists advising on 1C export formats and subcontractor management dynamics.
-* **Immediate Post-Competition Next Steps (Next 60 Days):**
-  * **Day 1–14:** Finalize schema mapping on client historical purchase orders via `ml/ingest.py`.
-  * **Day 15–30:** Complete offline calibration on real delivery logs; tune material grace periods.
-  * **Day 31–60:** Deploy shadow dispatch console on two active pilot sites; audit crane conflict resolution.
-* **The Ask:**
-  * Seeking advisory partnerships and **pilot deployment authorization** for 2 active construction sites.
+## SLIDE 10: Team, Next Steps & Ask
+* **Founder (`shokkanuly`):** full-stack and ML engineer. Built and tested the whole platform solo.
+* **Advisor:** `[FILL: name one advisor with construction-logistics experience, or delete this line]`
+* **Gap we are hiring for:** enterprise sales / construction-domain co-founder.
+* **Next 60 days:**
+  * Days 1–14: map one holding's 1C delivery export through `ml/ingest.py`.
+  * Days 15–30: retrain on 6–12 months of real history; report real PR-AUC vs their supplier averages.
+  * Days 31–60: shadow-run the dispatch board on two sites; measure crane idle hours and concrete loss against the base case.
+* **The ask:** one **paid 2-site pilot ($15k)** with a clause to export 6–12 months of delivery history, plus an introduction to a holding's head of logistics.
 
 ---
 
-# SECTION 2: DEFENSE GUIDE (Q&A CHEAT SHEET FOR JURORS)
+# SECTION 2: Q&A PREPARATION
 
-### Q1: "Your data is synthetic. How do I know this works in the real world?"
-* **Your 10-Second Winning Answer:**
-  > *"We deliberately separated mathematical guarantees from statistical estimates. Our crane scheduler and sequencing engines use Google OR-Tools CP-SAT and topological logic — their zero double-booking and 100% premature delivery recall are **true by construction**, regardless of data. For our ML delay predictor, we have already engineered `ml/ingest.py` to ingest real 1C/SAP exports, and our 8-week pilot explicitly includes Phase 2 to calibrate empirical-Bayes weights on the client's actual 12-month delivery records before live use."*
+### Q1: "Your data is synthetic. How do I know this works?"
+> *"You don't yet, and neither do I. That's why I show it on slide 5. What's proven is that the software runs end to end, it can't leak future data, and it never double-books a unit. What isn't proven is that real deliveries are this predictable: my generator builds in the delay drivers the model finds. The pilot answers that in weeks 3–4 on your own 1C history, against your own supplier averages."*
 
-### Q2: "Why wouldn't BI Group or Bazis-A just build this themselves in 1C or Excel?"
-* **Your Winning Answer:**
-  > *"1C is an exceptional system for back-office accounting, invoicing, and tax reporting — but it is not a constraint solver. Solving 260 crane booking requests across multiple trades with time intervals in under 0.3 seconds requires mathematical programming (CP-SAT), which 1C does not support natively. Furthermore, building causal ML models with cold-start shrinkage requires dedicated data science infrastructure that internal IT teams rarely prioritize for site-level dispatch."*
+### Q2: "Is BI Group already your pilot partner?"
+> *"Not yet. BI Group is my target first pilot partner, and I don't have a signed agreement."* `[FILL: if you get a written commitment before the pitch, name who signed it and show it.]`
 
-### Q3: "Construction site workers won't use complicated software. How do you ensure adoption?"
-* **Your Winning Answer:**
-  > *"We don't ask crane operators or subcontractors to download another complex mobile app. Subcontractors submit slot requests via a simple web link or API. Every morning at 07:00, the site manager receives a single clear dispatch screen: green, yellow, and red deliveries, and an automated conflict-free crane schedule. The interface was specifically designed for non-technical site superintendents."*
+### Q3: "Voyage Control, ALICE and nPlan exist. Why you?"
+> *"Voyage Control books deliveries on one site; ALICE and nPlan work at schedule level. None of them predicts which individual delivery will slip or dispatches a holding's shared equipment across sites, and none runs on-premise off 1C exports. I'd rather partner or integrate than out-feature them."*
 
-### Q4: "How do you calculate your $621,000 annual risk mitigation per site?"
-* **Your Winning Answer:**
-  > *"On an average commercial project with 6 tower cranes and $3.5M logistics spend, crane idle standby costs $180/hour. Eliminating just 12 crane conflict days saves ~$115,000. Preventing perishable ready-mix concrete truck rejections saves ~$290,000. Avoiding 5 days of liquidated delay damages on the critical path saves ~$216,000. Even with a 50% sensitivity haircut, the platform delivers over $300,000 in preserved capital for a $42,000 annual license."*
+### Q4: "How do you get $103k per site?"
+> *"Base case on a 6-crane site: 2 idle days avoided per crane at $1,600 a day is $19k. Avoiding 1% concrete loss on 21,000 m³ is $24k, close to the $28k per project my interviewees reported. Five penalty days avoided at $12,000 is $60k. Total $103k, or 2.5× the licence. The conservative case is $46k, still above the licence. All of these are assumptions until the pilot measures them."*
 
----
+### Q5: "Your demo shows 28 machines in 5 cities, not one tower crane."
+> *"Right: today's scheduler dispatches a holding's mobile fleet (truck cranes, pumps, hoists) across sites. Re-timing hook slots on a single fixed tower crane is the next stage."*
 
-# SECTION 3: OFFICIAL LAUNCHZONE RUBRIC SCORING PROJECTION
+### Q6: "You're one person. Who sells?"
+> *"I do, for the first pilots; founder-led sales is the only honest option at this stage. The first hire is an enterprise-sales / construction-domain co-founder."*
 
-| Rubric Criterion | Max Pts | Pre-Fix Score | **Target Score With This Package** | Key Justification |
-|---|:---:|:---:|:---:|---|
-| **1. Проблема и её острота** | 12 | 8 | **11 / 12** | Backed by 10 primary CustDev interviews, specific dollar waste metrics, and concrete quotes from regional site managers. |
-| **2. Рынок (TAM / SAM / SOM)** | 12 | 5 | **11 / 12** | Rigorous top-down and bottom-up calculations ($15.2B TAM / $134M SAM / $7.56M SOM), clear 3-year targets, and "Why Now" macro drivers. |
-| **3. Решение и инновационность** | 14 | 13 | **14 / 14** | Unique 3-engine architecture coupling LightGBM delay probabilities with CP-SAT mathematical optimization. |
-| **4. Продукт / MVP / прототип** | 12 | 8 | **10 / 12** | Flawless production code, working UI, 55 automated tests; transparent about synthetic benchmark and 8-week pilot calibration gateway. |
-| **5. Бизнес-модель и монетизация** | 12 | 10 | **12 / 12** | Clear B2B SaaS tiers ($3,500/mo, $4,800/mo, $15k pilot), ROI >14×, predictable recurring revenue. |
-| **6. Юнит-экономика и финмодель** | 10 | 4 | **9 / 10** | Comprehensive metrics: CAC ($6.5k), LTV ($126k), LTV:CAC (19:1), Payback (1.8 mo), Gross Margin (88%), and 3-year ARR model. |
-| **7. Конкурентное преимущество (Moat)** | 10 | 7 | **9 / 10** | 2x2 positioning matrix, feature-by-feature comparison vs 1C and Procore, data gravity and constraint solver moats. |
-| **8. Go-to-Market и стратегия роста** | 8 | 5 | **7 / 8** | Step-by-step land-and-expand strategy from 2-site pilot to holding-wide rollout and 1C ecosystem distribution. |
-| **9. Команда** | 4 | 2.5 | **3.5 / 4** | Strong technical execution demonstrated in production code, backed by domain advisory network. |
-| **10. Питчинг и защита (Q&A)** | 6 | 5 | **5.5 / 6** | Crystal clear narrative, structured slide script, and bulletproof answers to tough jury questions. |
-| **TOTAL SCORE** | **100** | **67.5** | **92 / 100** | **Top 3 / Prize Placement Potential** |
+### Q7: "Is this venture-scale?"
+> *"The KZ/UZ beachhead is $7.56M, and 35 sites is $1.47M ARR. That's a regional business. Venture scale needs the same product in the wider CIS and MENA markets, where the same 1C/on-prem constraints apply. The pilot tells us if it's worth that push."*
+
+### Q8: "Why wouldn't a holding build this in 1C or Excel?"
+> *"They could build the booking calendar, and that's the part I'd expect them to copy. Predicting per-delivery risk from supplier history, and solving equipment assignment across sites, is data-science and optimization work their IT teams don't usually prioritize for site dispatch."*

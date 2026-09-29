@@ -1,9 +1,11 @@
+# Mirrors the dark theme in static/design/tokens.css (TOML cannot reference CSS
+# variables). Keep in sync; tests/test_design_system.py checks it.
 [theme]
 base = "dark"
-primaryColor = "#E05A36"
-backgroundColor = "#0B0E14"
-secondaryBackgroundColor = "#10141D"
-textColor = "#F1F5F9"
+primaryColor = "#E0643C"
+backgroundColor = "#09090B"
+secondaryBackgroundColor = "#18181B"
+textColor = "#FAFAFA"
 font = "sans serif"
 
 [server]

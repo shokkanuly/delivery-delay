@@ -9,8 +9,9 @@ How the SitePulse construction logistics platform is architected, how data flows
 | Dimension | Current Specification | Production & Calibration Seam |
 |---|---|---|
 | **Data Provenance** | **100% Synthetic Benchmark** ($n=2,200$ deliveries, $n=260$ machinery bookings). | Calibrated to Kazakhstan transit corridors; 0% live enterprise field data connected today. |
-| **Algorithmic Guarantees** | **Zero double-bookings** (CP-SAT `AddNoOverlap`), **100% sequencing recall** (phase-gate hierarchy). | **True by construction.** Invariant under any input data. |
-| **Statistical Estimates** | **PR-AUC 0.858** (eval base rate: 40.9% late), **ROC-AUC 0.831**, **$621k savings / site**, **221.8% ROI**. | **Empirical benchmarks.** Subject to re-calibration against real historical ERP logs via [`ml/ingest.py`](../ml/ingest.py). |
+| **Correctness Invariants** | **No unit double-booked** (CP-SAT `AddNoOverlap`); **every delivery dated before its phase start is flagged** (date rule). | **Tested on every commit.** Properties of the code, not measures of business impact. |
+| **Statistical Estimates** | **PR-AUC 0.858** (eval base rate: 40.9% late), **ROC-AUC 0.831** — on synthetic data whose delay drivers the generator encodes. | **Pipeline benchmarks, not field accuracy.** Re-measured on real ERP logs via [`ml/ingest.py`](../ml/ingest.py). |
+| **Business Estimates** | Losses avoided per site-year and ROI scenarios. | **Founder assumptions** in [`business/economics.py`](../business/economics.py) (`GET /economics`). |
 | **Next Step** | **8-Week Dual-Site Pilot Integration** | Ingest 6–12 months of client 1C/SAP delivery receipts to tune prior distributions. |
 
 ---
@@ -180,8 +181,8 @@ short-horizon forecast only when the lead time is short enough.
 
 ### 4.5 Small-data honesty ([`ml/train.py`](../ml/train.py))
 
-- Shallow, regularized `HistGradientBoostingClassifier` (LightGBM-class; one-line
-  swap to LightGBM/XGBoost), few features, no raw high-cardinality supplier id.
+- Shallow, regularized `HistGradientBoostingClassifier`, few features, no raw
+  high-cardinality supplier id (LightGBM/XGBoost is an optional one-line swap).
 - 5-fold CV reporting **Average Precision first** (right metric for a minority
   "late" class), plus ROC-AUC and F1, each with a Student-t 95% CI.
 - Every metric is shown **paired against the supplier-average baseline**; the

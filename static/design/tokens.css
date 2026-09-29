@@ -1,0 +1,105 @@
+/* SitePulse design tokens — the single source for colour, type, radius and the
+   claim-badge vocabulary. Both UIs load this file: the HTML console links it
+   (light theme); the Streamlit dashboard inlines it with the dark block
+   promoted to :root (see dashboard/app.py::_design_tokens). Rules: DESIGN.md. */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Neutrals — one Zinc ramp, no warm/cool mixing */
+  --sp-bg: #FAFAFA;
+  --sp-surface: #FFFFFF;
+  --sp-surface-2: #F4F4F5;
+  --sp-border: #E4E4E7;
+  --sp-border-strong: #D4D4D8;
+  --sp-text: #18181B;
+  --sp-text-2: #52525B;
+  --sp-text-3: #71717A;
+  --sp-chrome: #18181B;          /* sidebar / navigation rail */
+  --sp-chrome-text: #D4D4D8;
+  --sp-chrome-muted: #A1A1AA;
+
+  /* The one accent: Signal Orange (construction safety orange, 73% saturation) */
+  --sp-accent: #E0643C;
+  --sp-accent-soft: rgba(224, 100, 60, 0.12);
+  --sp-on-accent: #FFFFFF;
+
+  /* Status — risk bands and claim badges only, never decoration */
+  --sp-ok: #2F855A;
+  --sp-warn: #B7791F;
+  --sp-risk: #C53030;
+  --sp-info: #2B6CB0;
+
+  /* Type */
+  --sp-font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sp-font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Shape */
+  --sp-radius: 10px;
+  --sp-radius-sm: 6px;
+}
+
+:root[data-theme="dark"] {
+  --sp-bg: #09090B;
+  --sp-surface: #18181B;
+  --sp-surface-2: #27272A;
+  --sp-border: #27272A;
+  --sp-border-strong: #3F3F46;
+  --sp-text: #FAFAFA;
+  --sp-text-2: #A1A1AA;
+  --sp-text-3: #71717A;
+  --sp-chrome: #111113;
+  --sp-chrome-text: #D4D4D8;
+  --sp-chrome-muted: #A1A1AA;
+
+  --sp-accent: #E0643C;
+  --sp-accent-soft: rgba(224, 100, 60, 0.16);
+  --sp-on-accent: #FFFFFF;
+
+  --sp-ok: #4FB387;
+  --sp-warn: #D69E2E;
+  --sp-risk: #E26D6D;
+  --sp-info: #63A4E0;
+}
+
+/* ─── Claim badges: every number on screen says what backs it ─── */
+.sp-badge,
+.badge-guarantee,
+.badge-estimate {
+  display: inline-block !important;
+  padding: 2px 7px !important;
+  border-radius: 4px !important;
+  border: 1px solid currentColor !important;
+  font-family: var(--sp-font-mono) !important;
+  font-size: 0.65rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap;
+}
+/* Correctness invariant — a tested property of the code */
+.sp-badge--invariant, .badge-guarantee {
+  color: var(--sp-info) !important;
+  background: color-mix(in srgb, var(--sp-info) 12%, transparent) !important;
+}
+/* Estimate — statistical or assumption-based; not measured on a real site */
+.sp-badge--estimate, .badge-estimate {
+  color: var(--sp-warn) !important;
+  background: color-mix(in srgb, var(--sp-warn) 12%, transparent) !important;
+}
+/* Synthetic data — a count or result on the demo dataset */
+.sp-badge--synthetic {
+  color: var(--sp-text-3) !important;
+  background: transparent !important;
+  border-style: dashed !important;
+}
+/* Sanity check — a guard-rail number that keeps estimates honest */
+.sp-badge--check {
+  color: var(--sp-ok) !important;
+  background: color-mix(in srgb, var(--sp-ok) 12%, transparent) !important;
+}
+/* Operating input — a value the user typed in */
+.sp-badge--input {
+  color: var(--sp-text-2) !important;
+  background: var(--sp-surface-2) !important;
+}

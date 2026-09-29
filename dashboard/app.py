@@ -1,12 +1,9 @@
-"""BI SITE-PULSE — Command Surface (Streamlit edition)
+"""SitePulse — Command Surface (Streamlit edition)
 
-Warm editorial design matching the command surface:
-  - Cream #F5F0EA main background
-  - Dark green #1C2A20 sidebar/accents
-  - Coral #D05A3A accent
-  - Inter + Instrument Serif + JetBrains Mono
-  - Dynamic multi-view navigation: Overview, Delivery signals, Resource plan, Sequence checks, Site network
-  - Interactive ML scoring, CSV upload, and project context window
+Dark theme of the shared design system: tokens in static/design/tokens.css,
+rules in DESIGN.md. Views: Overview, Delivery Signals, Resource Plan, Sequence
+Checks, Site Network, Company Workspace, Pilot Engagement, Pitch & Economics.
+Business figures come from the API (GET /economics); none are computed here.
 """
 from __future__ import annotations
 
@@ -22,25 +19,28 @@ import streamlit as st
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 st.set_page_config(
-    page_title="BI SITE-PULSE · Command Surface",
-    page_icon="dashboard/assets/logo.png",
+    page_title="SitePulse · Command Surface",
+    page_icon=str(pathlib.Path(__file__).resolve().parent.parent / "static" / "design" / "icon.png"),
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 
-# ─── Logo Helper ───
+DESIGN_DIR = pathlib.Path(__file__).resolve().parent.parent / "static" / "design"
+
+
+# ─── Design tokens (static/design/tokens.css, rules in DESIGN.md) ───
+def _design_tokens() -> str:
+    """The shared token file with its dark block promoted to :root, because
+    Streamlit markdown cannot set data-theme on <html>. Later rules win, so
+    the dark values override the light defaults."""
+    css = (DESIGN_DIR / "tokens.css").read_text()
+    return css.replace(':root[data-theme="dark"]', ":root")
+
+
 def _logo_b64() -> str:
-    assets_dir = pathlib.Path(__file__).resolve().parent / "assets"
-    for name in ["logo_dark.png", "logo.png"]:
-        p = assets_dir / name
-        if p.exists():
-            return base64.b64encode(p.read_bytes()).decode()
-    # Fallback to static folder
-    static_logo = pathlib.Path(__file__).resolve().parent.parent / "static" / "logo_dark.png"
-    if static_logo.exists():
-        return base64.b64encode(static_logo.read_bytes()).decode()
-    return ""
+    mark = DESIGN_DIR / "mark.svg"
+    return base64.b64encode(mark.read_bytes()).decode() if mark.exists() else ""
 
 
 # ─── API Helper ───
@@ -53,11 +53,11 @@ def api_get(path: str, **kw):
         return None
 
 
-# ─── Warm Editorial CSS ───
+# ─── Dashboard CSS (dark theme of the shared design system) ───
 _logo = _logo_b64()
 _logo_img = (
-    f'<img src="data:image/png;base64,{_logo}" '
-    f'style="height:38px;width:auto;object-fit:contain;" />'
+    f'<img src="data:image/svg+xml;base64,{_logo}" '
+    f'style="height:32px;width:32px;" alt="" />'
     if _logo
     else ""
 )
@@ -65,28 +65,29 @@ _logo_img = (
 st.markdown(
     f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+    {_design_tokens()}
 
+    /* Legacy names mapped onto the shared tokens. New CSS uses --sp-* directly. */
     :root {{
-      --sidebar-bg: #111622;
-      --main-bg: #0B0F17;
-      --card-bg: #161D2B;
-      --card-border: #222C3E;
-      --card-border-hover: #354460;
-      --text-primary: #F8FAFC;
-      --text-secondary: #94A3B8;
-      --text-muted: #64748B;
-      --accent: #FF5E36;
-      --accent-light: rgba(255,94,54,0.14);
-      --green-subtle: #10B981;
-      --amber-subtle: #F59E0B;
-      --red-subtle: #EF4444;
+      --sidebar-bg: var(--sp-chrome);
+      --main-bg: var(--sp-bg);
+      --card-bg: var(--sp-surface);
+      --card-border: var(--sp-border);
+      --card-border-hover: var(--sp-border-strong);
+      --text-primary: var(--sp-text);
+      --text-secondary: var(--sp-text-2);
+      --text-muted: var(--sp-text-3);
+      --accent: var(--sp-accent);
+      --accent-light: var(--sp-accent-soft);
+      --green-subtle: var(--sp-ok);
+      --amber-subtle: var(--sp-warn);
+      --red-subtle: var(--sp-risk);
     }}
 
     .stApp, [data-testid="stAppViewContainer"], .main {{
       background-color: var(--main-bg) !important;
       color: var(--text-primary) !important;
-      font-family: 'Inter', sans-serif !important;
+      font-family: var(--sp-font-sans) !important;
     }}
 
     header[data-testid="stHeader"] {{
@@ -95,24 +96,25 @@ st.markdown(
     }}
 
     /* Global markdown & typography contrast enforcement */
-    .stMarkdown, .stMarkdown p, .stMarkdown span, .stMarkdown li, .stMarkdown div {{
+    /* Badges keep their own colour (tokens.css claim-badge vocabulary). */
+    .stMarkdown, .stMarkdown p, .stMarkdown span:not([class*="badge"]), .stMarkdown li, .stMarkdown div {{
       color: var(--text-primary) !important;
     }}
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {{
-      color: #FFFFFF !important;
+      color: var(--sp-text) !important;
       font-weight: 700 !important;
     }}
     .stMarkdown strong {{
-      color: #FFFFFF !important;
+      color: var(--sp-text) !important;
       font-weight: 700 !important;
     }}
     .stMarkdown code {{
-      background-color: #1A2232 !important;
-      color: #FF7854 !important;
-      border: 1px solid #2B374E !important;
+      background-color: var(--sp-surface-2) !important;
+      color: var(--sp-accent) !important;
+      border: 1px solid var(--sp-border) !important;
       padding: 2px 6px !important;
       border-radius: 4px !important;
-      font-family: 'JetBrains Mono', monospace !important;
+      font-family: var(--sp-font-mono) !important;
     }}
 
     /* Sidebar overrides */
@@ -130,7 +132,7 @@ st.markdown(
 
     /* Navigation Radio in Sidebar */
     section[data-testid="stSidebar"] .stRadio label {{
-      color: #CBD5E1 !important;
+      color: var(--sp-text-2) !important;
       font-weight: 500 !important;
       padding: 8px 12px !important;
       border-radius: 6px !important;
@@ -139,10 +141,10 @@ st.markdown(
     }}
     section[data-testid="stSidebar"] .stRadio label:hover {{
       background: rgba(255,255,255,0.06) !important;
-      color: #FFFFFF !important;
+      color: var(--sp-text) !important;
     }}
     section[data-testid="stSidebar"] .stRadio [aria-checked="true"] + div p {{
-      color: #FFFFFF !important;
+      color: var(--sp-text) !important;
       font-weight: 700 !important;
     }}
 
@@ -169,8 +171,8 @@ st.markdown(
 
     /* Buttons */
     .stButton > button {{
-      background-color: #161D2B !important;
-      color: #F8FAFC !important;
+      background-color: var(--sp-surface) !important;
+      color: var(--sp-text) !important;
       border: 1px solid var(--card-border) !important;
       border-radius: 8px !important;
       font-weight: 600 !important;
@@ -180,32 +182,32 @@ st.markdown(
     .stButton > button:hover {{
       background-color: var(--accent) !important;
       border-color: var(--accent) !important;
-      color: #FFFFFF !important;
+      color: var(--sp-text) !important;
     }}
     .stButton > button[kind="primary"] {{
       background-color: var(--accent) !important;
       border-color: var(--accent) !important;
-      color: #FFFFFF !important;
+      color: var(--sp-text) !important;
     }}
 
     /* Inputs & Selectboxes */
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
-      background-color: #101520 !important;
-      color: #F8FAFC !important;
-      border-color: #242E42 !important;
+      background-color: var(--sp-surface) !important;
+      color: var(--sp-text) !important;
+      border-color: var(--sp-surface-2) !important;
     }}
     [data-baseweb="base-input"] {{
-      background-color: #101520 !important;
-      border: 1px solid #242E42 !important;
+      background-color: var(--sp-surface) !important;
+      border: 1px solid var(--sp-surface-2) !important;
       border-radius: 6px !important;
     }}
     [data-baseweb="select"] > div {{
-      background-color: #101520 !important;
-      border-color: #242E42 !important;
-      color: #F8FAFC !important;
+      background-color: var(--sp-surface) !important;
+      border-color: var(--sp-surface-2) !important;
+      color: var(--sp-text) !important;
     }}
     label[data-testid="stWidgetLabel"] p {{
-      color: #94A3B8 !important;
+      color: var(--sp-text-2) !important;
       font-size: 0.8rem !important;
       font-weight: 600 !important;
       letter-spacing: 0.04em !important;
@@ -214,15 +216,15 @@ st.markdown(
 
     /* Expanders - Full Dark Contrast */
     [data-testid="stExpander"] {{
-      background-color: #131925 !important;
+      background-color: var(--sp-surface) !important;
       border: 1px solid var(--card-border) !important;
       border-radius: 10px !important;
       margin-bottom: 16px !important;
     }}
     [data-testid="stExpander"] summary {{
-      color: #F8FAFC !important;
+      color: var(--sp-text) !important;
       font-weight: 600 !important;
-      background-color: #131925 !important;
+      background-color: var(--sp-surface) !important;
       padding: 12px 16px !important;
       border-radius: 10px !important;
     }}
@@ -230,28 +232,28 @@ st.markdown(
       color: var(--accent) !important;
     }}
     [data-testid="stExpander"] [data-testid="stExpanderDetails"] {{
-      background-color: #0F141E !important;
+      background-color: var(--sp-bg) !important;
       border-top: 1px solid var(--card-border) !important;
       padding: 20px !important;
-      color: #CBD5E1 !important;
+      color: var(--sp-text-2) !important;
     }}
     [data-testid="stExpanderDetails"] p,
     [data-testid="stExpanderDetails"] li,
     [data-testid="stExpanderDetails"] span {{
-      color: #CBD5E1 !important;
+      color: var(--sp-text-2) !important;
       line-height: 1.6 !important;
     }}
     [data-testid="stExpanderDetails"] h1,
     [data-testid="stExpanderDetails"] h2,
     [data-testid="stExpanderDetails"] h3,
     [data-testid="stExpanderDetails"] h4 {{
-      color: #FFFFFF !important;
+      color: var(--sp-text) !important;
     }}
 
     /* Metric polish */
     [data-testid="stMetricValue"] {{
-      font-family: 'JetBrains Mono', monospace !important;
-      color: #FFFFFF !important;
+      font-family: var(--sp-font-mono) !important;
+      color: var(--sp-text) !important;
     }}
     [data-testid="stMetricLabel"] p {{
       color: var(--text-muted) !important;
@@ -262,7 +264,7 @@ st.markdown(
 
     /* Dataframes */
     [data-testid="stDataFrame"] {{
-      background-color: #131925 !important;
+      background-color: var(--sp-surface) !important;
       border: 1px solid var(--card-border) !important;
       border-radius: 8px !important;
     }}
@@ -277,7 +279,7 @@ st.markdown(
     .brand-name {{
       font-size: 0.88rem;
       font-weight: 800;
-      color: #FFFFFF;
+      color: var(--sp-text);
       letter-spacing: 0.05em;
     }}
     .brand-sub {{
@@ -316,10 +318,11 @@ st.markdown(
       color: var(--accent);
     }}
     .greeting {{
-      font-family: 'Instrument Serif', Georgia, serif;
-      font-size: 2.4rem;
-      font-weight: 400;
-      color: #FFFFFF;
+      font-family: var(--sp-font-sans);
+      font-size: 2.1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--sp-text);
       line-height: 1.15;
       margin: 6px 0 8px;
     }}
@@ -348,23 +351,23 @@ st.markdown(
       display: flex; align-items: center; justify-content: center;
       font-size: 0.75rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }}
     .kpi-icon.accent {{
       background: var(--accent-light);
       color: var(--accent);
-      border: 1px solid rgba(255,94,54,0.3);
+      border: 1px solid color-mix(in srgb, var(--sp-accent) 30%, transparent);
     }}
     .kpi-icon.muted {{
-      background: #1F283B;
+      background: var(--sp-surface-2);
       color: var(--text-secondary);
-      border: 1px solid #2B374E;
+      border: 1px solid var(--sp-border);
     }}
     .kpi-trend {{
       font-size: 0.72rem;
       font-weight: 600;
       color: var(--green-subtle);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }}
     .kpi-lbl {{
       font-size: 0.68rem;
@@ -377,8 +380,8 @@ st.markdown(
     .kpi-val {{
       font-size: 1.9rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-      color: #FFFFFF;
+      font-family: var(--sp-font-mono);
+      color: var(--sp-text);
       line-height: 1;
     }}
     .kpi-sub-text {{
@@ -386,35 +389,9 @@ st.markdown(
       color: var(--text-muted);
       margin-top: 6px;
     }}
-    .badge-guarantee {{
-      background: rgba(2, 132, 199, 0.16) !important;
-      border: 1px solid #0284C7 !important;
-      color: #38BDF8 !important;
-      font-size: 0.65rem !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.06em !important;
-      text-transform: uppercase !important;
-      padding: 2px 7px !important;
-      border-radius: 4px !important;
-      display: inline-block !important;
-      font-family: 'JetBrains Mono', monospace !important;
-    }}
-    .badge-estimate {{
-      background: rgba(217, 119, 6, 0.16) !important;
-      border: 1px solid #D97706 !important;
-      color: #FBBF24 !important;
-      font-size: 0.65rem !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.06em !important;
-      text-transform: uppercase !important;
-      padding: 2px 7px !important;
-      border-radius: 4px !important;
-      display: inline-block !important;
-      font-family: 'JetBrains Mono', monospace !important;
-    }}
     .metric-provenance {{
       font-size: 0.67rem !important;
-      color: #94A3B8 !important;
+      color: var(--sp-text-2) !important;
       margin-top: 5px !important;
       line-height: 1.4 !important;
       border-top: 1px dashed rgba(255,255,255,0.08) !important;
@@ -430,7 +407,7 @@ st.markdown(
     }}
     .engine-card.highlight {{
       border-color: var(--accent);
-      background: #1A1F2C;
+      background: var(--sp-surface);
     }}
     .engine-top {{
       display: flex;
@@ -443,25 +420,25 @@ st.markdown(
       display: flex; align-items: center; justify-content: center;
       font-size: 0.75rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }}
     .engine-icon.accent {{
       background: var(--accent-light);
       color: var(--accent);
-      border: 1px solid rgba(255,94,54,0.3);
+      border: 1px solid color-mix(in srgb, var(--sp-accent) 30%, transparent);
     }}
     .engine-icon.muted {{
-      background: #1F283B;
+      background: var(--sp-surface-2);
       color: var(--text-secondary);
-      border: 1px solid #2B374E;
+      border: 1px solid var(--sp-border);
     }}
     .engine-num {{
       font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }}
     .engine-title {{
       font-size: 1rem; font-weight: 600;
-      color: #FFFFFF;
+      color: var(--sp-text);
       margin-bottom: 6px;
     }}
     .engine-desc {{
@@ -473,8 +450,8 @@ st.markdown(
     .engine-val {{
       font-size: 1.7rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-      color: #FFFFFF;
+      font-family: var(--sp-font-mono);
+      color: var(--sp-text);
       line-height: 1;
     }}
     .engine-val-sub {{
@@ -487,23 +464,23 @@ st.markdown(
       display: inline-flex; align-items: center; gap: 4px;
       padding: 3px 8px; border-radius: 4px;
       font-size: 0.72rem; font-weight: 600;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       letter-spacing: 0.04em;
     }}
     .signal-badge.critical {{
-      background: rgba(239,68,68,0.18);
-      color: #F87171;
-      border: 1px solid rgba(239,68,68,0.4);
+      background: color-mix(in srgb, var(--sp-risk) 18%, transparent);
+      color: var(--sp-risk);
+      border: 1px solid color-mix(in srgb, var(--sp-risk) 40%, transparent);
     }}
     .signal-badge.moderate {{
-      background: rgba(245,158,11,0.18);
-      color: #FBBF24;
-      border: 1px solid rgba(245,158,11,0.4);
+      background: color-mix(in srgb, var(--sp-warn) 18%, transparent);
+      color: var(--sp-warn);
+      border: 1px solid color-mix(in srgb, var(--sp-warn) 40%, transparent);
     }}
     .signal-badge.ok {{
-      background: rgba(16,185,129,0.18);
-      color: #34D399;
-      border: 1px solid rgba(16,185,129,0.4);
+      background: color-mix(in srgb, var(--sp-ok) 18%, transparent);
+      color: var(--sp-ok);
+      border: 1px solid color-mix(in srgb, var(--sp-ok) 40%, transparent);
     }}
 
     .org-badge {{
@@ -519,7 +496,7 @@ st.markdown(
     }}
     .org-date {{
       font-size: 0.84rem; font-weight: 500;
-      color: #CBD5E1;
+      color: var(--sp-text-2);
       margin-top: 2px;
     }}
 
@@ -592,15 +569,15 @@ with st.sidebar:
     # Weather Widget
     st.markdown(
         """
-        <div style="background:#161D2B; border:1px solid #222C3E; border-radius:10px; padding:12px 14px; margin-top:6px;">
+        <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:12px 14px; margin-top:6px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                <span style="font-size:0.64rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#64748B;">
+                <span style="font-size:0.64rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--sp-text-3);">
                     Today · Central Hub
                 </span>
-                <span style="font-size:0.7rem; font-weight:700; color:#FF5E36; font-family:'JetBrains Mono'; letter-spacing:0.06em;">CLEAR</span>
+                <span style="font-size:0.7rem; font-weight:700; color:var(--sp-accent); font-family:var(--sp-font-mono); letter-spacing:0.06em;">CLEAR</span>
             </div>
-            <div style="font-size:1.4rem; font-weight:700; font-family:'JetBrains Mono'; color:#FFFFFF;">–6° / +2°</div>
-            <div style="font-size:0.72rem; color:#94A3B8;">Astana · Wind 18 km/h · Dry Pour Window</div>
+            <div style="font-size:1.4rem; font-weight:700; font-family:var(--sp-font-mono); color:var(--sp-text);">–6° / +2°</div>
+            <div style="font-size:0.72rem; color:var(--sp-text-2);">Astana · Wind 18 km/h · Dry Pour Window</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -636,7 +613,7 @@ flagged_seq_count = len(seq.get("flagged", []))
 st.markdown(
     f"""
     <div class="org-badge">
-        <div class="org-label-text">SitePulse · Regional Holding (Piloting with BI Group) · Site: {proj_name} ({selected_pid})</div>
+        <div class="org-label-text">SitePulse · Regional Holding (Demo) · Site: {proj_name} ({selected_pid})</div>
         <div class="org-date">Operational Schedule · Priority: <strong>{proj_prio}</strong> · Engine Status: Normal</div>
     </div>
     """,
@@ -659,7 +636,7 @@ with st.expander("Project Architecture & Logistics Data Guide", expanded=False):
            
         2. **Engine 2 · Resource Scheduler**:
            - Powered by **Google OR-Tools CP-SAT constraint programming**.
-           - Solves subcontractor heavy machinery requests (Tower Cranes, Concrete Pumps, Hoists) with an absolute mathematical guarantee of **0 double-bookings**.
+           - Assigns each equipment booking (mobile cranes, concrete pumps, hoists) to a free unit across sites; **no unit is ever double-booked** (a tested correctness invariant). It does not yet re-time bookings on a single tower crane.
            - Coupled with Engine 1: Allocates local buffers when an arriving delivery has an upstream delay risk.
            
         3. **Engine 3 · Sequence Validator**:
@@ -688,20 +665,20 @@ if view == "Overview":
     # Validation Status Banner
     st.markdown(
         """
-        <div style="background:#131B2A; border:1px solid #1E293B; border-left:4px solid #38BDF8; border-radius:8px; padding:14px 18px; margin-bottom:18px;">
+        <div style="background:var(--sp-surface); border:1px solid var(--sp-surface-2); border-left:4px solid var(--sp-info); border-radius:8px; padding:14px 18px; margin-bottom:18px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-                <div style="font-size:0.78rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#38BDF8;">
+                <div style="font-size:0.78rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--sp-info);">
                     Validation Status · 100% Synthetic Benchmark (n=2,200 Deliveries, 260 Crane Bookings)
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <span class="badge-guarantee">Algorithmic Guarantee</span>
+                    <span class="badge-guarantee">Correctness Invariant</span>
                     <span class="badge-estimate">Statistical Estimate</span>
                 </div>
             </div>
-            <div style="font-size:0.83rem; color:#CBD5E1; line-height:1.55;">
-                <strong>Current Reality:</strong> 0% live enterprise field data connected today. Solver allocations (0 double-bookings) and sequence gates (100% recall) are algorithmic guarantees true by construction. ML delay risk, loss mitigation ($621k/site), and ROI are statistical estimates from physics-calibrated synthetic logs.
+            <div style="font-size:0.83rem; color:var(--sp-text-2); line-height:1.55;">
+                <strong>Current Reality:</strong> 0% live field data connected today. No-double-booking and phase-date checks are correctness invariants of the code, not measures of business impact. ML delay risk is benchmarked on synthetic data whose delay drivers the generator encodes; losses avoided and ROI are founder assumptions (GET /economics).
             </div>
-            <div style="font-size:0.78rem; color:#94A3B8; margin-top:6px;">
+            <div style="font-size:0.78rem; color:var(--sp-text-2); margin-top:6px;">
                 <strong>Next Calibration Step:</strong> Ingest 6–12 months of client 1C/SAP purchase orders and crane telematics via <code>ml/ingest.py</code> to calibrate empirical risk priors during the 8-week pilot engagement.
             </div>
         </div>
@@ -736,7 +713,7 @@ if view == "Overview":
                 </div>
                 <div class="kpi-lbl">At-Risk Deliveries</div>
                 <div class="kpi-val">{risk_red + risk_yellow:02d}</div>
-                <div class="kpi-sub-text">of {scored_count} tracked · LightGBM</div>
+                <div class="kpi-sub-text">of {scored_count} tracked · gradient boosting</div>
                 <div class="metric-provenance">100% Synthetic Benchmark (n=2,200) · Base rate: 40.9% late</div>
             </div>
             """,
@@ -748,12 +725,12 @@ if view == "Overview":
             <div class="kpi-card">
                 <div class="kpi-top-row">
                     <div class="kpi-icon muted">⊞</div>
-                    <span class="badge-guarantee">Algorithmic Guarantee</span>
+                    <span class="badge-guarantee">Correctness Invariant</span>
                 </div>
                 <div class="kpi-lbl">Machinery Bookings</div>
                 <div class="kpi-val">{assigned_count:02d}</div>
                 <div class="kpi-sub-text">0 double-bookings · CP-SAT</div>
-                <div class="metric-provenance">True by construction (260/260 slots conflict-free)</div>
+                <div class="metric-provenance">Correctness invariant: no unit double-booked</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -764,12 +741,12 @@ if view == "Overview":
             <div class="kpi-card">
                 <div class="kpi-top-row">
                     <div class="kpi-icon muted">⬡</div>
-                    <span class="badge-guarantee">Algorithmic Guarantee</span>
+                    <span class="badge-guarantee">Correctness Invariant</span>
                 </div>
                 <div class="kpi-lbl">Sequencing Flags</div>
                 <div class="kpi-val">{flagged_seq_count:02d}</div>
-                <div class="kpi-sub-text">100% recall on premature arrivals</div>
-                <div class="metric-provenance">True by construction (phase-gate hierarchy)</div>
+                <div class="kpi-sub-text">deliveries dated before their phase</div>
+                <div class="metric-provenance">Deterministic date rule vs phase schedule</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -796,10 +773,10 @@ if view == "Overview":
     # Three Engines Cards
     st.markdown(
         """
-        <div style="font-size:0.65rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:#8A8A80; margin-bottom:4px;">
+        <div style="font-size:0.65rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--sp-text-3); margin-bottom:4px;">
             Three Engines / One Operating Picture
         </div>
-        <div style="font-size:1.25rem; font-weight:600; color:#FFFFFF; margin-bottom:14px;">
+        <div style="font-size:1.25rem; font-weight:600; color:var(--sp-text); margin-bottom:14px;">
             Integrated decision support for regional construction sites
         </div>
         """,
@@ -829,12 +806,12 @@ if view == "Overview":
             <div class="engine-card">
                 <div class="engine-top">
                     <div class="engine-icon muted">⊞</div>
-                    <span class="badge-guarantee">Algorithmic Guarantee</span>
+                    <span class="badge-guarantee">Correctness Invariant</span>
                 </div>
                 <div class="engine-title">Resource Scheduler</div>
                 <div class="engine-desc">OR-Tools CP-SAT scheduler: Tower cranes, pumps and unload bays.</div>
                 <div class="engine-val">{assigned_count:02d}</div>
-                <div class="engine-val-sub">0 double-bookings (proven solver)</div>
+                <div class="engine-val-sub">no unit double-booked (tested)</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -845,12 +822,12 @@ if view == "Overview":
             <div class="engine-card">
                 <div class="engine-top">
                     <div class="engine-icon muted">⬡</div>
-                    <span class="badge-guarantee">Algorithmic Guarantee</span>
+                    <span class="badge-guarantee">Correctness Invariant</span>
                 </div>
                 <div class="engine-title">Sequence Validator</div>
-                <div class="engine-desc">Build phase gates (Foundation $\rightarrow$ Frame $\rightarrow$ MEP) stopping premature clutter.</div>
+                <div class="engine-desc">Build phase gates (Foundation → Frame → MEP) stopping premature clutter.</div>
                 <div class="engine-val">{flagged_seq_count:02d}</div>
-                <div class="engine-val-sub">100% recall (phase-gate hierarchy)</div>
+                <div class="engine-val-sub">flagged by phase-date rule</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -865,9 +842,9 @@ if view == "Overview":
             """
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
                 <span class="cmd-dot"></span>
-                <span style="font-size:1.05rem; font-weight:600; color:#FFFFFF;">Active Delivery Risk Signals</span>
+                <span style="font-size:1.05rem; font-weight:600; color:var(--sp-text);">Active Delivery Risk Signals</span>
             </div>
-            <div style="font-size:0.8rem; color:#94A3B8; margin-bottom:12px;">
+            <div style="font-size:0.8rem; color:var(--sp-text-2); margin-bottom:12px;">
                 Deliveries ranked by ML delay probability with primary occlusion drivers.
             </div>
             """,
@@ -896,21 +873,21 @@ if view == "Overview":
     with net_col:
         st.markdown(
             """
-            <div style="background:#161D2B; border:1px solid #222C3E; border-radius:12px; padding:20px; color:#FFFFFF; height:100%;">
-                <div style="font-size:0.62rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:#64748B; margin-bottom:4px;">
+            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:12px; padding:20px; color:var(--sp-text); height:100%;">
+                <div style="font-size:0.62rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--sp-text-3); margin-bottom:4px;">
                     Network Pulse
                 </div>
-                <div style="font-size:1.05rem; font-weight:600; color:#FFFFFF; margin-bottom:14px;">
+                <div style="font-size:1.05rem; font-weight:600; color:var(--sp-text); margin-bottom:14px;">
                     Protected Workfronts
                 </div>
-                <div style="font-size:2.8rem; font-weight:700; font-family:'JetBrains Mono'; line-height:1; color:#FFFFFF;">
+                <div style="font-size:2.8rem; font-weight:700; font-family:var(--sp-font-mono); line-height:1; color:var(--sp-text);">
                     88.4%
                 </div>
-                <div style="font-size:0.78rem; font-weight:500; color:#94A3B8; margin-top:6px;">
-                    <span style="color:#10B981;">↗ +4.2%</span> crane uptime vs unoptimized
+                <div style="font-size:0.78rem; font-weight:500; color:var(--sp-text-2); margin-top:6px;">
+                    <span style="color:var(--sp-ok);">↗ +4.2%</span> crane uptime vs unoptimized
                 </div>
-                <hr style="border-color:#222C3E; margin:16px 0;" />
-                <div style="font-size:0.75rem; color:#94A3B8; line-height:1.6;">
+                <hr style="border-color:var(--sp-border); margin:16px 0;" />
+                <div style="font-size:0.75rem; color:var(--sp-text-2); line-height:1.6;">
                     • 0 overlapping bookings<br/>
                     • 19 machinery units scheduled<br/>
                     • 4 freight corridors clear
@@ -1028,8 +1005,8 @@ elif view == "Resource Plan":
         </div>
         <h1 class="greeting">Machinery & Equipment Schedule</h1>
         <p class="greeting-sub">
-            Conflict-free allocation of tower cranes, concrete pumps, and hoists across subcontractors.
-            Mathematically enforces zero double-bookings with upstream delay-risk coupling.
+            Assigns each booking to a free crane, pump or hoist across the holding's sites — no unit double-booked —
+            and prefers local units for bookings whose deliveries are at risk of slipping.
         </p>
         """,
         unsafe_allow_html=True,
@@ -1159,12 +1136,12 @@ elif view == "Site Network":
             """
             <div class="site-box">
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="font-weight:700; color:#FF5E36;">PRJ_001</span>
+                    <span style="font-weight:700; color:var(--sp-accent);">PRJ_001</span>
                     <span class="signal-badge ok">Operational</span>
                 </div>
-                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:#FFFFFF;">Site A · Urban Residential</h3>
-                <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px;">Almaty · SE Urban District</div>
-                <div style="font-size:0.82rem; color:#94A3B8;"><strong>Active Deliveries:</strong> 28<br/><strong>Cranes:</strong> 4 units<br/><strong>Weather:</strong> +14°C Sunny</div>
+                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:var(--sp-text);">Site A · Urban Residential</h3>
+                <div style="font-size:0.75rem; color:var(--sp-text-3); margin-bottom:10px;">Almaty · SE Urban District</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2);"><strong>Active Deliveries:</strong> 28<br/><strong>Cranes:</strong> 4 units<br/><strong>Weather:</strong> +14°C Sunny</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1173,12 +1150,12 @@ elif view == "Site Network":
             """
             <div class="site-box">
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="font-weight:700; color:#FF5E36;">PRJ_004</span>
+                    <span style="font-weight:700; color:var(--sp-accent);">PRJ_004</span>
                     <span class="signal-badge ok">Steel Frame</span>
                 </div>
-                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:#FFFFFF;">Site D · Industrial Logistics Park</h3>
-                <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px;">Karaganda · Industrial Center</div>
-                <div style="font-size:0.82rem; color:#94A3B8;"><strong>Active Deliveries:</strong> 31<br/><strong>Cranes:</strong> 5 units<br/><strong>Weather:</strong> -8°C Clear</div>
+                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:var(--sp-text);">Site D · Industrial Logistics Park</h3>
+                <div style="font-size:0.75rem; color:var(--sp-text-3); margin-bottom:10px;">Karaganda · Industrial Center</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2);"><strong>Active Deliveries:</strong> 31<br/><strong>Cranes:</strong> 5 units<br/><strong>Weather:</strong> -8°C Clear</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1189,12 +1166,12 @@ elif view == "Site Network":
             """
             <div class="site-box">
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="font-weight:700; color:#FF5E36;">PRJ_002</span>
+                    <span style="font-weight:700; color:var(--sp-accent);">PRJ_002</span>
                     <span class="signal-badge moderate">High Wind</span>
                 </div>
-                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:#FFFFFF;">Site B · High-Rise Commercial</h3>
-                <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px;">Astana · Left Bank District</div>
-                <div style="font-size:0.82rem; color:#94A3B8;"><strong>Active Deliveries:</strong> 42<br/><strong>Cranes:</strong> 6 units<br/><strong>Weather:</strong> -6°C Wind 18 km/h</div>
+                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:var(--sp-text);">Site B · High-Rise Commercial</h3>
+                <div style="font-size:0.75rem; color:var(--sp-text-3); margin-bottom:10px;">Astana · Left Bank District</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2);"><strong>Active Deliveries:</strong> 42<br/><strong>Cranes:</strong> 6 units<br/><strong>Weather:</strong> -6°C Wind 18 km/h</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1203,12 +1180,12 @@ elif view == "Site Network":
             """
             <div class="site-box">
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="font-weight:700; color:#FF5E36;">PRJ_005</span>
+                    <span style="font-weight:700; color:var(--sp-accent);">PRJ_005</span>
                     <span class="signal-badge ok">Excavation</span>
                 </div>
-                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:#FFFFFF;">Site E · Regional Trade Center</h3>
-                <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px;">Shymkent · South Trade Hub</div>
-                <div style="font-size:0.82rem; color:#94A3B8;"><strong>Active Deliveries:</strong> 19<br/><strong>Cranes:</strong> 5 units<br/><strong>Weather:</strong> +18°C Mild</div>
+                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:var(--sp-text);">Site E · Regional Trade Center</h3>
+                <div style="font-size:0.75rem; color:var(--sp-text-3); margin-bottom:10px;">Shymkent · South Trade Hub</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2);"><strong>Active Deliveries:</strong> 19<br/><strong>Cranes:</strong> 5 units<br/><strong>Weather:</strong> +18°C Mild</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1217,14 +1194,14 @@ elif view == "Site Network":
     with scol3:
         st.markdown(
             """
-            <div class="site-box" style="border-color:#FF5E36;">
+            <div class="site-box" style="border-color:var(--sp-accent);">
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="font-weight:700; color:#FF5E36;">PRJ_003</span>
+                    <span style="font-weight:700; color:var(--sp-accent);">PRJ_003</span>
                     <span class="signal-badge critical">Critical Pour</span>
                 </div>
-                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:#FFFFFF;">Site C · Embankment Towers</h3>
-                <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px;">Astana · Embankment Area</div>
-                <div style="font-size:0.82rem; color:#94A3B8;"><strong>Active Deliveries:</strong> 55<br/><strong>Cranes:</strong> 8 units<br/><strong>Weather:</strong> -5°C Critical Window</div>
+                <h3 style="margin:6px 0 2px; font-size:1.1rem; color:var(--sp-text);">Site C · Embankment Towers</h3>
+                <div style="font-size:0.75rem; color:var(--sp-text-3); margin-bottom:10px;">Astana · Embankment Area</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2);"><strong>Active Deliveries:</strong> 55<br/><strong>Cranes:</strong> 8 units<br/><strong>Weather:</strong> -5°C Critical Window</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1254,8 +1231,8 @@ elif view == "Company Workspace":
         <h1 class="greeting">Company Project, Logistics & Financial Suite</h1>
         <p class="greeting-sub">
             Private project workspace for general contractors and trade partners. Enter your company access key to load
-            building parameters, machinery allocations, and financial terms. The AI engine automatically computes risk exposure,
-            crane idle cost savings, and protected capital.
+            building parameters, machinery allocations, and financial terms. Site economics (losses avoided in three
+            scenarios) are computed by the API from your inputs and the assumptions in GET /economics.
         </p>
         """,
         unsafe_allow_html=True,
@@ -1285,31 +1262,16 @@ elif view == "Company Workspace":
 
     current_key = access_key_input.strip() or "DEMO-SITE-B-2026"
 
-    # Fetch existing data from backend API
-    workspace_data = api_get(f"/projects/workspace/{current_key}")
-    if not workspace_data or "project_name" not in workspace_data:
-        # Default placeholder values
-        workspace_data = {
-            "access_key": current_key,
-            "company_name": "Regional Construction Holding (Pilot Partner)",
-            "project_name": "Site B · High-Rise Commercial Block",
-            "location": "Astana, Kazakhstan",
-            "building_type": "High-rise Residential",
-            "total_area_m2": 45000.0,
-            "floors_count": 22,
-            "duration_months": 18,
-            "tower_cranes_count": 4,
-            "concrete_pumps_count": 2,
-            "material_hoists_count": 3,
-            "rebar_tons_needed": 3200.0,
-            "concrete_volume_m3": 18500.0,
-            "crane_daily_rate_usd": 1200.0,
-            "penalty_delay_daily_usd": 4500.0,
-            "concrete_cost_m3_usd": 95.0,
-            "total_budget_usd": 28000000.0,
-        }
+    # The API wraps the saved workspace as {found, workspace}; unknown demo keys
+    # get the fictional Site B profile.
+    loaded = api_get(f"/projects/workspace/{current_key}") or {}
+    workspace_data = loaded.get("workspace") or {}
 
     st.markdown("---")
+
+    building_types = ["High-rise Residential", "Commercial Tower & Retail",
+                      "Industrial Logistics Hub", "Civil Infrastructure"]
+    saved_type = workspace_data.get("building_type", building_types[0])
 
     # Form inputs split into 3 logical domains: Building Specs, Logistics Plan, Financial Plan
     with st.form("company_workspace_form"):
@@ -1317,79 +1279,90 @@ elif view == "Company Workspace":
 
         with col_spec:
             st.markdown("#### 1. Building Specifications")
-            comp_name = st.text_input("Company / Contractor", value=workspace_data.get("company_name", "Regional Holding (High-Rise Division)"))
-            p_name = st.text_input("Project Name", value=workspace_data.get("project_name", "Site B · High-Rise Commercial Block"))
-            p_loc = st.text_input("Site Location", value=workspace_data.get("location", "Astana · Left Bank District"))
+            comp_name = st.text_input("Company / Contractor", value=workspace_data.get("company_name", "Regional Construction Holding (Demo)"))
+            p_name = st.text_input("Project Name", value=workspace_data.get("project_name", "Site B · High-Rise Commercial"))
+            p_loc = st.text_input("Site Location", value=workspace_data.get("location", "Astana"))
             p_type = st.selectbox(
                 "Building Category",
-                ["High-rise Residential", "Commercial Tower & Retail", "Industrial Logistics Hub", "Civil Infrastructure"],
-                index=0,
+                building_types if saved_type in building_types else [saved_type, *building_types],
+                index=0 if saved_type not in building_types else building_types.index(saved_type),
             )
-            total_area = st.number_input("Gross Floor Area (m²)", min_value=1000.0, max_value=500000.0, value=float(workspace_data.get("total_area_m2", 48000.0)), step=1000.0)
-            floors = st.number_input("Floor Count (Above Ground)", min_value=1, max_value=100, value=int(workspace_data.get("floors_count", 24)), step=1)
-            duration_mo = st.number_input("Estimated Duration (Months)", min_value=1, max_value=60, value=int(workspace_data.get("duration_months", 18)), step=1)
+            total_area = st.number_input("Gross Floor Area (m²)", min_value=1000.0, max_value=500000.0, value=float(workspace_data.get("total_area_sqm", 62000.0)), step=1000.0)
+            floors = st.number_input("Floor Count (Above Ground)", min_value=1, max_value=100, value=int(workspace_data.get("floors", 24)), step=1)
+            start_date = st.date_input("Logistics Start", value=pd.to_datetime(workspace_data.get("start_date", "2026-02-15")).date())
+            end_date = st.date_input("Target Handover", value=pd.to_datetime(workspace_data.get("target_end_date", "2026-12-20")).date())
 
         with col_logistics:
             st.markdown("#### 2. Logistics & Machinery Plan")
-            cranes = st.number_input("Tower Cranes on Site", min_value=1, max_value=20, value=int(workspace_data.get("tower_cranes_count", 4)), step=1)
-            pumps = st.number_input("Concrete Pumps Active", min_value=0, max_value=10, value=int(workspace_data.get("concrete_pumps_count", 2)), step=1)
-            hoists = st.number_input("Passenger / Material Hoists", min_value=0, max_value=15, value=int(workspace_data.get("material_hoists_count", 3)), step=1)
-            concrete_vol = st.number_input("Total Concrete Volume (m³)", min_value=500.0, max_value=200000.0, value=float(workspace_data.get("concrete_volume_m3", 19500.0)), step=500.0)
-            rebar_vol = st.number_input("Total Rebar Requirement (Tons)", min_value=100.0, max_value=50000.0, value=float(workspace_data.get("rebar_tons_needed", 3400.0)), step=100.0)
+            cranes = st.number_input("Tower Cranes on Site", min_value=1, max_value=20, value=int(workspace_data.get("cranes_count", 6)), step=1)
+            pumps = st.number_input("Concrete Pumps Active", min_value=0, max_value=10, value=int(workspace_data.get("pumps_count", 3)), step=1)
+            hoists = st.number_input("Passenger / Material Hoists", min_value=0, max_value=15, value=int(workspace_data.get("hoists_count", 4)), step=1)
+            concrete_vol = st.number_input("Total Concrete Volume (m³)", min_value=500.0, max_value=200000.0, value=float(workspace_data.get("concrete_m3", 21000.0)), step=500.0)
+            rebar_vol = st.number_input("Total Rebar Requirement (Tons)", min_value=100.0, max_value=50000.0, value=float(workspace_data.get("rebar_tons", 4500.0)), step=100.0)
 
         with col_finance:
             st.markdown("#### 3. Financial Rates & Penalties")
-            crane_rate = st.number_input("Tower Crane Cost ($/day per unit)", min_value=100.0, max_value=10000.0, value=float(workspace_data.get("crane_daily_rate_usd", 1250.0)), step=50.0)
-            delay_penalty = st.number_input("Contractual Handover Penalty ($/day)", min_value=0.0, max_value=50000.0, value=float(workspace_data.get("penalty_delay_daily_usd", 5000.0)), step=250.0)
-            concrete_cost = st.number_input("Concrete Batch Cost ($/m³)", min_value=20.0, max_value=500.0, value=float(workspace_data.get("concrete_cost_m3_usd", 95.0)), step=5.0)
-            total_budget = st.number_input("Total Project Budget ($ USD)", min_value=100000.0, max_value=500000000.0, value=float(workspace_data.get("total_budget_usd", 32000000.0)), step=500000.0)
+            crane_rate = st.number_input("Tower Crane Cost ($/day per unit)", min_value=100.0, max_value=10000.0, value=float(workspace_data.get("crane_daily_rate", 1600.0)), step=50.0)
+            delay_penalty = st.number_input("Contractual Handover Penalty ($/day)", min_value=0.0, max_value=50000.0, value=float(workspace_data.get("delay_penalty_per_day", 12000.0)), step=250.0)
+            concrete_cost = st.number_input("Concrete Batch Cost ($/m³)", min_value=20.0, max_value=500.0, value=float(workspace_data.get("concrete_cost_m3", 115.0)), step=5.0)
+            logistics_budget = st.number_input("Site Logistics Budget ($ USD)", min_value=100000.0, max_value=500000000.0, value=float(workspace_data.get("total_logistics_budget", 3500000.0)), step=100000.0)
 
         st.markdown("<br/>", unsafe_allow_html=True)
         submit_calc = st.form_submit_button("Calculate & Save Project Parameters", use_container_width=True)
 
-    # Run automated calculations
-    duration_days = duration_mo * 30.0
-    crane_commit_cost = cranes * crane_rate * duration_days
-    crane_standstill_saved = cranes * crane_rate * 12.0  # 12 days idle conflict avoided by CP-SAT solver
-    concrete_spoilage_saved = concrete_vol * concrete_cost * 0.12  # 12% cold snap/traffic dump avoided
-    delay_penalty_saved = delay_penalty * 18.0  # 18 days overall schedule slip prevented
-    total_capital_preserved = crane_standstill_saved + concrete_spoilage_saved + delay_penalty_saved
-    platform_fee_est = total_budget * 0.008  # ~0.8% enterprise logistics SaaS tier
-    roi_percent = (total_capital_preserved / max(platform_fee_est, 1000.0)) * 100.0
+    # Field names are exactly api.schemas.CompanyWorkspaceIn.
+    ws_payload = {
+        "access_key": current_key,
+        "company_name": comp_name,
+        "project_id": workspace_data.get("project_id", selected_pid),
+        "project_name": p_name,
+        "location": p_loc,
+        "building_type": p_type,
+        "total_area_sqm": total_area,
+        "floors": int(floors),
+        "start_date": start_date.isoformat(),
+        "target_end_date": end_date.isoformat(),
+        "cranes_count": int(cranes),
+        "pumps_count": int(pumps),
+        "hoists_count": int(hoists),
+        "rebar_tons": rebar_vol,
+        "concrete_m3": concrete_vol,
+        "crane_daily_rate": crane_rate,
+        "delay_penalty_per_day": delay_penalty,
+        "concrete_cost_m3": concrete_cost,
+        "total_logistics_budget": logistics_budget,
+    }
 
     if submit_calc:
-        # Save to API backend
-        payload = {
-            "access_key": current_key,
-            "company_name": comp_name,
-            "project_name": p_name,
-            "location": p_loc,
-            "building_type": p_type,
-            "total_area_m2": total_area,
-            "floors_count": floors,
-            "duration_months": duration_mo,
-            "tower_cranes_count": cranes,
-            "concrete_pumps_count": pumps,
-            "material_hoists_count": hoists,
-            "rebar_tons_needed": rebar_vol,
-            "concrete_volume_m3": concrete_vol,
-            "crane_daily_rate_usd": crane_rate,
-            "penalty_delay_daily_usd": delay_penalty,
-            "concrete_cost_m3_usd": concrete_cost,
-            "total_budget_usd": total_budget,
-        }
         try:
-            resp = requests.post(f"{API_URL}/projects/workspace", json=payload, timeout=10)
+            resp = requests.post(f"{API_URL}/projects/workspace", json=ws_payload, timeout=10)
             if resp.status_code == 200:
-                st.success(f"Workspace parameters for '{p_name}' successfully committed under Key: {current_key}!")
+                st.success(f"Workspace parameters for '{p_name}' saved under key {current_key}.")
             else:
-                st.warning(f"Saved locally, but API returned status {resp.status_code}: {resp.text}")
+                st.error(f"Not saved — API returned {resp.status_code}: {resp.text}")
         except Exception as e:
             st.error(f"Backend sync error: {e}")
 
-    # Live Automated Analytics & Financial Scorecard
-    st.markdown("### Automated AI Financial & Operational Analysis")
-    st.caption("Derived from site inputs, CP-SAT solver allocation invariants, and ML delay-risk gating:")
+    # All finance comes from business/economics.py via the API -- no local math.
+    try:
+        r = requests.post(f"{API_URL}/economics/site", json=ws_payload, timeout=5)
+        r.raise_for_status()
+        finance = r.json()
+    except Exception:
+        finance = None
+
+    st.markdown("### Site Economics · Estimate")
+    st.caption("Losses avoided per site-year in three scenarios. Inputs are founder assumptions "
+               "(see GET /economics), not yet measured on a real site.")
+
+    if finance is None:
+        st.warning("API offline — start the API to compute site economics.")
+        st.stop()
+
+    base = finance["scenarios"]["base"]
+    cons = finance["scenarios"]["conservative"]
+    up = finance["scenarios"]["upside"]
+    licence = finance["annual_licence"]
 
     fcol1, fcol2, fcol3, fcol4 = st.columns(4)
     with fcol1:
@@ -1398,11 +1371,11 @@ elif view == "Company Workspace":
             <div class="kpi-card">
                 <div class="kpi-top-row">
                     <div class="kpi-icon accent">RUN</div>
-                    <span class="badge-estimate" style="background:rgba(255,255,255,0.06); border-color:#64748B; color:#94A3B8;">Operating Input</span>
+                    <span class="sp-badge sp-badge--input">Operating Input</span>
                 </div>
                 <div class="kpi-lbl">Machinery Run Cost</div>
-                <div class="kpi-val">${crane_commit_cost:,.0f}</div>
-                <div class="kpi-sub-text">{cranes} cranes over {duration_mo} mo</div>
+                <div class="kpi-val">${finance['machinery_est_cost']:,.0f}</div>
+                <div class="kpi-sub-text">{cranes} cranes · {finance['duration_days']} days</div>
                 <div class="metric-provenance">Rate: ${crane_rate:,.0f}/day per unit</div>
             </div>
             """,
@@ -1413,13 +1386,13 @@ elif view == "Company Workspace":
             f"""
             <div class="kpi-card">
                 <div class="kpi-top-row">
-                    <div class="kpi-icon" style="color:#10B981; background:rgba(16,185,129,0.14);">SOLV</div>
-                    <span class="badge-estimate">Statistical Estimate</span>
+                    <div class="kpi-icon" style="color:var(--sp-ok); background:color-mix(in srgb, var(--sp-ok) 14%, transparent);">BASE</div>
+                    <span class="badge-estimate">Estimate</span>
                 </div>
-                <div class="kpi-lbl">Crane Standstill Saved</div>
-                <div class="kpi-val">${crane_standstill_saved:,.0f}</div>
-                <div class="kpi-sub-text">12 conflict days eliminated</div>
-                <div class="metric-provenance">100% Synthetic Simulation Model</div>
+                <div class="kpi-lbl">Losses Avoided · Base Case</div>
+                <div class="kpi-val">${base['total_value']:,.0f}</div>
+                <div class="kpi-sub-text">{base['value_multiple']:.1f}× the ${licence:,.0f}/yr licence</div>
+                <div class="metric-provenance">Crane ${base['crane_idle_avoided']:,.0f} · concrete ${base['concrete_loss_avoided']:,.0f} · delay ${base['delay_penalty_avoided']:,.0f}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1429,13 +1402,13 @@ elif view == "Company Workspace":
             f"""
             <div class="kpi-card">
                 <div class="kpi-top-row">
-                    <div class="kpi-icon accent">PROT</div>
-                    <span class="badge-estimate">Statistical Estimate</span>
+                    <div class="kpi-icon accent">RANGE</div>
+                    <span class="badge-estimate">Estimate</span>
                 </div>
-                <div class="kpi-lbl">Concrete Spoilage Shield</div>
-                <div class="kpi-val">${concrete_spoilage_saved:,.0f}</div>
-                <div class="kpi-sub-text">12% mix wastage prevented</div>
-                <div class="metric-provenance">100% Synthetic Simulation Model</div>
+                <div class="kpi-lbl">Conservative – Upside</div>
+                <div class="kpi-val">${cons['total_value']:,.0f} – ${up['total_value']:,.0f}</div>
+                <div class="kpi-sub-text">{cons['value_multiple']:.1f}× – {up['value_multiple']:.1f}× licence</div>
+                <div class="metric-provenance">Scenario levers: GET /economics</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1445,13 +1418,13 @@ elif view == "Company Workspace":
             f"""
             <div class="kpi-card">
                 <div class="kpi-top-row">
-                    <div class="kpi-icon" style="color:#10B981; background:rgba(16,185,129,0.14);">ROI</div>
-                    <span class="badge-estimate">Statistical Estimate</span>
+                    <div class="kpi-icon" style="color:var(--sp-ok); background:color-mix(in srgb, var(--sp-ok) 14%, transparent);">CHK</div>
+                    <span class="sp-badge sp-badge--check">Sanity Check</span>
                 </div>
-                <div class="kpi-lbl">Total Capital Preserved</div>
-                <div class="kpi-val">${total_capital_preserved:,.0f}</div>
-                <div class="kpi-sub-text">Est. ROI: {roi_percent:.0f}%</div>
-                <div class="metric-provenance">Sensitivity: $480k–$720k range</div>
+                <div class="kpi-lbl">Share of Logistics Budget</div>
+                <div class="kpi-val">{base['share_of_logistics_budget']:.1%}</div>
+                <div class="kpi-sub-text">base-case savings ÷ site logistics budget</div>
+                <div class="metric-provenance">Above ~8% would not be credible</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1476,13 +1449,13 @@ elif view == "Company Workspace":
         st.markdown("#### Access & Security Credentials")
         st.markdown(
             f"""
-            <div style="background:#161D2B; padding:18px; border-radius:10px; border:1px solid #222C3E;">
-                <div style="font-size:0.75rem; color:#64748B; text-transform:uppercase; font-weight:600; letter-spacing:0.06em;">Contractor Key</div>
-                <div style="font-size:1.25rem; font-weight:700; color:#FF5E36; font-family:'JetBrains Mono'; margin:4px 0 10px;">{current_key}</div>
-                <div style="font-size:0.8rem; color:#94A3B8; line-height:1.7;">
-                    • <strong>Status:</strong> <span style="color:#10B981; font-weight:600;">Active & Synchronized</span><br/>
+            <div style="background:var(--sp-surface); padding:18px; border-radius:10px; border:1px solid var(--sp-border);">
+                <div style="font-size:0.75rem; color:var(--sp-text-3); text-transform:uppercase; font-weight:600; letter-spacing:0.06em;">Contractor Key</div>
+                <div style="font-size:1.25rem; font-weight:700; color:var(--sp-accent); font-family:var(--sp-font-mono); margin:4px 0 10px;">{current_key}</div>
+                <div style="font-size:0.8rem; color:var(--sp-text-2); line-height:1.7;">
+                    • <strong>Status:</strong> <span style="color:var(--sp-ok); font-weight:600;">Active & Synchronized</span><br/>
                     • <strong>Scope:</strong> {p_name}<br/>
-                    • <strong>Internal ML Access:</strong> <span style="color:#F87171; font-weight:600;">Restricted (Operator view only)</span><br/>
+                    • <strong>Internal ML Access:</strong> <span style="color:var(--sp-risk); font-weight:600;">Restricted (Operator view only)</span><br/>
                     • <strong>Last Computed:</strong> Just now
                 </div>
             </div>
@@ -1513,18 +1486,18 @@ elif view == "Pilot Engagement":
     # Validation Status Banner inside Pilot Tab
     st.markdown(
         """
-        <div style="background:#131B2A; border:1px solid #1E293B; border-left:4px solid #38BDF8; border-radius:8px; padding:14px 18px; margin-bottom:20px;">
+        <div style="background:var(--sp-surface); border:1px solid var(--sp-surface-2); border-left:4px solid var(--sp-info); border-radius:8px; padding:14px 18px; margin-bottom:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-                <div style="font-size:0.78rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#38BDF8;">
+                <div style="font-size:0.78rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--sp-info);">
                     Validation Status & Real-Data Calibration Gateway
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <span class="badge-guarantee">Algorithmic Guarantee</span>
+                    <span class="badge-guarantee">Correctness Invariant</span>
                     <span class="badge-estimate">Statistical Estimate</span>
                 </div>
             </div>
-            <div style="font-size:0.83rem; color:#CBD5E1; line-height:1.55;">
-                <strong>Baseline Today:</strong> 100% Synthetic Benchmark (n=2,200 deliveries). CP-SAT zero double-bookings and phase-gate sequencing are guaranteed mathematically. ML delay risk weights and financial ROI ranges will be calibrated against client historical delivery logs during Phase 2.
+            <div style="font-size:0.83rem; color:var(--sp-text-2); line-height:1.55;">
+                <strong>Baseline Today:</strong> 100% Synthetic Benchmark (n=2,200 deliveries). No-double-booking and phase-date checks are tested correctness invariants. ML delay risk weights and the ROI scenarios will be calibrated against client historical delivery logs during Phase 2.
             </div>
         </div>
         """,
@@ -1537,10 +1510,10 @@ elif view == "Pilot Engagement":
     with p1:
         st.markdown(
             """
-            <div class="kpi-card" style="border-top:3px solid #38BDF8;">
-                <div style="font-size:0.75rem; font-weight:700; color:#38BDF8; font-family:'JetBrains Mono';">WEEKS 1–2</div>
-                <div style="font-size:1.05rem; font-weight:700; color:#FFFFFF; margin:6px 0;">Data Ingestion</div>
-                <div style="font-size:0.78rem; color:#94A3B8; line-height:1.5;">
+            <div class="kpi-card" style="border-top:3px solid var(--sp-info);">
+                <div style="font-size:0.75rem; font-weight:700; color:var(--sp-info); font-family:var(--sp-font-mono);">WEEKS 1–2</div>
+                <div style="font-size:1.05rem; font-weight:700; color:var(--sp-text); margin:6px 0;">Data Ingestion</div>
+                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">
                     • Map 6–12 mo 1C / SAP PO & gate receipts via <code>ml/ingest.py</code>.<br/>
                     • Register site crane inventories and milestone schedules.
                 </div>
@@ -1551,10 +1524,10 @@ elif view == "Pilot Engagement":
     with p2:
         st.markdown(
             """
-            <div class="kpi-card" style="border-top:3px solid #38BDF8;">
-                <div style="font-size:0.75rem; font-weight:700; color:#38BDF8; font-family:'JetBrains Mono';">WEEKS 3–4</div>
-                <div style="font-size:1.05rem; font-weight:700; color:#FFFFFF; margin:6px 0;">Model Calibration</div>
-                <div style="font-size:0.78rem; color:#94A3B8; line-height:1.5;">
+            <div class="kpi-card" style="border-top:3px solid var(--sp-info);">
+                <div style="font-size:0.75rem; font-weight:700; color:var(--sp-info); font-family:var(--sp-font-mono);">WEEKS 3–4</div>
+                <div style="font-size:1.05rem; font-weight:700; color:var(--sp-text); margin:6px 0;">Model Calibration</div>
+                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">
                     • Calibrate supplier empirical-Bayes priors on real historical deliveries.<br/>
                     • Tune material grace thresholds with site directors.
                 </div>
@@ -1565,10 +1538,10 @@ elif view == "Pilot Engagement":
     with p3:
         st.markdown(
             """
-            <div class="kpi-card" style="border-top:3px solid #FF5E36;">
-                <div style="font-size:0.75rem; font-weight:700; color:#FF5E36; font-family:'JetBrains Mono';">WEEKS 5–6</div>
-                <div style="font-size:1.05rem; font-weight:700; color:#FFFFFF; margin:6px 0;">Live Shadow Pilot</div>
-                <div style="font-size:0.78rem; color:#94A3B8; line-height:1.5;">
+            <div class="kpi-card" style="border-top:3px solid var(--sp-accent);">
+                <div style="font-size:0.75rem; font-weight:700; color:var(--sp-accent); font-family:var(--sp-font-mono);">WEEKS 5–6</div>
+                <div style="font-size:1.05rem; font-weight:700; color:var(--sp-text); margin:6px 0;">Live Shadow Pilot</div>
+                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">
                     • Deploy shadow morning dispatch feeds on 2 active sites.<br/>
                     • Verify CP-SAT conflict-free crane schedules with site dispatchers.
                 </div>
@@ -1579,10 +1552,10 @@ elif view == "Pilot Engagement":
     with p4:
         st.markdown(
             """
-            <div class="kpi-card" style="border-top:3px solid #10B981;">
-                <div style="font-size:0.75rem; font-weight:700; color:#10B981; font-family:'JetBrains Mono';">WEEKS 7–8</div>
-                <div style="font-size:1.05rem; font-weight:700; color:#FFFFFF; margin:6px 0;">Financial Sign-off</div>
-                <div style="font-size:0.78rem; color:#94A3B8; line-height:1.5;">
+            <div class="kpi-card" style="border-top:3px solid var(--sp-ok);">
+                <div style="font-size:0.75rem; font-weight:700; color:var(--sp-ok); font-family:var(--sp-font-mono);">WEEKS 7–8</div>
+                <div style="font-size:1.05rem; font-weight:700; color:var(--sp-text); margin:6px 0;">Financial Sign-off</div>
+                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">
                     • Audit measured crane standstill reduction & avoided delays.<br/>
                     • Confirm >$50k/site monthly savings and sign production SaaS.
                 </div>
@@ -1597,34 +1570,35 @@ elif view == "Pilot Engagement":
     with d_left:
         st.markdown(
             """
-            <div style="background:#161D2B; border:1px solid #222C3E; border-radius:10px; padding:18px 20px;">
-                <div style="font-size:0.85rem; font-weight:700; color:#FFFFFF; margin-bottom:10px;">Required Data Feeds (Read-Only)</div>
-                <div style="font-size:0.82rem; color:#CBD5E1; line-height:1.65;">
+            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-text); margin-bottom:10px;">Required Data Feeds (Read-Only)</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2); line-height:1.65;">
                     1. <strong>Purchase Orders & Gate Logs:</strong> 6–12 months historical records (<code>supplier_id, material_type, quantity, order_date, promised_date, actual_date</code>).<br/>
                     2. <strong>Machinery Registry:</strong> Active tower cranes, concrete pumps, hoists, operating rates, and capacities.<br/>
                     3. <strong>Subcontractor Time Requests:</strong> Trade bookings for crane hook time and unload bays.<br/>
                     4. <strong>Master Schedule:</strong> Construction phase milestones (Foundation, Structure, MEP, Finishing).
                 </div>
-                <div style="margin-top:12px; font-size:0.75rem; color:#94A3B8; border-top:1px dashed #2B374E; padding-top:8px;">
-                    🛡️ <strong>Data Sovereignty:</strong> No pricing contracts, worker PII, or confidential commercial agreements are ingested. All data stays in client sovereign cloud or private VPC.
+                <div style="margin-top:12px; font-size:0.75rem; color:var(--sp-text-2); border-top:1px dashed var(--sp-border); padding-top:8px;">
+                    <strong>Data Sovereignty:</strong> No pricing contracts, worker PII, or confidential commercial agreements are ingested. All data stays in client sovereign cloud or private VPC.
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
     with d_right:
+        h = (api_get("/economics") or {}).get("headline", {})
         st.markdown(
-            """
-            <div style="background:#161D2B; border:1px solid #222C3E; border-radius:10px; padding:18px 20px;">
-                <div style="font-size:0.85rem; font-weight:700; color:#FFFFFF; margin-bottom:10px;">Commercial Pricing & Licensing</div>
-                <div style="font-size:0.82rem; color:#CBD5E1; line-height:1.65;">
-                    • <strong>Pilot Fee:</strong> <span style="color:#FF5E36; font-weight:700;">$15,000 (flat)</span> for 8-week dual-site deployment, pipeline integration, and calibration. *(100% credited toward annual agreement)*.<br/>
-                    • <strong>Standard Site SaaS:</strong> <span style="color:#38BDF8; font-weight:700;">$3,500 / site / month</span> (up to 4 cranes, 500 deliveries/month).<br/>
-                    • <strong>Flagship Mega-Site SaaS:</strong> <span style="color:#10B981; font-weight:700;">$4,800 / site / month</span> (unlimited machinery, IoT telematics, custom phase gates).<br/>
+            f"""
+            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-text); margin-bottom:10px;">Commercial Pricing & Licensing</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2); line-height:1.65;">
+                    • <strong>Pilot Fee:</strong> <span style="color:var(--sp-accent); font-weight:700;">$15,000 (flat)</span> for 8-week dual-site deployment, pipeline integration, and calibration. *(100% credited toward annual agreement)*.<br/>
+                    • <strong>Standard Site SaaS:</strong> <span style="color:var(--sp-info); font-weight:700;">$3,500 / site / month</span> (up to 4 cranes, 500 deliveries/month).<br/>
+                    • <strong>Flagship Mega-Site SaaS:</strong> <span style="color:var(--sp-ok); font-weight:700;">$4,800 / site / month</span> (unlimited machinery, IoT telematics, custom phase gates).<br/>
                     • <strong>Portfolio License (10+ sites):</strong> Custom volume terms with cross-site supplier benchmarking.
                 </div>
-                <div style="margin-top:12px; font-size:0.75rem; color:#10B981; font-weight:600; border-top:1px dashed #2B374E; padding-top:8px;">
-                    📈 <strong>Projected Net ROI:</strong> >14× software investment return ($621k/site preserved vs $42k/site annual license).
+                <div style="margin-top:12px; font-size:0.75rem; color:var(--sp-ok); font-weight:600; border-top:1px dashed var(--sp-border); padding-top:8px;">
+                    <strong>Estimated losses avoided (demo site, per site-year):</strong> {h.get('value_base', '—')} base case = {h.get('multiple_base', '—')} the licence (conservative {h.get('value_conservative', '—')}, {h.get('multiple_conservative', '—')}). Founder assumptions; the pilot measures them.
                 </div>
             </div>
             """,
@@ -1639,79 +1613,64 @@ elif view == "Pitch & Economics":
         """
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
             <span class="cmd-dot"></span>
-            <span class="cmd-label">LaunchZone Startup Competition · Rubric & Investor Hub</span>
+            <span class="cmd-label">Pitch & Economics · every figure from GET /economics</span>
         </div>
-        <h1 class="greeting">Investment Memo & Competition Deck</h1>
+        <h1 class="greeting">Market, Unit Economics & Competition</h1>
         <p class="greeting-sub">
-            Market sizing (TAM/SAM/SOM), primary customer validation, B2B SaaS unit economics, and competitive moat analysis.
+            All numbers below are computed by business/economics.py from assumptions tagged by source.
+            None are measured on a real site yet — the pilot replaces them.
         </p>
         """,
         unsafe_allow_html=True,
     )
 
-    # Top KPI Cards: Market & SaaS Metrics
+    econ = api_get("/economics")
+    if not econ:
+        st.warning("API offline — start the API to load the economics.")
+        st.stop()
+    h = econ["headline"]
+    A = econ["assumptions"]
+    years = econ["forecast"]["years"]
+
+    def _card(col, color, label, value, sub):
+        col.markdown(
+            f"""
+            <div class="kpi-card" style="border-top:3px solid {color};">
+                <div style="font-size:0.75rem; font-weight:700; color:{color}; font-family:var(--sp-font-mono);">{label}</div>
+                <div style="font-size:1.6rem; font-weight:800; color:var(--sp-text); margin:4px 0;">{value}</div>
+                <div style="font-size:0.75rem; color:var(--sp-text-2);">{sub}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     k1, k2, k3, k4 = st.columns(4)
-    with k1:
-        st.markdown(
-            """
-            <div class="kpi-card" style="border-top:3px solid #38BDF8;">
-                <div style="font-size:0.75rem; font-weight:700; color:#38BDF8; font-family:'JetBrains Mono';">REGIONAL SAM</div>
-                <div style="font-size:1.6rem; font-weight:800; color:#FFFFFF; margin:4px 0;">$134M</div>
-                <div style="font-size:0.75rem; color:#94A3B8;">3,200 active commercial sites in Central Asia/CIS</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with k2:
-        st.markdown(
-            """
-            <div class="kpi-card" style="border-top:3px solid #10B981;">
-                <div style="font-size:0.75rem; font-weight:700; color:#10B981; font-family:'JetBrains Mono';">UNIT ECONOMICS</div>
-                <div style="font-size:1.6rem; font-weight:800; color:#10B981; margin:4px 0;">19.4 : 1</div>
-                <div style="font-size:0.75rem; color:#94A3B8;">LTV ($126k) to CAC ($6.5k) · 88% gross margin</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with k3:
-        st.markdown(
-            """
-            <div class="kpi-card" style="border-top:3px solid #FF5E36;">
-                <div style="font-size:0.75rem; font-weight:700; color:#FF5E36; font-family:'JetBrains Mono';">PROVEN VALUE</div>
-                <div style="font-size:1.6rem; font-weight:800; color:#FF5E36; margin:4px 0;">>14× ROI</div>
-                <div style="font-size:0.75rem; color:#94A3B8;">$621k risk avoided vs $42k software license/yr</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with k4:
-        st.markdown(
-            """
-            <div class="kpi-card" style="border-top:3px solid #A855F7;">
-                <div style="font-size:0.75rem; font-weight:700; color:#A855F7; font-family:'JetBrains Mono';">BEACHHEAD SOM</div>
-                <div style="font-size:1.6rem; font-weight:800; color:#FFFFFF; margin:4px 0;">$7.56M</div>
-                <div style="font-size:0.75rem; color:#94A3B8;">Top 15 Developer Holdings (KZ & UZ)</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    _card(k1, "var(--sp-info)", "BEACHHEAD MARKET", h["market_beachhead"],
+          f"{A['beachhead_sites']['value']:.0f} sites of the top-15 KZ/UZ holdings · founder estimate")
+    _card(k2, "var(--sp-ok)", "LTV : CAC", h["ltv_to_cac"],
+          f"LTV {h['ltv']} (margin-adjusted) ÷ CAC {h['cac']} · {h['gross_margin']} gross margin")
+    _card(k3, "var(--sp-accent)", "SITE VALUE · ESTIMATE", f"{h['multiple_base']} licence",
+          f"{h['value_base']} base case ({h['value_conservative']} – {h['value_upside']}) · demo Site B")
+    _card(k4, "var(--sp-info)", "YEAR-3 TARGET", f"${years[-1]['arr'] / 1e6:.2f}M ARR",
+          f"{years[-1]['sites']} paid sites · {h['year3_share']} of the beachhead")
 
     st.write("")
 
-    # Section 1: Problem & CustDev Proof
-    st.markdown("### 1. Problem Validation & Primary CustDev Evidence (Rubric Item 1: 12 pts)")
+    # Section 1: Problem & customer evidence
+    st.markdown("### 1. Problem & Customer Evidence")
     cd1, cd2 = st.columns(2)
     with cd1:
         st.markdown(
             """
-            <div style="background:#161D2B; border:1px solid #222C3E; border-radius:10px; padding:18px 20px; height:100%;">
-                <div style="font-size:0.85rem; font-weight:700; color:#38BDF8; margin-bottom:8px;">CustDev Findings (10 Construction Leadership Interviews)</div>
-                <div style="font-size:0.82rem; color:#CBD5E1; line-height:1.65;">
-                    • <strong>83% of site dispatchers</strong> coordinate tower cranes and unload bays via paper notebooks or informal WhatsApp groups.<br/>
-                    • <strong>Crane standby waste:</strong> Tower cranes cost $180–$350/hour. Uncoordinated arrivals cause 3–5 bottleneck incidents every week per site.<br/>
-                    • <strong>Perishable concrete loss:</strong> Concrete mixer trucks stuck in street queues exceed the 90-minute hydration limit, causing $28,000 in average wastage per high-rise project.<br/>
-                    • <strong>Zero early warning:</strong> Sites currently have 0 hours visibility into supplier slips before the truck fails to arrive.
+            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px; height:100%;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-info); margin-bottom:8px;">What 10 interviewees reported (7 logistics managers, 3 CPOs)</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2); line-height:1.65;">
+                    • Equipment is coordinated on paper logbooks or WhatsApp groups.<br/>
+                    • Booking clashes happen <strong>3–5 times per week</strong> per site.<br/>
+                    • Concrete lost to queueing trucks: about <strong>$28,000 per high-rise project</strong> (interviewee estimate; anchors the base case).<br/>
+                    • Sites learn of a supplier slip only when the truck fails to arrive.
                 </div>
+                <div class="metric-provenance" style="margin-top:10px;">Evidence log: docs/CUSTDEV_LOG.md</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1719,14 +1678,14 @@ elif view == "Pitch & Economics":
     with cd2:
         st.markdown(
             """
-            <div style="background:#161D2B; border:1px solid #222C3E; border-radius:10px; padding:18px 20px; height:100%;">
-                <div style="font-size:0.85rem; font-weight:700; color:#FF5E36; margin-bottom:8px;">Direct Quotes from Field Directors (Astana & Almaty)</div>
-                <div style="font-size:0.82rem; color:#CBD5E1; font-style:italic; line-height:1.65;">
+            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px; height:100%;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-accent); margin-bottom:8px;">Interview Quotes (Astana & Almaty)</div>
+                <div style="font-size:0.82rem; color:var(--sp-text-2); font-style:italic; line-height:1.65;">
                     "When rebar slips by 4 days, my formwork carpenters and concrete pour team sit doing nothing. We pay daily standby wages while the crane stands idle."<br/>
-                    <span style="font-style:normal; font-size:0.75rem; color:#94A3B8;">— Site Superintendent, 22-Story Residential Project, Almaty</span>
+                    <span style="font-style:normal; font-size:0.75rem; color:var(--sp-text-2);">— Site Superintendent, 22-Story Residential Project, Almaty</span>
                     <br/><br/>
-                    "The city municipality fines us if concrete trucks queue on the street. We desperately need a system that forces subcontractors into non-overlapping crane time."<br/>
-                    <span style="font-style:normal; font-size:0.75rem; color:#94A3B8;">— Logistics Dispatcher, Commercial Tower, Astana</span>
+                    "The city municipality fines us if concrete trucks queue on the street. We need a system that stops equipment bookings from overlapping."<br/>
+                    <span style="font-style:normal; font-size:0.75rem; color:var(--sp-text-2);">— Logistics Dispatcher, Commercial Tower, Astana</span>
                 </div>
             </div>
             """,
@@ -1735,44 +1694,23 @@ elif view == "Pitch & Economics":
 
     st.write("")
 
-    # Section 2: Market Opportunity TAM / SAM / SOM
-    st.markdown("### 2. Market Sizing: TAM / SAM / SOM & Why Now (Rubric Item 2: 12 pts)")
+    # Section 2: Market (bottom-up: sites x list price)
+    st.markdown("### 2. Market Sizing · bottom-up (sites × list price)")
     m_col1, m_col2, m_col3 = st.columns(3)
-    with m_col1:
-        st.markdown(
-            """
-            <div style="background:#131B2A; border:1px solid #1E293B; border-radius:8px; padding:16px;">
-                <div style="font-size:0.75rem; font-weight:700; color:#38BDF8; font-family:'JetBrains Mono';">GLOBAL TAM</div>
-                <div style="font-size:1.3rem; font-weight:800; color:#FFFFFF; margin:4px 0;">$15.2 Billion</div>
-                <div style="font-size:0.78rem; color:#94A3B8; line-height:1.5;">
-                    Global construction management & logistics software market growing at <strong>10.4% CAGR</strong> through 2030.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with m_col2:
-        st.markdown(
-            """
-            <div style="background:#131B2A; border:1px solid #1E293B; border-radius:8px; padding:16px;">
-                <div style="font-size:0.75rem; font-weight:700; color:#10B981; font-family:'JetBrains Mono';">REGIONAL SAM</div>
-                <div style="font-size:1.3rem; font-weight:800; color:#FFFFFF; margin:4px 0;">$134 Million</div>
-                <div style="font-size:0.78rem; color:#94A3B8; line-height:1.5;">
-                    ~3,200 active major commercial & high-rise sites in Central Asia and CIS @ $42,000 annual software spend.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with m_col3:
-        st.markdown(
-            """
-            <div style="background:#131B2A; border:1px solid #1E293B; border-radius:8px; padding:16px;">
-                <div style="font-size:0.75rem; font-weight:700; color:#FF5E36; font-family:'JetBrains Mono';">BEACHHEAD SOM (Year 1–3)</div>
-                <div style="font-size:1.3rem; font-weight:800; color:#FFFFFF; margin:4px 0;">$7.56M ARR</div>
-                <div style="font-size:0.78rem; color:#94A3B8; line-height:1.5;">
-                    Top 15 Developer Holdings in KZ & UZ (180 major sites). <strong>Year 3 Target:</strong> 35 active sites = <strong>$1.47M ARR</strong>.
-                </div>
+    for col, color, label, value, sub in [
+        (m_col1, "var(--sp-info)", "REGIONAL MARKET", h["market_regional"],
+         f"~{A['regional_sites']['value']:,.0f} major sites in Central Asia, Caucasus & CIS × {h['acv']}/yr · founder estimate, source to verify"),
+        (m_col2, "var(--sp-ok)", "BEACHHEAD", h["market_beachhead"],
+         f"{A['beachhead_sites']['value']:.0f} active major sites of the top-15 KZ/UZ holdings × {h['acv']}/yr"),
+        (m_col3, "var(--sp-accent)", "YEAR-3 TARGET", h["y3"],
+         f"{h['year3_share']} of the beachhead — not full capture"),
+    ]:
+        col.markdown(
+            f"""
+            <div style="background:var(--sp-surface); border:1px solid var(--sp-surface-2); border-radius:8px; padding:16px;">
+                <div style="font-size:0.75rem; font-weight:700; color:{color}; font-family:var(--sp-font-mono);">{label}</div>
+                <div style="font-size:1.3rem; font-weight:800; color:var(--sp-text); margin:4px 0;">{value}</div>
+                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">{sub}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1780,140 +1718,112 @@ elif view == "Pitch & Economics":
 
     st.write("")
 
-    # Section 3: Unit Economics & Financial Breakdown
-    st.markdown("### 3. Unit Economics & Financial Model (Rubric Item 6: 10 pts)")
+    # Section 3: Unit economics, forecast and the assumptions behind them
+    st.markdown("### 3. Unit Economics & Forecast")
     ue1, ue2 = st.columns([1.2, 0.8])
     with ue1:
+        rows = [
+            ("Annual contract value (standard site)", f"{h['acv']} / site / year"),
+            ("Customer acquisition cost", f"{h['cac']} per site"),
+            ("Lifetime value (gross-margin-adjusted)", f"{h['ltv']} per site"),
+            ("LTV : CAC", h["ltv_to_cac"]),
+            ("Gross margin", h["gross_margin"]),
+            ("CAC payback", h["cac_payback"]),
+            ("Break-even", h["break_even"]),
+        ]
+        body = "".join(
+            f'<tr style="border-bottom:1px solid var(--sp-border);"><td style="padding:6px 0; color:var(--sp-text-2);">{k}</td>'
+            f'<td style="text-align:right; font-weight:700; color:var(--sp-text);">{v}</td></tr>'
+            for k, v in rows
+        )
         st.markdown(
-            """
-            <div style="background:#161D2B; border:1px solid #222C3E; border-radius:10px; padding:18px 20px;">
-                <div style="font-size:0.85rem; font-weight:700; color:#FFFFFF; margin-bottom:12px;">Enterprise B2B SaaS Unit Economics</div>
-                <table style="width:100%; font-size:0.82rem; color:#CBD5E1; border-collapse:collapse;">
-                    <tr style="border-bottom:1px solid #2B374E; padding:6px 0;">
-                        <td style="padding:6px 0; color:#94A3B8;">Average Annual Contract Value (ACV)</td>
-                        <td style="text-align:right; font-weight:700; color:#FFFFFF;">$42,000 / site / year</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #2B374E;">
-                        <td style="padding:6px 0; color:#94A3B8;">Customer Acquisition Cost (CAC)</td>
-                        <td style="text-align:right; font-weight:700; color:#FFFFFF;">$6,500 (Enterprise Outbound)</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #2B374E;">
-                        <td style="padding:6px 0; color:#94A3B8;">Customer Lifetime Value (LTV)</td>
-                        <td style="text-align:right; font-weight:700; color:#10B981;">$126,000 (3-year site build lifecycle)</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #2B374E;">
-                        <td style="padding:6px 0; color:#94A3B8;">LTV : CAC Ratio</td>
-                        <td style="text-align:right; font-weight:700; color:#10B981;">19.4 : 1 (Top-decile SaaS)</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #2B374E;">
-                        <td style="padding:6px 0; color:#94A3B8;">Gross Margin</td>
-                        <td style="text-align:right; font-weight:700; color:#FFFFFF;">88.4% (Cloud compute + DB hosting)</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #2B374E;">
-                        <td style="padding:6px 0; color:#94A3B8;">CAC Payback Period</td>
-                        <td style="text-align:right; font-weight:700; color:#38BDF8;">1.8 Months</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:6px 0; color:#94A3B8;">Break-Even Milestone</td>
-                        <td style="text-align:right; font-weight:700; color:#FF5E36;">Month 14 (at 8 paid sites)</td>
-                    </tr>
-                </table>
+            f"""
+            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-text); margin-bottom:12px;">Unit Economics</div>
+                <table style="width:100%; font-size:0.82rem; color:var(--sp-text-2); border-collapse:collapse;">{body}</table>
+                <div class="metric-provenance" style="margin-top:10px;">No retention figure claimed — there is no revenue yet to retain.</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
     with ue2:
+        top = max(y["arr"] for y in years)
+        bars = "".join(
+            f"""
+            <div style="margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--sp-text-2);">
+                    <span>Year {y['year']}</span>
+                    <span style="font-weight:700; color:var(--sp-text);">{h[f"y{y['year']}"]}</span>
+                </div>
+                <div style="background:var(--sp-border); border-radius:4px; height:8px; margin-top:4px;">
+                    <div style="background:var(--sp-info); width:{y['arr'] / top * 100:.0f}%; height:8px; border-radius:4px;"></div>
+                </div>
+            </div>"""
+            for y in years
+        )
         st.markdown(
-            """
-            <div style="background:#161D2B; border:1px solid #222C3E; border-radius:10px; padding:18px 20px;">
-                <div style="font-size:0.85rem; font-weight:700; color:#FFFFFF; margin-bottom:12px;">3-Year Revenue Growth Trajectory</div>
-                <div style="margin-bottom:10px;">
-                    <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:#94A3B8;">
-                        <span>Year 1 (Beachhead Pilot)</span>
-                        <span style="font-weight:700; color:#FFFFFF;">$168,000 ARR (4 sites)</span>
-                    </div>
-                    <div style="background:#222C3E; border-radius:4px; height:8px; margin-top:4px;">
-                        <div style="background:#38BDF8; width:12%; height:8px; border-radius:4px;"></div>
-                    </div>
-                </div>
-                <div style="margin-bottom:10px;">
-                    <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:#94A3B8;">
-                        <span>Year 2 (KZ Holding Rollout)</span>
-                        <span style="font-weight:700; color:#10B981;">$714,000 ARR (17 sites)</span>
-                    </div>
-                    <div style="background:#222C3E; border-radius:4px; height:8px; margin-top:4px;">
-                        <div style="background:#10B981; width:45%; height:8px; border-radius:4px;"></div>
-                    </div>
-                </div>
-                <div>
-                    <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:#94A3B8;">
-                        <span>Year 3 (Regional Expansion)</span>
-                        <span style="font-weight:700; color:#FF5E36;">$1,890,000 ARR (45 sites)</span>
-                    </div>
-                    <div style="background:#222C3E; border-radius:4px; height:8px; margin-top:4px;">
-                        <div style="background:#FF5E36; width:100%; height:8px; border-radius:4px;"></div>
-                    </div>
-                </div>
-                <div style="margin-top:16px; font-size:0.75rem; color:#94A3B8; line-height:1.5;">
-                    Expansion into Uzbekistan (Tashkent) and direct integration with 1C:Enterprise ecosystem.
+            f"""
+            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-text); margin-bottom:12px;">Forecast · paid active sites, list price</div>
+                {bars}
+                <div style="margin-top:16px; font-size:0.75rem; color:var(--sp-text-2); line-height:1.5;">
+                    The 25% portfolio discount for 10+ sites would lower these figures.
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+    with st.expander("Assumptions behind every number", expanded=False):
+        st.dataframe(
+            pd.DataFrame(
+                [{"assumption": k, "value": v["value"], "unit": v["unit"],
+                  "source": v["source"], "note": v["note"]} for k, v in A.items()]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
     st.write("")
 
-    # Section 4: Competitive Advantage & Moat
-    st.markdown("### 4. Competitive Moat & Positioning Matrix (Rubric Item 7: 10 pts)")
+    # Section 4: Competition
+    st.markdown("### 4. Competition & Positioning")
+    comp_rows = [
+        ("Focus", "Delivery risk + equipment dispatch", "Site delivery & gate/crane booking",
+         "AI-generated schedules", "ML schedule delay risk", "Project & field management", "ERP & accounting"),
+        ("Predicts late deliveries", "Yes (unvalidated on real data)", "No", "No",
+         "Schedule-level, not per delivery", "No", "No"),
+        ("Clash-free equipment plan", "Yes, across sites", "Booking calendar per site",
+         "Schedule optimization", "No", "Manual", "No"),
+        ("Local deployment / 1C exports", "Yes", "No", "No", "No", "No", "Native"),
+    ]
+    head = "".join(f'<th style="padding:8px 10px; text-align:left;">{c}</th>' for c in
+                   ["", "SitePulse", "Voyage Control", "ALICE Technologies", "nPlan", "Procore / Fieldwire", "1C / SAP"])
+    trs = "".join(
+        '<tr style="border-bottom:1px solid var(--sp-border);">'
+        + "".join(f'<td style="padding:8px 10px;">{"<strong>" + c + "</strong>" if i < 2 else c}</td>'
+                  for i, c in enumerate(r))
+        + "</tr>"
+        for r in comp_rows
+    )
     st.markdown(
-        """
-        <div style="background:#161D2B; border:1px solid #222C3E; border-radius:10px; padding:18px 20px;">
-            <div style="font-size:0.85rem; font-weight:700; color:#FFFFFF; margin-bottom:12px;">Feature & Technological Superiority Matrix</div>
-            <table style="width:100%; font-size:0.82rem; color:#CBD5E1; border-collapse:collapse;">
-                <tr style="background:#1E293B; font-weight:700; color:#FFFFFF;">
-                    <th style="padding:8px 10px; text-align:left;">Platform Feature</th>
-                    <th style="padding:8px 10px; text-align:center; color:#38BDF8;">SitePulse</th>
-                    <th style="padding:8px 10px; text-align:center;">1C:Enterprise / ERP</th>
-                    <th style="padding:8px 10px; text-align:center;">Procore / Autodesk</th>
-                    <th style="padding:8px 10px; text-align:center;">Excel / WhatsApp</th>
-                </tr>
-                <tr style="border-bottom:1px solid #222C3E;">
-                    <td style="padding:8px 10px;"><strong>Crane Constraint Solver</strong></td>
-                    <td style="padding:8px 10px; text-align:center; color:#10B981; font-weight:700;">✅ CP-SAT (0 Conflicts)</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ None</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ Manual Gantt only</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ Daily disputes</td>
-                </tr>
-                <tr style="border-bottom:1px solid #222C3E;">
-                    <td style="padding:8px 10px;"><strong>Predictive Delay Scoring</strong></td>
-                    <td style="padding:8px 10px; text-align:center; color:#10B981; font-weight:700;">✅ Causal ML + Shrinkage</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ Static accounting only</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ None</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ 0 warning</td>
-                </tr>
-                <tr style="border-bottom:1px solid #222C3E;">
-                    <td style="padding:8px 10px;"><strong>Phase-Gate Sequencing</strong></td>
-                    <td style="padding:8px 10px; text-align:center; color:#10B981; font-weight:700;">✅ 100% Recall Rules</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ None</td>
-                    <td style="padding:8px 10px; text-align:center; color:#FBBF24;">⚠️ Manual checklist</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ Yard congestion</td>
-                </tr>
-                <tr>
-                    <td style="padding:8px 10px;"><strong>Privacy & Data Sovereignty</strong></td>
-                    <td style="padding:8px 10px; text-align:center; color:#10B981; font-weight:700;">✅ Zero PII / Private VPC</td>
-                    <td style="padding:8px 10px; text-align:center; color:#10B981;">✅ On-premise</td>
-                    <td style="padding:8px 10px; text-align:center; color:#FBBF24;">⚠️ US Cloud multi-tenant</td>
-                    <td style="padding:8px 10px; text-align:center; color:#F87171;">❌ Unencrypted chats</td>
-                </tr>
+        f"""
+        <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px;">
+            <table style="width:100%; font-size:0.8rem; color:var(--sp-text-2); border-collapse:collapse;">
+                <tr style="background:var(--sp-surface-2); font-weight:700; color:var(--sp-text);">{head}</tr>
+                {trs}
             </table>
+            <div style="font-size:0.8rem; color:var(--sp-text-2); margin-top:12px; line-height:1.6;">
+                <strong>Moat today:</strong> none that is durable — OR-Tools and gradient boosting are open source.
+                The asset that compounds is supplier-delay history per region and holding, which only accrues through pilots.
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     st.write("")
-    st.info("💡 **Investor Memo & Pitch Script:** Read the complete word-for-word presentation script and hostile Q&A defense in `docs/INVESTOR_DECK.md`.")
+    st.info("**Pitch script:** the slide-by-slide script and Q&A preparation are in `docs/INVESTOR_DECK.md`.")
 
 st.write("---")
 with st.expander("Batch Upload CSV - Multi-Delivery Scoring", expanded=False):
@@ -1942,7 +1852,7 @@ with st.expander("Batch Upload CSV - Multi-Delivery Scoring", expanded=False):
 with st.expander("Model Operations - Retrain Pipeline", expanded=False):
     st.markdown("Retrains on the newest historical database actuals and hot-swaps the model artifact with zero downtime.")
     if st.button("Trigger Retrain Now", key="retrain_btn"):
-        with st.spinner("Retraining LightGBM delay classifier..."):
+        with st.spinner("Retraining gradient-boosting delay classifier..."):
             r = requests.post(f"{API_URL}/train", timeout=60)
         if r.status_code == 200:
             st.success("Model successfully retrained and artifact reloaded in memory!")
@@ -1953,12 +1863,12 @@ with st.expander("Model Operations - Retrain Pipeline", expanded=False):
 # ─── VALIDATION STATUS FOOTER ───
 st.markdown(
     """
-    <div style="margin-top:40px; padding:16px 20px; border-top:1px solid #222C3E; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:0.75rem; color:#64748B;">
+    <div style="margin-top:40px; padding:16px 20px; border-top:1px solid var(--sp-border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:0.75rem; color:var(--sp-text-3);">
         <div>
-            <strong style="color:#94A3B8;">Validation Status:</strong> 100% Synthetic Benchmark (n=2,200 deliveries, 260 crane bookings) · Real-world calibration pending 8-week pilot ERP ingestion.
+            <strong style="color:var(--sp-text-2);">Validation Status:</strong> 100% Synthetic Benchmark (n=2,200 deliveries, 260 crane bookings) · Real-world calibration pending 8-week pilot ERP ingestion.
         </div>
         <div>
-            SitePulse Enterprise © 2026 · Regional Holding Pilot · <span style="color:#FF5E36; font-weight:600;">docs/PILOT_PROPOSAL.md</span>
+            SitePulse Enterprise © 2026 · Regional Holding Pilot · <span style="color:var(--sp-accent); font-weight:600;">docs/PILOT_PROPOSAL.md</span>
         </div>
     </div>
     """,

@@ -50,15 +50,8 @@ class PredictionOut(BaseModel):
     drivers: list[Driver]
 
 
-class CompanyWorkspaceIn(BaseModel):
-    access_key: str
-    company_name: str
-    project_id: str
-    project_name: str
-    location: str
-    building_type: str = "Residential High-Rise"
-    total_area_sqm: float = 45000.0
-    floors: int = 18
+class SiteInputsIn(BaseModel):
+    """Numeric site inputs that business.economics.site_finance reads."""
     start_date: str = "2026-03-01"
     target_end_date: str = "2026-11-30"
     # Logistics
@@ -73,3 +66,13 @@ class CompanyWorkspaceIn(BaseModel):
     concrete_cost_m3: float = 110.0
     total_logistics_budget: float = 2400000.0
 
+
+class CompanyWorkspaceIn(SiteInputsIn):
+    access_key: str
+    company_name: str
+    project_id: str
+    project_name: str
+    location: str
+    building_type: str = "Residential High-Rise"
+    total_area_sqm: float = 45000.0
+    floors: int = 18

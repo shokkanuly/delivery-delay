@@ -3,7 +3,7 @@
 
 **Document Version:** 1.2.0  
 **Status:** Approved / Enterprise Pilot Specification  
-**Target Organization:** Regional Construction Holdings (Piloting with BI Group)  
+**Target Organization:** Regional construction holdings (first pilot target: BI Group — not yet signed)  
 **Core System:** 3-Engine Integrated Construction Logistics Platform  
 
 ---
@@ -50,7 +50,7 @@ The **SitePulse Platform** unifies three predictive and operational engines behi
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   BI GROUP SITE-PULSE PLATFORM                         │
+│                        SITEPULSE PLATFORM                              │
 │             FastAPI Backend · Streamlit Analytics · Web Console        │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
@@ -61,8 +61,8 @@ The **SitePulse Platform** unifies three predictive and operational engines behi
 │ Delay Risk   │             │   Resource   │             │   Sequence   │
 │  Predictor   │             │  Scheduler   │             │  Validator   │
 │              │             │              │             │              │
-│ LightGBM     │             │ OR-Tools     │             │ Topological  │
-│ Causal Feat. │             │ CP-SAT       │             │ Rules +      │
+│ Gradient     │             │ OR-Tools     │             │ Topological  │
+│ Boosting +   │             │ CP-SAT       │             │ Rules +      │
 │ Shrinkage    │             │ AddNoOverlap │             │ IsoForest    │
 └──────────────┘             └──────────────┘             └──────────────┘
 ```
@@ -76,7 +76,8 @@ The **SitePulse Platform** unifies three predictive and operational engines behi
 * **Objective:** Allocate scarce heavy machinery (Tower Cranes, Concrete Pumps, Hoists, Loading Bays) to project booking requests without overlapping intervals.
 * **Algorithm:** Google OR-Tools CP-SAT with `AddNoOverlap` and interval variables.
 * **Risk Coupling:** Automatically ingests Engine 1 delivery delay risks to prioritize local resources and buffer high-risk slots.
-* **Performance:** Solves 250+ booking requests across multi-week horizons in <0.5 seconds with proven 0 double-bookings.
+* **Performance:** Solves 250+ booking requests across multi-week horizons in <0.5 seconds; no unit is ever double-booked (a tested correctness invariant).
+* **Scope limit:** assigns fixed-time bookings to units across sites; it does not re-time bookings on a single fixed tower crane (next scheduler stage).
 
 ### Engine 3: Construction Sequencing Validator
 * **Objective:** Ensure delivery schedule respects physical construction logic and phase readiness.
@@ -94,7 +95,7 @@ The **SitePulse Platform** unifies three predictive and operational engines behi
 | **FR-02** | Bulk CSV Batch Scoring | Must Have | API / Engine 1 | `POST /predict/batch` parses arbitrary valid CSVs and returns ranked risk list. |
 | **FR-03** | Conflict-Free Scheduling | Must Have | Engine 2 | `POST /schedule` guarantees 0 overlapping bookings on shared physical equipment. |
 | **FR-04** | Delay-Aware Scheduling | Should Have | Engine 2 | Solver incorporates upstream supplier risk from Engine 1 into scheduling weights. |
-| **FR-05** | Build Phase Sequencing | Must Have | Engine 3 | Flags deliveries arriving prior to phase kickoff with 100% recall on verified dates. |
+| **FR-05** | Build Phase Sequencing | Must Have | Engine 3 | Flags every delivery dated before its phase kickoff (deterministic rule; verified against the phase schedule). |
 | **FR-06** | Project Overview Dashboard | Must Have | UI / API | `GET /projects/{id}/overview` returns unified tri-engine status for site leadership. |
 | **FR-07** | Closed-Loop Outcome Logging | Must Have | Monitoring / DB | Served predictions logged; `POST /outcomes` records ground-truth actuals to compute empirical accuracy. |
 
@@ -113,5 +114,5 @@ The **SitePulse Platform** unifies three predictive and operational engines behi
 
 1. **Model Lift:** Model PR-AUC exceeds supplier baseline late rate with statistical significance (95% CI > 0).
 2. **Scheduling Conflict Elimination:** 100% resolution of overlapping resource conflicts (0 double-bookings after solve).
-3. **Sequencing Recall:** 1.0 Recall on premature delivery detection against verified build phases.
-4. **Site Cost Avoidance:** Estimated 12–18% reduction in crane idling and site demurrage fees.
+3. **Sequencing Correctness:** every delivery dated before its phase start is flagged (a correctness test, not a performance claim).
+4. **Site Cost Avoidance:** measured in the pilot against the base-case estimate in [`business/economics.py`](../business/economics.py).

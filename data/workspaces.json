@@ -1,9 +1,9 @@
 {
   "DEMO-SITE-B-2026": {
     "access_key": "DEMO-SITE-B-2026",
-    "company_name": "Regional Construction Holding (Pilot Engagement)",
+    "company_name": "Regional Construction Holding (Demo)",
     "project_id": "PRJ_002",
-    "project_name": "Site B · High-Rise Commercial",
+    "project_name": "Site B \u00b7 High-Rise Commercial",
     "location": "Astana",
     "building_type": "Commercial & Residential High-Rise",
     "total_area_sqm": 62000.0,
@@ -19,23 +19,13 @@
     "delay_penalty_per_day": 12000.0,
     "concrete_cost_m3": 115.0,
     "total_logistics_budget": 3500000.0,
-    "finance": {
-      "duration_days": 308,
-      "machinery_est_cost": 2794176.0,
-      "concrete_total_val": 2415000.0,
-      "crane_standstill_risk_avoided": 115200.0,
-      "concrete_spoilage_protected": 289800.0,
-      "delay_penalty_risk_mitigated": 216000.0,
-      "total_value_preserved": 621000.0,
-      "roi_percentage": 221.8
-    },
     "created_at": "2026-09-28 00:00:00"
   },
   "DEMO-SITE-A-2026": {
     "access_key": "DEMO-SITE-A-2026",
-    "company_name": "Regional Construction Holding (Pilot Engagement)",
+    "company_name": "Regional Construction Holding (Demo)",
     "project_id": "PRJ_001",
-    "project_name": "Site A · Urban Residential",
+    "project_name": "Site A \u00b7 Urban Residential",
     "location": "Almaty",
     "building_type": "Multi-Family Residential",
     "total_area_sqm": 48000.0,
@@ -51,23 +41,13 @@
     "delay_penalty_per_day": 8500.0,
     "concrete_cost_m3": 110.0,
     "total_logistics_budget": 2400000.0,
-    "finance": {
-      "duration_days": 260,
-      "machinery_est_cost": 1782000.0,
-      "concrete_total_val": 1595000.0,
-      "crane_standstill_risk_avoided": 84000.0,
-      "concrete_spoilage_protected": 191400.0,
-      "delay_penalty_risk_mitigated": 136000.0,
-      "total_value_preserved": 411400.0,
-      "roi_percentage": 230.5
-    },
     "created_at": "2026-09-28 00:00:00"
   },
   "DEMO-PILOT-KEY": {
     "access_key": "DEMO-PILOT-KEY",
     "company_name": "Enterprise General Contractor",
     "project_id": "PRJ_003",
-    "project_name": "Site C · Embankment Towers",
+    "project_name": "Site C \u00b7 Embankment Towers",
     "location": "Astana",
     "building_type": "Mixed-Use Complex",
     "total_area_sqm": 54000.0,
@@ -83,48 +63,6 @@
     "delay_penalty_per_day": 9500.0,
     "concrete_cost_m3": 115.0,
     "total_logistics_budget": 2800000.0,
-    "finance": {
-      "duration_days": 289,
-      "machinery_est_cost": 2167500.0,
-      "concrete_total_val": 2070000.0,
-      "crane_standstill_risk_avoided": 108000.0,
-      "concrete_spoilage_protected": 248400.0,
-      "delay_penalty_risk_mitigated": 171000.0,
-      "total_value_preserved": 527400.0,
-      "roi_percentage": 235.4
-    },
-    "created_at": "2026-09-28 00:00:00"
-  },
-  "BI-ALATAU-2026": {
-    "access_key": "BI-ALATAU-2026",
-    "company_name": "Regional Construction Holding (Pilot Engagement)",
-    "project_id": "PRJ_002",
-    "project_name": "Site B · High-Rise Commercial (Fictional Demo)",
-    "location": "Astana",
-    "building_type": "Commercial & Residential High-Rise",
-    "total_area_sqm": 62000.0,
-    "floors": 24,
-    "start_date": "2026-02-15",
-    "target_end_date": "2026-12-20",
-    "cranes_count": 6,
-    "pumps_count": 3,
-    "hoists_count": 4,
-    "rebar_tons": 4500.0,
-    "concrete_m3": 21000.0,
-    "crane_daily_rate": 1600.0,
-    "delay_penalty_per_day": 12000.0,
-    "concrete_cost_m3": 115.0,
-    "total_logistics_budget": 3500000.0,
-    "finance": {
-      "duration_days": 308,
-      "machinery_est_cost": 2794176.0,
-      "concrete_total_val": 2415000.0,
-      "crane_standstill_risk_avoided": 115200.0,
-      "concrete_spoilage_protected": 289800.0,
-      "delay_penalty_risk_mitigated": 216000.0,
-      "total_value_preserved": 621000.0,
-      "roi_percentage": 221.8
-    },
     "created_at": "2026-09-28 00:00:00"
   }
 }

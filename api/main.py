@@ -4,6 +4,7 @@
   Engine 2 · resource scheduler /schedule            (api/routers/schedule.py)
   Engine 3 · sequence validator /validate            (api/routers/validate.py)
   Platform                      /health, /metrics, /projects/{id}/overview
+  Business                      /economics, /projects/workspace (business/economics.py)
 
 The trained artifact is loaded once and cached. Scoring is stateless -- it reads
 the frozen feature snapshot inside the artifact (see ROADMAP), so no per-request
@@ -29,7 +30,8 @@ from api.routers import monitoring as monitoring_router
 from api.routers import schedule as schedule_router
 from api.routers import validate as validate_router
 from api.routers.monitoring import log_predictions
-from api.schemas import CompanyWorkspaceIn, DeliveryIn, PredictionOut
+from api.schemas import CompanyWorkspaceIn, DeliveryIn, PredictionOut, SiteInputsIn
+from business import economics
 from db.database import get_session
 from db.models import Delivery
 from ml.predict import REQUIRED_FIELDS, load_artifact, score
@@ -123,6 +125,13 @@ def list_projects() -> dict:
     return {"projects": read_reference("projects.csv").to_dict("records")}
 
 
+@app.get("/economics")
+def get_economics() -> dict:
+    """Every pitch number (ROI scenarios, unit economics, forecast, market) and
+    the assumptions behind it -- the same figures README and the deck quote."""
+    return economics.summary()
+
+
 WORKSPACES_FILE = pathlib.Path(__file__).resolve().parent.parent / "data" / "workspaces.json"
 
 
@@ -143,47 +152,17 @@ def _save_workspaces(ws: dict) -> None:
         pass
 
 
-def compute_workspace_finance(data: dict) -> dict:
-    from datetime import datetime
-    try:
-        d1 = datetime.strptime(str(data["start_date"])[:10], "%Y-%m-%d")
-        d2 = datetime.strptime(str(data["target_end_date"])[:10], "%Y-%m-%d")
-        duration_days = max(30, (d2 - d1).days)
-    except Exception:
-        duration_days = 270
+def _with_finance(entry: dict) -> dict:
+    """Finance is derived, so it is computed on every read and never stored --
+    a change to business/economics.py reaches saved workspaces immediately."""
+    inputs = {k: v for k, v in entry.items() if k != "finance"}
+    return {**inputs, "finance": economics.site_finance(inputs)}
 
-    cranes = data.get("cranes_count", 4)
-    pumps = data.get("pumps_count", 2)
-    crane_rate = data.get("crane_daily_rate", 1500.0)
-    delay_penalty = data.get("delay_penalty_per_day", 8500.0)
-    concrete_m3 = data.get("concrete_m3", 14500.0)
-    concrete_cost = data.get("concrete_cost_m3", 110.0)
-    budget = data.get("total_logistics_budget", 2400000.0)
 
-    # 1. Machinery costs
-    machinery_est_cost = (cranes * crane_rate + pumps * (crane_rate * 0.7)) * (duration_days * 0.7)
-    
-    # 2. Material value
-    concrete_total_val = concrete_m3 * concrete_cost
-
-    # 3. Risk exposure without SitePulse
-    crane_standstill_risk_avoided = cranes * crane_rate * 12
-    concrete_spoilage_protected = concrete_total_val * 0.12
-    delay_penalty_risk_mitigated = delay_penalty * 18
-
-    total_value_preserved = crane_standstill_risk_avoided + concrete_spoilage_protected + delay_penalty_risk_mitigated
-    roi_percentage = (total_value_preserved / max(1.0, budget * 0.08)) * 100
-
-    return {
-        "duration_days": duration_days,
-        "machinery_est_cost": round(machinery_est_cost, 2),
-        "concrete_total_val": round(concrete_total_val, 2),
-        "crane_standstill_risk_avoided": round(crane_standstill_risk_avoided, 2),
-        "concrete_spoilage_protected": round(concrete_spoilage_protected, 2),
-        "delay_penalty_risk_mitigated": round(delay_penalty_risk_mitigated, 2),
-        "total_value_preserved": round(total_value_preserved, 2),
-        "roi_percentage": round(roi_percentage, 1),
-    }
+@app.post("/economics/site")
+def site_economics(site: SiteInputsIn) -> dict:
+    """Stateless per-site finance for live what-if editing in the UIs."""
+    return economics.site_finance(site.model_dump())
 
 
 @app.post("/projects/workspace")
@@ -192,14 +171,12 @@ def save_company_workspace(ws_in: CompanyWorkspaceIn) -> dict:
     key = data["access_key"].strip()
     if not key:
         raise HTTPException(status_code=400, detail="access_key is required")
-    
-    finance = compute_workspace_finance(data)
-    entry = {**data, "finance": finance, "created_at": time.strftime("%Y-%m-%d %H:%M:%S")}
-    
+
+    entry = {**data, "created_at": time.strftime("%Y-%m-%d %H:%M:%S")}
     all_ws = _load_workspaces()
     all_ws[key] = entry
     _save_workspaces(all_ws)
-    return {"status": "saved", "access_key": key, "workspace": entry}
+    return {"status": "saved", "access_key": key, "workspace": _with_finance(entry)}
 
 
 @app.get("/projects/workspace/{access_key}")
@@ -207,35 +184,24 @@ def get_company_workspace(access_key: str) -> dict:
     key = access_key.strip()
     all_ws = _load_workspaces()
     if key in all_ws:
-        return {"found": True, "workspace": all_ws[key]}
-    # If not found, return default demo profile for known demo keys
-    if any(k in key.upper() for k in ["DEMO", "BI", "PILOT", "SITE"]):
-        demo_data = {
+        return {"found": True, "workspace": _with_finance(all_ws[key])}
+    # Unknown demo-style keys get the fictional Site B profile.
+    if any(k in key.upper() for k in ["DEMO", "PILOT", "SITE"]):
+        demo_entry = {
             "access_key": key,
-            "company_name": "Regional Construction Holding (Pilot Engagement)",
+            "company_name": "Regional Construction Holding (Demo)",
             "project_id": "PRJ_002",
             "project_name": "Site B · High-Rise Commercial",
             "location": "Astana",
             "building_type": "Commercial & Residential High-Rise",
             "total_area_sqm": 62000.0,
             "floors": 24,
-            "start_date": "2026-02-15",
-            "target_end_date": "2026-12-20",
-            "cranes_count": 6,
-            "pumps_count": 3,
-            "hoists_count": 4,
-            "rebar_tons": 4500.0,
-            "concrete_m3": 21000.0,
-            "crane_daily_rate": 1600.0,
-            "delay_penalty_per_day": 12000.0,
-            "concrete_cost_m3": 115.0,
-            "total_logistics_budget": 3500000.0,
+            **economics.DEMO_SITE_INPUTS,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
-        finance = compute_workspace_finance(demo_data)
-        demo_entry = {**demo_data, "finance": finance, "created_at": time.strftime("%Y-%m-%d %H:%M:%S")}
         all_ws[key] = demo_entry
         _save_workspaces(all_ws)
-        return {"found": True, "workspace": demo_entry}
+        return {"found": True, "workspace": _with_finance(demo_entry)}
     raise HTTPException(status_code=404, detail="Workspace access key not found")
 
 

@@ -1,6 +1,6 @@
 # Contributing to Construction Logistics Platform (SitePulse)
 
-Thank you for contributing to the SitePulse Construction Logistics Platform (designed for regional construction holdings, piloting with BI Group). This guide outlines our engineering workflows, testing requirements, and code standards.
+Thank you for contributing to the SitePulse Construction Logistics Platform (designed for regional construction holdings). This guide outlines our engineering workflows, testing requirements, and code standards.
 
 ---
 

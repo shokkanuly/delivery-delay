@@ -4,6 +4,30 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## [1.3.0] — 2026-09-29 · Pitch Credibility, Single Source of Economics, Design System
+
+Driven by an honest jury-rubric review; plan and rationale in `docs/plans/credibility-fixes.md`.
+
+### Added
+- `business/economics.py` — every pitch number (per-site ROI in conservative/base/upside scenarios, unit economics, the one 3-year forecast, bottom-up market) computed from assumptions tagged by source. Served at `GET /economics`; `POST /economics/site` for live what-if editing.
+- `tests/test_pitch_claims.py` — fails if README/docs/UIs reintroduce retired claims or if the deck quotes a figure `business/economics.py` does not produce.
+- `tests/test_workspace_contract.py`, `tests/test_economics.py`, `tests/test_design_system.py`.
+- `DESIGN.md` + `static/design/` (tokens.css with light/dark themes, SitePulse SVG mark/wordmark, icon) shared by both UIs; five-badge claim vocabulary.
+- `docs/CUSTDEV_LOG.md` — interview evidence template the deck's problem slide must trace to.
+
+### Fixed
+- Company workspace save returned HTTP 422 from both UIs (field names did not match `CompanyWorkspaceIn`) and the form never loaded (response envelope ignored). Finance is now computed on read, never stored.
+- Three different ROI formulas (API, dashboard, console) replaced by one.
+- Console inputs referenced an undefined `--bg-primary`; dashboard badges were recoloured by a global markdown rule; `$\rightarrow$` rendered as a carriage return.
+
+### Changed
+- Retired claims: "piloting with BI Group" (no signed pilot), "BI SITE-PULSE" branding, "LightGBM" (model is scikit-learn HistGradientBoosting), "100% recall" (tautological on rule-generated labels), $621k / 221.8% / >14× ROI, 19.4:1 LTV:CAC, 140% NRR, "83%" of 7 interviews, and the self-graded rubric table.
+- Scheduler described as what it does — cross-site equipment dispatch of fixed-time bookings — not single-tower-crane hook-time re-timing.
+- Competition section names Voyage Control, ALICE Technologies, nPlan, Procore/Fieldwire; moat stated honestly.
+- Fonts Inter/Instrument Serif/JetBrains Mono → Geist/Geist Mono; emojis removed from UI copy.
+
+---
+
 ## [1.2.0] — 2026-09-28 · Credibility, Provenance & Partner Positioning Upgrade
 
 ### Added

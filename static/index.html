@@ -3,43 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BI SITE-PULSE · Command Surface</title>
+  <title>SitePulse · Command Surface</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/design/tokens.css">
+  <link rel="icon" type="image/svg+xml" href="/static/design/mark.svg">
   <style>
     /* ─── Reset ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Legacy names mapped onto the shared tokens (static/design/tokens.css, DESIGN.md).
+       New CSS should use the --sp-* tokens directly. */
     :root {
-      /* Warm editorial palette */
-      --sidebar-bg: #1C2A20;
-      --sidebar-text: #C4CCBF;
-      --sidebar-text-muted: #7A8A75;
-      --sidebar-active: #D05A3A;
+      --sidebar-bg: var(--sp-chrome);
+      --sidebar-text: var(--sp-chrome-text);
+      --sidebar-text-muted: var(--sp-chrome-muted);
+      --sidebar-active: var(--sp-accent);
       --sidebar-hover: rgba(255,255,255,0.06);
-      --main-bg: #F5F0EA;
-      --card-bg: #FFFFFF;
-      --card-border: #E5DDD4;
-      --card-border-hover: #D0C8BE;
-      --text-primary: #1A1A1A;
-      --text-secondary: #5A5A5A;
-      --text-muted: #8A8A80;
-      --text-label: #7A7870;
-      --accent: #D05A3A;
-      --accent-light: rgba(208,90,58,0.10);
-      --accent-lighter: rgba(208,90,58,0.06);
-      --green-subtle: #4A8A5A;
-      --green-light: rgba(74,138,90,0.12);
-      --kpi-icon-muted: #EAE5DF;
-      --weather-bg: #1A3A2A;
-      --network-bg: #1C2A20;
-      --border-radius: 12px;
-      --border-radius-sm: 8px;
+      --main-bg: var(--sp-bg);
+      --bg-primary: var(--sp-surface);
+      --card-bg: var(--sp-surface);
+      --card-border: var(--sp-border);
+      --card-border-hover: var(--sp-border-strong);
+      --text-primary: var(--sp-text);
+      --text-secondary: var(--sp-text-2);
+      --text-muted: var(--sp-text-3);
+      --text-label: var(--sp-text-3);
+      --accent: var(--sp-accent);
+      --accent-light: var(--sp-accent-soft);
+      --accent-lighter: color-mix(in srgb, var(--sp-accent) 6%, transparent);
+      --green-subtle: var(--sp-ok);
+      --green-light: color-mix(in srgb, var(--sp-ok) 12%, transparent);
+      --kpi-icon-muted: var(--sp-surface-2);
+      --weather-bg: var(--sp-chrome);
+      --network-bg: var(--sp-chrome);
+      --border-radius: var(--sp-radius);
+      --border-radius-sm: var(--sp-radius-sm);
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: var(--sp-font-sans);
       background: var(--main-bg);
       color: var(--text-primary);
       display: flex;
@@ -49,8 +52,7 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    .mono { font-family: 'JetBrains Mono', monospace; }
-    .serif { font-family: 'Instrument Serif', Georgia, serif; }
+    .mono { font-family: var(--sp-font-mono); }
 
     /* ─── Sidebar ─── */
     .sidebar {
@@ -73,7 +75,7 @@
     }
 
     .sidebar-logo img {
-      height: 38px;
+      height: 32px;
       width: auto;
       object-fit: contain;
     }
@@ -189,7 +191,7 @@
       font-weight: 700;
       padding: 2px 7px;
       border-radius: 10px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }
 
     .nav-item.active .badge {
@@ -231,7 +233,7 @@
       font-size: 1.5rem;
       font-weight: 700;
       color: #FFFFFF;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       margin-bottom: 4px;
     }
 
@@ -319,7 +321,7 @@
     }
 
     .org-badge {
-      border-left: 3px solid #3A5A8A;
+      border-left: 3px solid var(--sp-info);
       padding-left: 10px;
     }
 
@@ -416,7 +418,7 @@
     }
 
     .export-btn:hover {
-      background: #B8482E;
+      background: color-mix(in srgb, var(--sp-accent) 85%, black);
     }
 
     /* Content Area */
@@ -450,9 +452,10 @@
     }
 
     .greeting {
-      font-family: 'Instrument Serif', Georgia, serif;
-      font-size: 2.6rem;
-      font-weight: 400;
+      font-family: var(--sp-font-sans);
+      font-size: 2.1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
       color: var(--text-primary);
       line-height: 1.15;
       margin-bottom: 8px;
@@ -498,7 +501,7 @@
 
     .btn-outline:hover {
       border-color: var(--card-border-hover);
-      background: #FAF7F3;
+      background: var(--sp-surface-2);
     }
 
     .btn-accent {
@@ -518,7 +521,7 @@
     }
 
     .btn-accent:hover {
-      background: #B8482E;
+      background: color-mix(in srgb, var(--sp-accent) 85%, black);
     }
 
     /* ─── KPI Cards Row ─── */
@@ -571,7 +574,7 @@
       font-size: 0.72rem;
       font-weight: 600;
       color: var(--green-subtle);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }
 
     .kpi-trend.down {
@@ -595,7 +598,7 @@
       font-size: 2rem;
       font-weight: 700;
       color: var(--text-primary);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       line-height: 1;
     }
 
@@ -603,34 +606,6 @@
       font-size: 0.75rem;
       color: var(--text-muted);
       margin-top: 4px;
-    }
-
-    .badge-guarantee {
-      background: rgba(2, 132, 199, 0.16) !important;
-      border: 1px solid #0284C7 !important;
-      color: #38BDF8 !important;
-      font-size: 0.65rem !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.06em !important;
-      text-transform: uppercase !important;
-      padding: 2px 7px !important;
-      border-radius: 4px !important;
-      display: inline-block !important;
-      font-family: 'JetBrains Mono', monospace !important;
-    }
-
-    .badge-estimate {
-      background: rgba(217, 119, 6, 0.16) !important;
-      border: 1px solid #D97706 !important;
-      color: #FBBF24 !important;
-      font-size: 0.65rem !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.06em !important;
-      text-transform: uppercase !important;
-      padding: 2px 7px !important;
-      border-radius: 4px !important;
-      display: inline-block !important;
-      font-family: 'JetBrains Mono', monospace !important;
     }
 
     .metric-provenance {
@@ -749,7 +724,7 @@
       font-size: 0.72rem;
       font-weight: 500;
       color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }
 
     .engine-title {
@@ -778,7 +753,7 @@
       font-size: 1.8rem;
       font-weight: 700;
       color: var(--text-primary);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       line-height: 1;
     }
 
@@ -932,12 +907,12 @@
       padding: 14px 20px;
       font-size: 0.85rem;
       color: var(--text-primary);
-      border-bottom: 1px solid #F0EBE5;
+      border-bottom: 1px solid var(--sp-border);
       vertical-align: top;
     }
 
     .queue-table tbody tr:hover {
-      background: #FAF7F3;
+      background: var(--sp-surface-2);
     }
 
     .queue-material {
@@ -958,7 +933,7 @@
     }
 
     .queue-arrival {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       font-size: 0.82rem;
       font-weight: 500;
     }
@@ -971,7 +946,7 @@
       border-radius: 6px;
       font-size: 0.72rem;
       font-weight: 600;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }
 
     .signal-badge.critical {
@@ -981,7 +956,7 @@
 
     .signal-badge.moderate {
       background: rgba(200,170,80,0.12);
-      color: #8A7030;
+      color: var(--sp-warn);
     }
 
     .signal-badge.ok {
@@ -1031,7 +1006,7 @@
     .network-value {
       font-size: 3rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       color: #FFFFFF;
       line-height: 1;
       margin-bottom: 6px;
@@ -1047,7 +1022,7 @@
     }
 
     .network-trend .arrow-up {
-      color: #6ACA7A;
+      color: var(--sp-ok);
     }
 
     .network-spacer { flex: 1; }
@@ -1177,12 +1152,12 @@
       font-size: 0.85rem;
       font-family: inherit;
       color: var(--text-primary);
-      background: #FAF7F3;
+      background: var(--sp-surface-2);
       outline: none;
     }
     .form-input:focus, .form-select:focus {
       border-color: var(--accent);
-      background: #FFFFFF;
+      background: var(--sp-surface);
     }
     .preset-chips {
       display: flex;
@@ -1194,7 +1169,7 @@
       padding: 4px 10px;
       border-radius: 6px;
       border: 1px solid var(--card-border);
-      background: #FAF7F3;
+      background: var(--sp-surface-2);
       font-size: 0.72rem;
       font-weight: 500;
       color: var(--text-secondary);
@@ -1206,7 +1181,7 @@
       color: var(--accent);
     }
     .pred-result {
-      background: #FAF7F3;
+      background: var(--sp-surface-2);
       border: 1px solid var(--card-border);
       border-radius: 10px;
       padding: 16px;
@@ -1222,7 +1197,7 @@
     .pred-score {
       font-size: 1.8rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }
     .driver-list {
       list-style: none;
@@ -1238,7 +1213,7 @@
       justify-content: space-between;
     }
     .driver-impact {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       font-weight: 600;
     }
 
@@ -1294,7 +1269,7 @@
       margin-bottom: 12px;
     }
     .site-code {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       font-size: 0.72rem;
       font-weight: 700;
       color: var(--accent);
@@ -1335,7 +1310,7 @@
     .site-stat-val {
       font-size: 1.15rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
       color: var(--text-primary);
       margin-top: 2px;
     }
@@ -1363,7 +1338,7 @@
     .transit-table td {
       padding: 12px 14px;
       font-size: 0.85rem;
-      border-bottom: 1px solid #F0EBE5;
+      border-bottom: 1px solid var(--sp-border);
     }
 
     /* Phase Steps Visual Pipeline */
@@ -1386,13 +1361,13 @@
     }
     .phase-step-item.active {
       border-color: var(--accent);
-      background: #FFFDFB;
+      background: var(--sp-surface-2);
     }
     .phase-num {
       font-size: 0.65rem;
       font-weight: 700;
       color: var(--accent);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--sp-font-mono);
     }
     .phase-name {
       font-size: 0.82rem;
@@ -1407,7 +1382,7 @@
   <!-- ─── SIDEBAR ─── -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <img src="/static/logo_dark.png" alt="BI SITE-PULSE" onerror="this.style.display='none'">
+      <img src="/static/design/mark.svg" alt="" width="32" height="32">
       <div class="sidebar-logo-text">
         <div class="name">SitePulse</div>
         <div class="sub">Enterprise Construction Logistics</div>
@@ -1425,7 +1400,7 @@
         Overview
       </a>
       <a href="#" class="nav-item" data-view="signals">
-        <span class="nav-icon">⚡</span>
+        <span class="nav-icon">↯</span>
         Delivery signals
         <span class="badge">04</span>
       </a>
@@ -1447,15 +1422,15 @@
       <a href="#" class="nav-item" data-view="company">
         <span class="nav-icon">▦</span>
         Project Workspace
-        <span class="badge" style="background:#FF5E36; color:#FFFFFF;">KEY</span>
+        <span class="badge" style="background:var(--sp-accent); color:#FFFFFF;">KEY</span>
       </a>
       <a href="#" class="nav-item" data-view="pilot">
-        <span class="nav-icon">🛡️</span>
+        <span class="nav-icon">◈</span>
         Pilot Engagement
-        <span class="badge" style="background:#0284C7; color:#FFFFFF;">PILOT</span>
+        <span class="badge" style="background:var(--sp-info); color:#FFFFFF;">PILOT</span>
       </a>
       <a href="#" class="nav-item" onclick="openPredictModal(); return false;">
-        <span class="nav-icon">⚙</span>
+        <span class="nav-icon">◎</span>
         Score Simulator
       </a>
     </nav>
@@ -1487,13 +1462,13 @@
     <div class="top-bar">
       <div class="top-bar-left">
         <div class="org-badge">
-          <div class="org-label">SitePulse · Regional Holding (Piloting with BI Group)</div>
+          <div class="org-label">SitePulse · Regional Holding (Demo)</div>
           <div class="org-date">Tuesday, 12 March 2025 · 07:30 local</div>
         </div>
       </div>
       <div class="top-bar-right">
         <div class="search-box">
-          <span class="search-icon">⚲</span>
+          <span class="search-icon">⌕</span>
           <input type="text" placeholder="Search signals">
         </div>
         <div class="notif-btn">
@@ -1513,20 +1488,20 @@
       <div id="view-overview" class="page-view active">
 
       <!-- Validation Status Banner -->
-      <div style="background:#131B2A; border:1px solid #1E293B; border-left:4px solid #38BDF8; border-radius:8px; padding:14px 18px; margin-bottom:18px;">
+      <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-left:4px solid var(--sp-info); border-radius:8px; padding:14px 18px; margin-bottom:18px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-          <div style="font-size:0.78rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#38BDF8;">
+          <div style="font-size:0.78rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--sp-info);">
             Validation Status · 100% Synthetic Benchmark (n=2,200 Deliveries, 260 Crane Bookings)
           </div>
           <div style="display:flex; gap:8px;">
-            <span class="badge-guarantee">Algorithmic Guarantee</span>
+            <span class="badge-guarantee">Correctness Invariant</span>
             <span class="badge-estimate">Statistical Estimate</span>
           </div>
         </div>
-        <div style="font-size:0.83rem; color:#CBD5E1; line-height:1.55;">
-          <strong>Current Reality:</strong> 0% live enterprise field data connected today. Solver allocations (0 double-bookings) and sequence gates (100% recall) are algorithmic guarantees true by construction. ML delay risk probabilities, loss mitigation ($621k/site), and ROI (221.8%) are statistical estimates from physics-calibrated synthetic logs.
+        <div style="font-size:0.83rem; color:var(--sp-text-2); line-height:1.55;">
+          <strong>Current Reality:</strong> 0% live field data connected today. No-double-booking and phase-date checks are correctness invariants of the code, not measures of business impact. ML delay risk is benchmarked on synthetic data whose delay drivers the generator encodes; losses avoided and ROI are founder assumptions (GET /economics).
         </div>
-        <div style="font-size:0.78rem; color:#94A3B8; margin-top:6px;">
+        <div style="font-size:0.78rem; color:var(--sp-text-3); margin-top:6px;">
           <strong>Next Calibration Step:</strong> Ingest 6–12 months of client 1C/SAP purchase orders and crane telematics via <code>ml/ingest.py</code> to calibrate empirical risk priors during the 8-week pilot engagement.
         </div>
       </div>
@@ -1560,7 +1535,6 @@
           Refresh
         </button>
         <button class="btn-accent" id="btn-open-predict" onclick="openPredictModal()">
-          <span>⚡</span>
           Score Delivery
         </button>
       </div>
@@ -1574,41 +1548,41 @@
           </div>
           <div class="kpi-label-text">At-Risk Deliveries</div>
           <div class="kpi-value" id="kpi-val-deliv">--</div>
-          <div class="kpi-sub" id="kpi-sub-deliv">scored via Engine 1 (LightGBM)</div>
+          <div class="kpi-sub" id="kpi-sub-deliv">scored via Engine 1 (gradient boosting)</div>
           <div class="metric-provenance">100% Synthetic Benchmark (n=2,200) · 40.9% late base rate</div>
         </div>
 
         <div class="kpi-card">
           <div class="kpi-top">
             <div class="kpi-icon muted">⌓</div>
-            <span class="badge-guarantee">Algorithmic Guarantee</span>
+            <span class="badge-guarantee">Correctness Invariant</span>
           </div>
           <div class="kpi-label-text">Double-Bookings</div>
           <div class="kpi-value" id="kpi-val-workfronts" style="color:var(--green-subtle);">0</div>
           <div class="kpi-sub">CP-SAT NoOverlap invariant</div>
-          <div class="metric-provenance">True by construction (260/260 conflict-free slots)</div>
+          <div class="metric-provenance">Correctness invariant: no unit double-booked</div>
         </div>
 
         <div class="kpi-card">
           <div class="kpi-top">
             <div class="kpi-icon muted">⊞</div>
-            <span class="badge-guarantee">Algorithmic Guarantee</span>
+            <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
           </div>
           <div class="kpi-label-text">Allocated Bookings</div>
           <div class="kpi-value" id="kpi-val-conflicts">--</div>
           <div class="kpi-sub">machinery assignments</div>
-          <div class="metric-provenance">True by construction (optimal constraint solving)</div>
+          <div class="metric-provenance">On the synthetic booking set</div>
         </div>
 
         <div class="kpi-card">
           <div class="kpi-top">
             <div class="kpi-icon muted">∿</div>
-            <span class="badge-guarantee">Algorithmic Guarantee</span>
+            <span class="badge-guarantee">Correctness Invariant</span>
           </div>
           <div class="kpi-label-text">Sequencing Flags</div>
           <div class="kpi-value" id="kpi-val-confidence">--</div>
           <div class="kpi-sub">premature deliveries</div>
-          <div class="metric-provenance">True by construction (100% recall phase gates)</div>
+          <div class="metric-provenance">Deterministic date rule vs phase schedule</div>
         </div>
       </div>
 
@@ -1620,7 +1594,7 @@
         </div>
         <div class="how-it-works" onclick="openPredictModal()">
           <span>Try Predictor</span>
-          <div class="circle-icon">⚡</div>
+          <div class="circle-icon">↯</div>
         </div>
       </div>
 
@@ -1659,7 +1633,7 @@
 
         <div class="engine-card" onclick="navTo('sequence')">
           <div class="engine-top">
-            <div class="engine-icon muted">☑</div>
+            <div class="engine-icon muted">▣</div>
             <span class="engine-num">03</span>
           </div>
           <div class="engine-title">Sequence Validator</div>
@@ -1795,7 +1769,7 @@
           </div>
           <div class="kpi-card">
             <div class="kpi-top">
-              <span class="badge-estimate" style="background:rgba(255,255,255,0.06); border-color:#64748B; color:#94A3B8;">Dataset Prevalence</span>
+              <span class="sp-badge sp-badge--synthetic">Dataset Prevalence</span>
             </div>
             <div class="kpi-label-text">Class Balance / Base Rate</div>
             <div class="kpi-value" style="color:var(--accent);">40.9%</div>
@@ -1817,11 +1791,11 @@
           <div class="queue-header">
             <div class="queue-title-row">
               <div class="queue-title">
-                <span class="fire">⚡</span> Full Project Delivery Feed
+                Full Project Delivery Feed
               </div>
               <div class="queue-actions">
                 <button class="btn-accent" onclick="openPredictModal()">
-                  <span>⚡</span> Score New Delivery
+                  Score New Delivery
                 </button>
               </div>
             </div>
@@ -1862,23 +1836,23 @@
           </div>
           <h1 class="view-title">Machinery & Resource Schedule</h1>
           <p class="view-sub">
-            Conflict-free allocation of tower cranes, concrete pumps, and hoists across subcontractors. Enforces zero double-bookings with upstream delay-risk coupling.
+            Assigns each booking to a free crane, pump or hoist across the holding's sites — no unit double-booked — and prefers local units for bookings whose deliveries are at risk of slipping.
           </p>
         </div>
 
         <div class="kpi-row" style="margin-bottom: 24px;">
           <div class="kpi-card">
             <div class="kpi-top">
-              <span class="badge-guarantee">Algorithmic Guarantee</span>
+              <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Total Bookings</div>
             <div class="kpi-value" id="res-kpi-bookings">260</div>
             <div class="kpi-sub">subcontractor requests</div>
-            <div class="metric-provenance">100% assigned by CP-SAT solver</div>
+            <div class="metric-provenance">Synthetic booking set; the fleet covers demand</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-top">
-              <span class="badge-guarantee">Algorithmic Guarantee</span>
+              <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Raw Conflicts Prevented</div>
             <div class="kpi-value" id="res-kpi-conflicts" style="color:var(--accent);">99</div>
@@ -1887,16 +1861,16 @@
           </div>
           <div class="kpi-card">
             <div class="kpi-top">
-              <span class="badge-guarantee">Algorithmic Guarantee</span>
+              <span class="badge-guarantee">Correctness Invariant</span>
             </div>
             <div class="kpi-label-text">Final Double-Bookings</div>
             <div class="kpi-value" id="res-kpi-doubles" style="color:var(--green-subtle);">0</div>
             <div class="kpi-sub">guaranteed CP-SAT invariant</div>
-            <div class="metric-provenance">True by construction (AddNoOverlap)</div>
+            <div class="metric-provenance">Correctness invariant (AddNoOverlap, tested)</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-top">
-              <span class="badge-guarantee">Algorithmic Guarantee</span>
+              <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Solver Status & Time</div>
             <div class="kpi-value" id="res-kpi-time" style="font-size:1.4rem;">OPTIMAL (0.2s)</div>
@@ -1980,7 +1954,7 @@
           </div>
           <div class="kpi-card">
             <div class="kpi-top">
-              <span class="badge-guarantee">Algorithmic Guarantee</span>
+              <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Premature Arrivals (R1)</div>
             <div class="kpi-value" id="seq-kpi-premature" style="color:var(--accent);">27</div>
@@ -1989,7 +1963,7 @@
           </div>
           <div class="kpi-card">
             <div class="kpi-top">
-              <span class="badge-guarantee">Algorithmic Guarantee</span>
+              <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Material Mismatches (R2)</div>
             <div class="kpi-value" id="seq-kpi-mismatch" style="color:var(--green-subtle);">0</div>
@@ -1998,12 +1972,12 @@
           </div>
           <div class="kpi-card">
             <div class="kpi-top">
-              <span class="badge-guarantee">Algorithmic Guarantee</span>
+              <span class="badge-guarantee">Correctness Invariant</span>
             </div>
-            <div class="kpi-label-text">Validation Recall</div>
-            <div class="kpi-value" style="color:var(--green-subtle);">100%</div>
-            <div class="kpi-sub">zero false dismissals</div>
-            <div class="metric-provenance">True by construction (phase-gate rules)</div>
+            <div class="kpi-label-text">Rule Check</div>
+            <div class="kpi-value" style="color:var(--green-subtle); font-size:1.4rem;">Deterministic</div>
+            <div class="kpi-sub">flags every delivery dated before its phase</div>
+            <div class="metric-provenance">Value depends on the phase schedule being current</div>
           </div>
         </div>
 
@@ -2241,8 +2215,8 @@
           <h1 class="view-title">Company Project, Logistics & Financial Suite</h1>
           <p class="view-sub">
             Private configuration environment for general contractors and trade subcontractors. Enter your company access key to load
-            and manage building parameters, machinery allocations, and financial terms. The AI engine automatically computes risk exposure,
-            crane idle cost savings, and protected capital.
+            and manage building parameters, machinery allocations, and financial terms. Site economics (losses avoided in three
+            scenarios) are computed by the API from your inputs and the assumptions in GET /economics.
           </p>
         </div>
 
@@ -2250,7 +2224,7 @@
         <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:18px 24px; margin-bottom:24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
           <div style="flex:1; min-width:240px;">
             <label style="display:block; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px; letter-spacing:0.06em;">Company Access Key</label>
-            <input type="text" id="cw-key-input" value="DEMO-SITE-B-2026" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:8px; padding:9px 12px; font-family:'JetBrains Mono', monospace; font-size:0.92rem; color:var(--text-primary); outline:none;">
+            <input type="text" id="cw-key-input" value="DEMO-SITE-B-2026" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:8px; padding:9px 12px; font-family:var(--sp-font-mono); font-size:0.92rem; color:var(--text-primary); outline:none;">
           </div>
           <div style="display:flex; gap:10px; align-items:flex-end; padding-top:20px;">
             <button class="btn-accent" onclick="loadCompanyWorkspace()">Unlock Workspace</button>
@@ -2297,7 +2271,7 @@
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
               <div class="form-group">
                 <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Area (m²)</label>
-                <input type="number" id="cw-total-area" value="48000" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+                <input type="number" id="cw-total-area" value="62000" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
               </div>
               <div class="form-group">
                 <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Floors</label>
@@ -2314,23 +2288,23 @@
             </div>
             <div class="form-group" style="margin-bottom:12px;">
               <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Tower Cranes on Site</label>
-              <input type="number" id="cw-cranes-count" value="4" min="1" max="20" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <input type="number" id="cw-cranes-count" value="6" min="1" max="20" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
             <div class="form-group" style="margin-bottom:12px;">
               <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Concrete Pumps Active</label>
-              <input type="number" id="cw-pumps-count" value="2" min="0" max="10" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <input type="number" id="cw-pumps-count" value="3" min="0" max="10" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
             <div class="form-group" style="margin-bottom:12px;">
               <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Construction Hoists</label>
-              <input type="number" id="cw-hoists-count" value="3" min="0" max="15" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <input type="number" id="cw-hoists-count" value="4" min="0" max="15" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
             <div class="form-group" style="margin-bottom:12px;">
               <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Total Concrete Volume (m³)</label>
-              <input type="number" id="cw-concrete-volume" value="19500" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <input type="number" id="cw-concrete-volume" value="21000" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
             <div class="form-group">
               <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Rebar Requirement (Tons)</label>
-              <input type="number" id="cw-rebar-tons" value="3400" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <input type="number" id="cw-rebar-tons" value="4500" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
           </div>
 
@@ -2342,23 +2316,26 @@
             </div>
             <div class="form-group" style="margin-bottom:12px;">
               <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Tower Crane Rate ($/day per unit)</label>
-              <input type="number" id="cw-crane-rate" value="1250" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <input type="number" id="cw-crane-rate" value="1600" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
             <div class="form-group" style="margin-bottom:12px;">
               <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Delay Penalty ($/day handover slip)</label>
-              <input type="number" id="cw-delay-penalty" value="5000" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <input type="number" id="cw-delay-penalty" value="12000" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
             <div class="form-group" style="margin-bottom:12px;">
               <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Concrete Cost ($/m³)</label>
-              <input type="number" id="cw-concrete-cost" value="95" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <input type="number" id="cw-concrete-cost" value="115" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
             <div class="form-group" style="margin-bottom:12px;">
-              <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Total Project Budget ($ USD)</label>
-              <input type="number" id="cw-total-budget" value="32000000" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Site Logistics Budget ($ USD)</label>
+              <input type="number" id="cw-total-budget" value="3500000" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
             </div>
             <div class="form-group">
-              <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Duration (Months)</label>
-              <input type="number" id="cw-duration-months" value="18" oninput="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Logistics Start → Target Handover</label>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <input type="date" id="cw-start-date" value="2026-02-15" onchange="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+                <input type="date" id="cw-end-date" value="2026-12-20" onchange="calculateCompanyKPIs()" style="width:100%; background:var(--bg-primary); border:1px solid var(--card-border); border-radius:6px; padding:8px; font-size:0.85rem; color:var(--text-primary);">
+              </div>
             </div>
           </div>
         </div>
@@ -2367,54 +2344,54 @@
           <button class="btn-accent" style="padding:12px 28px; font-size:0.92rem;" onclick="saveCompanyWorkspace()">Save Project Parameters</button>
         </div>
 
-        <!-- Automated AI Financial & Operational Count -->
+        <!-- Site economics: every figure comes from POST /economics/site (business/economics.py) -->
         <div style="margin-bottom:24px;">
-          <div style="font-size:1.15rem; font-weight:700; margin-bottom:4px;">Automated AI Financial & Operational Analysis</div>
-          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:14px;">Live mathematical derivation based on current inputs, constraint solver rules, and ML weather gating:</div>
-          
+          <div style="font-size:1.15rem; font-weight:700; margin-bottom:4px;">Site Economics · Estimate</div>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:14px;">Losses avoided per site-year in three scenarios, computed by the API from founder assumptions (GET /economics) — not yet measured on a real site.</div>
+
           <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px;">
             <div class="kpi-card">
               <div class="kpi-top">
                 <div class="kpi-icon" style="background:rgba(255,94,54,0.14); color:var(--accent);">RUN</div>
-                <span class="badge-estimate">Statistical Estimate</span>
+                <span class="sp-badge sp-badge--input">Operating Input</span>
               </div>
               <div class="kpi-label">Machinery Run Cost</div>
-              <div class="kpi-value" id="cw-calc-machinery">$2,700,000</div>
-              <div class="kpi-sub" id="cw-calc-machinery-sub">4 cranes over 18 mo</div>
-              <div class="metric-provenance">Computed on user budget inputs</div>
+              <div class="kpi-value" id="cw-calc-machinery">—</div>
+              <div class="kpi-sub" id="cw-calc-machinery-sub"></div>
+              <div class="metric-provenance">From your site inputs</div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-top">
-                <div class="kpi-icon" style="background:#E8F5E9; color:#4A8A5A;">SOLV</div>
-                <span class="badge-guarantee">Algorithmic Guarantee</span>
+                <div class="kpi-icon" style="background:color-mix(in srgb, var(--sp-ok) 12%, transparent); color:var(--sp-ok);">BASE</div>
+                <span class="badge-estimate">Estimate</span>
               </div>
-              <div class="kpi-label">Crane Standstill Saved</div>
-              <div class="kpi-value" id="cw-calc-crane-saved">$60,000</div>
-              <div class="kpi-sub">12 conflict days eliminated</div>
-              <div class="metric-provenance">CP-SAT 12 collision days eliminated</div>
+              <div class="kpi-label">Losses Avoided · Base Case</div>
+              <div class="kpi-value" id="cw-calc-base-value">—</div>
+              <div class="kpi-sub" id="cw-calc-base-sub"></div>
+              <div class="metric-provenance" id="cw-calc-base-breakdown"></div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-top">
-                <div class="kpi-icon" style="background:rgba(255,94,54,0.14); color:var(--accent);">PROT</div>
-                <span class="badge-estimate">Statistical Estimate</span>
+                <div class="kpi-icon" style="background:rgba(255,94,54,0.14); color:var(--accent);">RANGE</div>
+                <span class="badge-estimate">Estimate</span>
               </div>
-              <div class="kpi-label">Concrete Spoilage Shield</div>
-              <div class="kpi-value" id="cw-calc-spoilage-saved">$222,300</div>
-              <div class="kpi-sub">12% mix wastage prevented</div>
-              <div class="metric-provenance">Synthetic benchmark (12% mix wastage)</div>
+              <div class="kpi-label">Conservative – Upside</div>
+              <div class="kpi-value" id="cw-calc-range">—</div>
+              <div class="kpi-sub" id="cw-calc-range-sub"></div>
+              <div class="metric-provenance">Scenario levers: GET /economics</div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-top">
-                <div class="kpi-icon" style="background:#E8F5E9; color:#4A8A5A;">ROI</div>
-                <span class="badge-estimate" id="cw-calc-roi-badge">ROI 145%</span>
+                <div class="kpi-icon" style="background:color-mix(in srgb, var(--sp-ok) 12%, transparent); color:var(--sp-ok);">CHK</div>
+                <span class="sp-badge sp-badge--check">Sanity Check</span>
               </div>
-              <div class="kpi-label">Total Capital Preserved</div>
-              <div class="kpi-value" id="cw-calc-capital-preserved">$372,300</div>
-              <div class="kpi-sub">+18 days delay liquidated</div>
-              <div class="metric-provenance">Model savings projection · Subject to calibration</div>
+              <div class="kpi-label">Share of Logistics Budget</div>
+              <div class="kpi-value" id="cw-calc-budget-share">—</div>
+              <div class="kpi-sub">base-case savings ÷ site logistics budget</div>
+              <div class="metric-provenance">Above ~8% would not be credible</div>
             </div>
           </div>
         </div>
@@ -2433,11 +2410,11 @@
 
           <div style="background:var(--bg-secondary); border:1px solid var(--card-border); border-radius:12px; padding:20px;">
             <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.06em;">Active Contractor Key</div>
-            <div id="cw-display-key" style="font-family:'JetBrains Mono', monospace; font-size:1.3rem; font-weight:700; color:var(--accent); margin:4px 0 10px;">DEMO-SITE-B-2026</div>
+            <div id="cw-display-key" style="font-family:var(--sp-font-mono); font-size:1.3rem; font-weight:700; color:var(--accent); margin:4px 0 10px;">DEMO-SITE-B-2026</div>
             <div style="font-size:0.8rem; color:var(--text-secondary); line-height:1.6;">
-              • <strong>Status:</strong> <span style="color:#4A8A5A; font-weight:600;">Active & Synced to Fleet</span><br/>
+              • <strong>Status:</strong> <span style="color:var(--sp-ok); font-weight:600;">Active & Synced to Fleet</span><br/>
               • <strong>Security Tier:</strong> General Contractor Sandbox<br/>
-              • <strong>ML Internal Access:</strong> <span style="color:#D05A3A; font-weight:600;">Restricted (Operator view only)</span><br/>
+              • <strong>ML Internal Access:</strong> <span style="color:var(--sp-accent); font-weight:600;">Restricted (Operator view only)</span><br/>
               • <strong>Persistence:</strong> Saved to central dispatch database
             </div>
           </div>
@@ -2453,7 +2430,7 @@
           </div>
           <h1 class="view-title">Pilot Engagement, Data Ingestion & Commercial Terms</h1>
           <p class="view-sub">
-            A structured 6–8 week dual-site trial designed to calibrate LightGBM delay-risk models against client historical ERP logs,
+            A structured 6–8 week dual-site trial designed to calibrate the gradient-boosting delay-risk model against client historical ERP logs,
             validate CP-SAT conflict-free crane scheduling in active site operations, and prove cost avoidance prior to enterprise-wide rollout.
           </p>
         </div>
@@ -2488,7 +2465,7 @@
             <div style="font-weight:700; font-size:1rem; margin-bottom:8px;">Active Gatekeeper Pilot</div>
             <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.5;">
               • Pilot site logistics superintendents use SitePulse for daily dispatch<br/>
-              • Enforce CP-SAT zero double-booking hook windows<br/>
+              • Dispatch shared equipment with no double-booked units (CP-SAT)<br/>
               • Automated 48-hour risk flags sent to supplier reps<br/>
               • Weekly logistics conflict audit & resolution review
             </div>
@@ -2521,8 +2498,8 @@
           <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:22px;">
             <div style="font-weight:700; font-size:1.05rem; margin-bottom:12px;">What SitePulse Delivers</div>
             <div style="font-size:0.84rem; line-height:1.7; color:var(--text-secondary);">
-              <div style="margin-bottom:8px;"><strong>1. Calibrated Risk Model:</strong> Tuned LightGBM + Bayesian shrinkage parameters specific to regional supplier base.</div>
-              <div style="margin-bottom:8px;"><strong>2. Automated Daily Dispatch Board:</strong> Mathematical guarantee of zero double-booked crane slots (CP-SAT solver).</div>
+              <div style="margin-bottom:8px;"><strong>1. Calibrated Risk Model:</strong> Gradient-boosting model + Bayesian shrinkage parameters retrained on the regional supplier base.</div>
+              <div style="margin-bottom:8px;"><strong>2. Automated Daily Dispatch Board:</strong> Equipment plan with no double-booked units (CP-SAT solver).</div>
               <div style="margin-bottom:8px;"><strong>3. Phase-Gate Sequence Guard:</strong> 100% detection of out-of-order material deliveries before dispatch.</div>
               <div><strong>4. Executive ROI & Idle Reduction Audit:</strong> Bi-weekly verified reports quantifying hours saved, demurrage avoided, and concrete batches protected.</div>
             </div>
@@ -2578,13 +2555,13 @@
         <!-- Procurement Methodology Note -->
         <div style="background:var(--bg-secondary); border:1px solid var(--card-border); border-radius:12px; padding:18px 24px;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-            <span class="badge-guarantee">Algorithmic Guarantee</span>
+            <span class="badge-guarantee">Correctness Invariant</span>
             <span class="badge-estimate">Statistical Estimate</span>
             <span style="font-weight:700; font-size:0.92rem;">Procurement & Evaluation Framework Note</span>
           </div>
           <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.6;">
-            The CP-SAT resource scheduler guarantees zero double-bookings mathematically by construction (constraint satisfaction).
-            LightGBM delay-risk predictions and resulting cost savings figures are statistical estimates benchmarked on synthetic regional scenarios (40.9% evaluation base late rate) and will be recalibrated on historical client data during Phase 1 of the pilot engagement.
+            The CP-SAT scheduler never double-books a unit — a tested correctness invariant, not a measure of business impact.
+            Delay-risk predictions are statistical estimates and cost-savings figures are founder assumptions (GET /economics); both are benchmarked on synthetic regional scenarios (40.9% evaluation base late rate) and will be recalibrated on historical client data during Phase 1 of the pilot engagement.
           </div>
         </div>
       </div>
@@ -2592,10 +2569,10 @@
       <!-- ─── VALIDATION STATUS FOOTER ─── -->
       <div style="margin-top:40px; padding:16px 20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; font-size:0.8rem;">
         <div style="display:flex; align-items:center; gap:10px;">
-          <span class="badge-guarantee">Algorithmic Guarantee</span>
+          <span class="badge-guarantee">Correctness Invariant</span>
           <span class="badge-estimate">Statistical Estimate</span>
           <span style="color:var(--text-secondary); line-height:1.5;">
-            <strong>Validation Status:</strong> Engines 2 & 3 guarantee zero double-bookings and 100% sequence compliance by mathematical construction. Engine 1 risk predictions and financial ROI ranges are statistical estimates computed on synthetic multi-site benchmarks (evaluation base late rate: 40.9%).
+            <strong>Validation Status:</strong> Engines 2 & 3 enforce two tested correctness invariants: no unit double-booked, and every delivery dated before its phase flagged. Engine 1 risk predictions are benchmarked on synthetic data (evaluation base late rate: 40.9%); ROI ranges are founder assumptions (GET /economics).
           </span>
         </div>
         <div style="color:var(--text-muted); font-size:0.75rem; white-space:nowrap;">
@@ -2610,7 +2587,7 @@
     <div class="modal-card">
       <div class="modal-head">
         <div>
-          <div class="modal-title">⚡ Delivery Delay Risk Simulator</div>
+          <div class="modal-title">Delivery Delay Risk Simulator</div>
           <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Engine 1 · Causal Bayes Shrinkage & Occlusion Drivers</div>
         </div>
         <button class="modal-close" onclick="closePredictModal()">&times;</button>
@@ -2666,7 +2643,7 @@
         </div>
 
         <button type="submit" class="btn-accent" style="width:100%; justify-content:center; padding:10px;" id="pred-submit-btn">
-          <span>⚡</span> Calculate Delay Probability
+          Calculate Delay Probability
         </button>
       </form>
 
@@ -2837,7 +2814,7 @@
         const badge = document.getElementById('pred-risk-badge');
         badge.className = 'signal-badge ' + (data.risk_band === 'red' ? 'critical' : data.risk_band === 'yellow' ? 'moderate' : 'ok');
         badge.textContent = data.risk_band === 'red' ? '● Critical Risk' : data.risk_band === 'yellow' ? '● Moderate Risk' : '● Cleared';
-        scoreElem.style.color = data.risk_band === 'red' ? 'var(--accent)' : data.risk_band === 'yellow' ? '#8A7030' : 'var(--green-subtle)';
+        scoreElem.style.color = data.risk_band === 'red' ? 'var(--accent)' : data.risk_band === 'yellow' ? 'var(--sp-warn)' : 'var(--green-subtle)';
 
         document.getElementById('pred-prior-n').textContent = data.supplier_n_prior;
         document.getElementById('pred-hist-rate').textContent = (data.supplier_late_rate * 100).toFixed(1) + '%';
@@ -2858,7 +2835,7 @@
         alert('Prediction error: ' + err.message);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>⚡</span> Calculate Delay Probability';
+        btn.innerHTML = 'Calculate Delay Probability';
       }
     }
 
@@ -3026,7 +3003,7 @@
             <td>${(a.resource_type || '--').replace(/_/g, ' ').toUpperCase()}</td>
             <td class="mono" style="font-size:0.78rem;">${(a.start || '').slice(0,16).replace('T', ' ')} → ${(a.end || '').slice(11,16)}</td>
             <td>${riskBadge}</td>
-            <td><span class="signal-badge ok">✓ Optimal (No Overlap)</span></td>
+            <td><span class="signal-badge ok">Optimal · no overlap</span></td>
           `;
           tbody.appendChild(tr);
         });
@@ -3064,7 +3041,7 @@
             <td class="mono">${dDate}</td>
             <td class="mono">${pStart}</td>
             <td style="color:var(--accent); font-weight:700;">+${diffDays} days early</td>
-            <td><span class="signal-badge critical" style="cursor:pointer;" title="Action recommendation">✋ Hold at Dispatch Hub</span></td>
+            <td><span class="signal-badge critical" style="cursor:pointer;" title="Action recommendation">Hold at dispatch hub</span></td>
           `;
           tbody.appendChild(tr);
         });
@@ -3105,69 +3082,92 @@
     }
 
     // ─── Company Workspace & Financial Suite ───
-    function calculateCompanyKPIs() {
-      const cranes = parseFloat(document.getElementById('cw-cranes-count')?.value || 4);
-      const durationMo = parseFloat(document.getElementById('cw-duration-months')?.value || 18);
-      const craneRate = parseFloat(document.getElementById('cw-crane-rate')?.value || 1250);
-      const concreteVol = parseFloat(document.getElementById('cw-concrete-volume')?.value || 19500);
-      const concreteCost = parseFloat(document.getElementById('cw-concrete-cost')?.value || 95);
-      const delayPenalty = parseFloat(document.getElementById('cw-delay-penalty')?.value || 5000);
-      const totalBudget = parseFloat(document.getElementById('cw-total-budget')?.value || 32000000);
+    // Field names are exactly api.schemas.CompanyWorkspaceIn; all finance comes
+    // from the API (business/economics.py) — the console does no ROI math.
+    let cwProjectId = 'PRJ_002';
+    let cwCalcTimer = null;
 
-      const durationDays = durationMo * 30.0;
-      const craneCommitCost = cranes * craneRate * durationDays;
-      const craneStandstillSaved = cranes * craneRate * 12.0; // 12 days collision avoided
-      const concreteSpoilageSaved = concreteVol * concreteCost * 0.12; // 12% mix wastage saved
-      const delayPenaltySaved = delayPenalty * 18.0; // 18 days schedule slip avoided
-      const totalCapitalPreserved = craneStandstillSaved + concreteSpoilageSaved + delayPenaltySaved;
-      const platformFeeEst = Math.max(totalBudget * 0.008, 1000.0);
-      const roiPercent = Math.round((totalCapitalPreserved / platformFeeEst) * 100.0);
+    const cwVal = (id) => document.getElementById(id)?.value;
+    const cwNum = (id) => parseFloat(cwVal(id));
+    const cwSet = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+    const cwText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
+    function readWorkspaceForm() {
+      return {
+        start_date: cwVal('cw-start-date'),
+        target_end_date: cwVal('cw-end-date'),
+        cranes_count: parseInt(cwVal('cw-cranes-count')),
+        pumps_count: parseInt(cwVal('cw-pumps-count')),
+        hoists_count: parseInt(cwVal('cw-hoists-count')),
+        rebar_tons: cwNum('cw-rebar-tons'),
+        concrete_m3: cwNum('cw-concrete-volume'),
+        crane_daily_rate: cwNum('cw-crane-rate'),
+        delay_penalty_per_day: cwNum('cw-delay-penalty'),
+        concrete_cost_m3: cwNum('cw-concrete-cost'),
+        total_logistics_budget: cwNum('cw-total-budget'),
+      };
+    }
+
+    function renderSiteFinance(f) {
       const fmt = (n) => '$' + Math.round(n).toLocaleString('en-US');
+      const x = (n) => n.toFixed(1) + '×';
+      const b = f.scenarios.base, c = f.scenarios.conservative, u = f.scenarios.upside;
+      cwText('cw-calc-machinery', fmt(f.machinery_est_cost));
+      cwText('cw-calc-machinery-sub', `${cwVal('cw-cranes-count')} cranes · ${f.duration_days} days`);
+      cwText('cw-calc-base-value', fmt(b.total_value));
+      cwText('cw-calc-base-sub', `${x(b.value_multiple)} the ${fmt(f.annual_licence)}/yr licence`);
+      cwText('cw-calc-base-breakdown', `Crane ${fmt(b.crane_idle_avoided)} · concrete ${fmt(b.concrete_loss_avoided)} · delay ${fmt(b.delay_penalty_avoided)}`);
+      cwText('cw-calc-range', `${fmt(c.total_value)} – ${fmt(u.total_value)}`);
+      cwText('cw-calc-range-sub', `${x(c.value_multiple)} – ${x(u.value_multiple)} licence`);
+      cwText('cw-calc-budget-share', (b.share_of_logistics_budget * 100).toFixed(1) + '%');
+    }
 
-      const elMach = document.getElementById('cw-calc-machinery');
-      if (elMach) elMach.textContent = fmt(craneCommitCost);
-      const elMachSub = document.getElementById('cw-calc-machinery-sub');
-      if (elMachSub) elMachSub.textContent = `${cranes} cranes over ${durationMo} mo`;
-
-      const elCraneSaved = document.getElementById('cw-calc-crane-saved');
-      if (elCraneSaved) elCraneSaved.textContent = fmt(craneStandstillSaved);
-
-      const elSpoilageSaved = document.getElementById('cw-calc-spoilage-saved');
-      if (elSpoilageSaved) elSpoilageSaved.textContent = fmt(concreteSpoilageSaved);
-
-      const elCapital = document.getElementById('cw-calc-capital-preserved');
-      if (elCapital) elCapital.textContent = fmt(totalCapitalPreserved);
-
-      const elRoi = document.getElementById('cw-calc-roi-badge');
-      if (elRoi) elRoi.textContent = `ROI ${roiPercent}%`;
+    function calculateCompanyKPIs() {
+      clearTimeout(cwCalcTimer);
+      cwCalcTimer = setTimeout(async () => {
+        try {
+          const resp = await fetch(`${API_BASE}/economics/site`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(readWorkspaceForm()),
+          });
+          if (resp.ok) renderSiteFinance(await resp.json());
+        } catch (err) {
+          console.warn('Site economics unavailable:', err);
+        }
+      }, 250);
     }
 
     async function loadCompanyWorkspace() {
-      const key = (document.getElementById('cw-key-input')?.value || 'DEMO-SITE-B-2026').trim();
-      const displayKey = document.getElementById('cw-display-key');
-      if (displayKey) displayKey.textContent = key;
+      const key = (cwVal('cw-key-input') || 'DEMO-SITE-B-2026').trim();
+      cwText('cw-display-key', key);
 
       try {
         const resp = await fetch(`${API_BASE}/projects/workspace/${encodeURIComponent(key)}`);
         if (resp.ok) {
-          const data = await resp.json();
-          if (data.company_name) document.getElementById('cw-company-name').value = data.company_name;
-          if (data.project_name) document.getElementById('cw-project-name').value = data.project_name;
-          if (data.location) document.getElementById('cw-location').value = data.location;
-          if (data.building_type) document.getElementById('cw-building-type').value = data.building_type;
-          if (data.total_area_m2) document.getElementById('cw-total-area').value = data.total_area_m2;
-          if (data.floors_count) document.getElementById('cw-floors-count').value = data.floors_count;
-          if (data.duration_months) document.getElementById('cw-duration-months').value = data.duration_months;
-          if (data.tower_cranes_count) document.getElementById('cw-cranes-count').value = data.tower_cranes_count;
-          if (data.concrete_pumps_count) document.getElementById('cw-pumps-count').value = data.concrete_pumps_count;
-          if (data.material_hoists_count) document.getElementById('cw-hoists-count').value = data.material_hoists_count;
-          if (data.concrete_volume_m3) document.getElementById('cw-concrete-volume').value = data.concrete_volume_m3;
-          if (data.rebar_tons_needed) document.getElementById('cw-rebar-tons').value = data.rebar_tons_needed;
-          if (data.crane_daily_rate_usd) document.getElementById('cw-crane-rate').value = data.crane_daily_rate_usd;
-          if (data.penalty_delay_daily_usd) document.getElementById('cw-delay-penalty').value = data.penalty_delay_daily_usd;
-          if (data.concrete_cost_m3_usd) document.getElementById('cw-concrete-cost').value = data.concrete_cost_m3_usd;
-          if (data.total_budget_usd) document.getElementById('cw-total-budget').value = data.total_budget_usd;
+          const ws = (await resp.json()).workspace || {};
+          if (ws.project_id) cwProjectId = ws.project_id;
+          cwSet('cw-company-name', ws.company_name);
+          cwSet('cw-project-name', ws.project_name);
+          cwSet('cw-location', ws.location);
+          const bt = document.getElementById('cw-building-type');
+          if (bt && ws.building_type && ![...bt.options].some(o => o.value === ws.building_type)) {
+            bt.add(new Option(ws.building_type, ws.building_type));
+          }
+          cwSet('cw-building-type', ws.building_type);
+          cwSet('cw-total-area', ws.total_area_sqm);
+          cwSet('cw-floors-count', ws.floors);
+          cwSet('cw-start-date', ws.start_date);
+          cwSet('cw-end-date', ws.target_end_date);
+          cwSet('cw-cranes-count', ws.cranes_count);
+          cwSet('cw-pumps-count', ws.pumps_count);
+          cwSet('cw-hoists-count', ws.hoists_count);
+          cwSet('cw-concrete-volume', ws.concrete_m3);
+          cwSet('cw-rebar-tons', ws.rebar_tons);
+          cwSet('cw-crane-rate', ws.crane_daily_rate);
+          cwSet('cw-delay-penalty', ws.delay_penalty_per_day);
+          cwSet('cw-concrete-cost', ws.concrete_cost_m3);
+          cwSet('cw-total-budget', ws.total_logistics_budget);
         }
       } catch (err) {
         console.warn('Could not fetch existing workspace:', err);
@@ -3176,25 +3176,17 @@
     }
 
     async function saveCompanyWorkspace() {
-      const key = (document.getElementById('cw-key-input')?.value || 'DEMO-SITE-B-2026').trim();
+      const key = (cwVal('cw-key-input') || 'DEMO-SITE-B-2026').trim();
       const payload = {
         access_key: key,
-        company_name: document.getElementById('cw-company-name')?.value || 'Contractor',
-        project_name: document.getElementById('cw-project-name')?.value || 'Construction Site',
-        location: document.getElementById('cw-location')?.value || 'Kazakhstan',
-        building_type: document.getElementById('cw-building-type')?.value || 'High-rise Residential',
-        total_area_m2: parseFloat(document.getElementById('cw-total-area')?.value || 40000),
-        floors_count: parseInt(document.getElementById('cw-floors-count')?.value || 20),
-        duration_months: parseInt(document.getElementById('cw-duration-months')?.value || 18),
-        tower_cranes_count: parseInt(document.getElementById('cw-cranes-count')?.value || 4),
-        concrete_pumps_count: parseInt(document.getElementById('cw-pumps-count')?.value || 2),
-        material_hoists_count: parseInt(document.getElementById('cw-hoists-count')?.value || 3),
-        rebar_tons_needed: parseFloat(document.getElementById('cw-rebar-tons')?.value || 3000),
-        concrete_volume_m3: parseFloat(document.getElementById('cw-concrete-volume')?.value || 18000),
-        crane_daily_rate_usd: parseFloat(document.getElementById('cw-crane-rate')?.value || 1200),
-        penalty_delay_daily_usd: parseFloat(document.getElementById('cw-delay-penalty')?.value || 5000),
-        concrete_cost_m3_usd: parseFloat(document.getElementById('cw-concrete-cost')?.value || 95),
-        total_budget_usd: parseFloat(document.getElementById('cw-total-budget')?.value || 30000000),
+        company_name: cwVal('cw-company-name') || 'Contractor',
+        project_id: cwProjectId,
+        project_name: cwVal('cw-project-name') || 'Construction Site',
+        location: cwVal('cw-location') || 'Kazakhstan',
+        building_type: cwVal('cw-building-type') || 'High-rise Residential',
+        total_area_sqm: cwNum('cw-total-area'),
+        floors: parseInt(cwVal('cw-floors-count')),
+        ...readWorkspaceForm(),
       };
 
       const banner = document.getElementById('cw-alert-banner');
@@ -3205,14 +3197,13 @@
           body: JSON.stringify(payload),
         });
         if (resp.ok) {
-          const res = await resp.json();
-          calculateCompanyKPIs();
+          renderSiteFinance((await resp.json()).workspace.finance);
           if (banner) {
             banner.style.display = 'block';
-            banner.style.background = '#E8F5E9';
-            banner.style.color = '#2E7D32';
-            banner.style.border = '1px solid #A5D6A7';
-            banner.innerHTML = `<strong>✅ Workspace Saved & Synchronized!</strong> Project specifications for '<em>${payload.project_name}</em>' saved under Access Key: <code>${key}</code>. Central logistics fleet updated.`;
+            banner.style.background = 'color-mix(in srgb, var(--sp-ok) 12%, var(--sp-surface))';
+            banner.style.color = 'var(--sp-ok)';
+            banner.style.border = '1px solid var(--sp-ok)';
+            banner.innerHTML = `<strong>Workspace saved.</strong> '<em>${payload.project_name}</em>' stored under access key <code>${key}</code>.`;
             setTimeout(() => { banner.style.display = 'none'; }, 6000);
           }
         } else {
@@ -3221,10 +3212,10 @@
       } catch (err) {
         if (banner) {
           banner.style.display = 'block';
-          banner.style.background = '#FFEBEE';
-          banner.style.color = '#C62828';
-          banner.style.border = '1px solid #FFCDD2';
-          banner.innerHTML = `<strong>⚠️ Save Notice:</strong> Parameters calculated locally. Server error: ${err.message}`;
+          banner.style.background = 'color-mix(in srgb, var(--sp-risk) 12%, var(--sp-surface))';
+          banner.style.color = 'var(--sp-risk)';
+          banner.style.border = '1px solid var(--sp-risk)';
+          banner.innerHTML = `<strong>Not saved.</strong> ${err.message}`;
         }
       }
     }
