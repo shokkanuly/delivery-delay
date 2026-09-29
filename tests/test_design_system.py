@@ -17,12 +17,20 @@ def _tok(block: str) -> dict[str, str]:
     return dict(re.findall(r"(--sp-[\w-]+):\s*([^;]+);", block))
 
 
-def test_both_themes_define_the_same_tokens():
+def test_both_themes_define_the_same_colours():
     css = TOKENS.read_text()
-    light = css[css.index(":root {"):css.index(':root[data-theme="dark"]')]
-    dark = css[css.index(':root[data-theme="dark"]'):]
-    assert set(_tok(light)) == set(_tok(dark).keys() | {"--sp-font-sans", "--sp-font-mono",
-                                                        "--sp-radius", "--sp-radius-sm"})
+    light = _tok(css[css.index(":root {"):css.index(':root[data-theme="dark"]')])
+    dark = _tok(css[css.index(':root[data-theme="dark"]'):])
+    colours = {k for k, v in light.items() if v.startswith(("#", "rgba"))}
+    assert set(dark) <= set(light)
+    assert colours <= set(dark), colours - set(dark)
+
+
+def test_motion_respects_reduced_motion():
+    css = TOKENS.read_text()
+    assert "prefers-reduced-motion: reduce" in css
+    for anim in re.findall(r"animation:\s*([\w-]+)", css):
+        assert anim.startswith("sp-"), anim
 
 
 @pytest.mark.parametrize("rel", UIS)
@@ -62,3 +70,18 @@ def test_brand_marks_exist_and_are_unbranded():
     for name in ("logo.svg", "mark.svg", "icon.png"):
         assert (ROOT / "static" / "design" / name).exists()
     assert "BI" not in (ROOT / "static" / "design" / "logo.svg").read_text().split("aria-label")[1][:20]
+
+
+@pytest.mark.parametrize("rel", UIS)
+def test_layout_rules(rel):
+    text = (ROOT / rel).read_text()
+    assert "100vh" not in text, "use 100dvh"
+    assert not re.search(r"rgba\(0,\s*0,\s*0", text), "shadows are Zinc-tinted, never pure black"
+    assert not re.search(r"seamless|elevate|unleash|next-gen|AI engine", text, re.IGNORECASE)
+
+
+def test_console_is_responsive_and_feature_rows_are_asymmetric():
+    html = (ROOT / "static" / "index.html").read_text()
+    assert "@media (max-width: 767px)" in html
+    engines = html[html.index(".engines-row {"):]
+    assert "repeat(3, 1fr)" not in engines[:engines.index("}")]

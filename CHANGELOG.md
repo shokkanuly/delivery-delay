@@ -25,6 +25,8 @@ Driven by an honest jury-rubric review; plan and rationale in `docs/plans/credib
 - Scheduler described as what it does — cross-site equipment dispatch of fixed-time bookings — not single-tower-crane hook-time re-timing.
 - Competition section names Voyage Control, ALICE Technologies, nPlan, Procore/Fieldwire; moat stated honestly.
 - Fonts Inter/Instrument Serif/JetBrains Mono → Geist/Geist Mono; emojis removed from UI copy.
+- Design system applied in full (DESIGN.md rewritten in the Stitch 7-section format): console is responsive below 768px (single column, 2-column nav, 44px targets, zero horizontal overflow at 390px); `100vh` → `100dvh`; shadows tinted Zinc instead of black; feature rows asymmetric (engines 1.3/1/1, pricing and market lead the middle); cascade reveals, skeleton shimmer and 1px press feedback, all disabled under `prefers-reduced-motion`.
+- Remaining tautological wording retired ("100% detection", "Validation Accuracy 100%", "100% coverage").
 
 ---
 

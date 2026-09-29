@@ -33,6 +33,7 @@ BANNED = [
     r"83%",                             # not a possible fraction of 7 interviews
     r"Target Scor|Pre-Fix Score",       # self-graded rubric table
     r"100% [Rr]ecall",                  # tautological on rule-generated labels
+    r"100% detection|Validation Accuracy",  # same tautology, other wording
 ]
 
 

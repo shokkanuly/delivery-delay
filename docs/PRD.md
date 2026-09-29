@@ -113,6 +113,6 @@ The **SitePulse Platform** unifies three predictive and operational engines behi
 ## 6. Success Metrics & Key Results (OKRs)
 
 1. **Model Lift:** Model PR-AUC exceeds supplier baseline late rate with statistical significance (95% CI > 0).
-2. **Scheduling Conflict Elimination:** 100% resolution of overlapping resource conflicts (0 double-bookings after solve).
+2. **Scheduling Conflict Elimination:** 0 double-bookings after solve (a correctness invariant); bookings the fleet cannot serve are reported, not hidden.
 3. **Sequencing Correctness:** every delivery dated before its phase start is flagged (a correctness test, not a performance claim).
 4. **Site Cost Avoidance:** measured in the pilot against the base-case estimate in [`business/economics.py`](../business/economics.py).

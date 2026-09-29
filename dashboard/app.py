@@ -319,7 +319,7 @@ st.markdown(
     }}
     .greeting {{
       font-family: var(--sp-font-sans);
-      font-size: 2.1rem;
+      font-size: clamp(1.5rem, 4vw, 2.1rem);
       font-weight: 600;
       letter-spacing: -0.02em;
       color: var(--sp-text);
@@ -783,7 +783,7 @@ if view == "Overview":
         unsafe_allow_html=True,
     )
 
-    e1, e2, e3 = st.columns(3)
+    e1, e2, e3 = st.columns([1.3, 1, 1])   # Delay Risk leads; not an equal feature row
     with e1:
         st.markdown(
             f"""
@@ -1077,7 +1077,7 @@ elif view == "Sequence Checks":
     v1.metric("Deliveries Screened", counts.get("total", 219))
     v2.metric("Premature Deliveries (R1)", counts.get("premature_delivery", 27), "Needs Hold")
     v3.metric("Material Mismatches (R2)", counts.get("material_phase_mismatch", 0), "Clean")
-    v4.metric("Validation Accuracy", "100%", "Recall 1.0")
+    v4.metric("Rule Check", "Date rule", help="Flags every delivery dated before its phase start. On synthetic labels made by the same rule, recall is 1.0 by definition.")
 
     st.markdown("### Build Phase Physical Hierarchy")
     st.markdown(
@@ -1696,7 +1696,7 @@ elif view == "Pitch & Economics":
 
     # Section 2: Market (bottom-up: sites x list price)
     st.markdown("### 2. Market Sizing · bottom-up (sites × list price)")
-    m_col1, m_col2, m_col3 = st.columns(3)
+    m_col1, m_col2, m_col3 = st.columns([1, 1.3, 1])   # the beachhead is the market we target
     for col, color, label, value, sub in [
         (m_col1, "var(--sp-info)", "REGIONAL MARKET", h["market_regional"],
          f"~{A['regional_sites']['value']:,.0f} major sites in Central Asia, Caucasus & CIS × {h['acv']}/yr · founder estimate, source to verify"),
@@ -1808,8 +1808,8 @@ elif view == "Pitch & Economics":
     )
     st.markdown(
         f"""
-        <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px;">
-            <table style="width:100%; font-size:0.8rem; color:var(--sp-text-2); border-collapse:collapse;">
+        <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px; overflow-x:auto;">
+            <table style="width:100%; min-width:720px; font-size:0.8rem; color:var(--sp-text-2); border-collapse:collapse;">
                 <tr style="background:var(--sp-surface-2); font-weight:700; color:var(--sp-text);">{head}</tr>
                 {trs}
             </table>

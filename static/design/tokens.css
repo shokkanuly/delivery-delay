@@ -34,9 +34,18 @@
   --sp-font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --sp-font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  /* Shape */
+  /* Shape & elevation — shadows tinted to the Zinc ramp, never pure black */
   --sp-radius: 10px;
   --sp-radius-sm: 6px;
+  --sp-shadow: 0 8px 24px rgba(9, 9, 11, 0.06);
+  --sp-shadow-lg: 0 20px 40px rgba(9, 9, 11, 0.18);
+
+  /* Motion — CSS stand-in for a spring (stiffness 100, damping 20): quick start,
+     soft settle, no overshoot. Animate transform/opacity only. */
+  --sp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --sp-dur: 160ms;
+  --sp-dur-reveal: 420ms;
+  --sp-stagger: 60ms;
 }
 
 :root[data-theme="dark"] {
@@ -60,6 +69,9 @@
   --sp-warn: #D69E2E;
   --sp-risk: #E26D6D;
   --sp-info: #63A4E0;
+
+  --sp-shadow: 0 8px 24px rgba(9, 9, 11, 0.40);
+  --sp-shadow-lg: 0 20px 40px rgba(9, 9, 11, 0.60);
 }
 
 /* ─── Claim badges: every number on screen says what backs it ─── */
@@ -102,4 +114,48 @@
 .sp-badge--input {
   color: var(--sp-text-2) !important;
   background: var(--sp-surface-2) !important;
+}
+
+/* ─── Motion ─── */
+@keyframes sp-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes sp-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* Cascade reveal: children of a row enter one after another when a view mounts. */
+.sp-cascade > * { animation: sp-rise var(--sp-dur-reveal) var(--sp-ease) both; }
+.sp-cascade > :nth-child(2) { animation-delay: calc(var(--sp-stagger) * 1); }
+.sp-cascade > :nth-child(3) { animation-delay: calc(var(--sp-stagger) * 2); }
+.sp-cascade > :nth-child(4) { animation-delay: calc(var(--sp-stagger) * 3); }
+.sp-cascade > :nth-child(5) { animation-delay: calc(var(--sp-stagger) * 4); }
+.sp-cascade > :nth-child(n+6) { animation-delay: calc(var(--sp-stagger) * 5); }
+
+/* Skeleton: a value that is still loading keeps its footprint and shimmers. */
+.sp-skeleton {
+  display: inline-block;
+  min-width: 7ch;
+  color: transparent !important;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--sp-surface-2) 25%, var(--sp-border) 50%, var(--sp-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: sp-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Tactile press on every button. */
+button:active, .btn-accent:active, .btn-outline:active, .stButton > button:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -46,13 +46,14 @@
       background: var(--main-bg);
       color: var(--text-primary);
       display: flex;
-      min-height: 100vh;
+      min-height: 100dvh;
       overflow-x: hidden;
       font-size: 14px;
       -webkit-font-smoothing: antialiased;
     }
 
     .mono { font-family: var(--sp-font-mono); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
     /* ─── Sidebar ─── */
     .sidebar {
@@ -61,7 +62,7 @@
       background: var(--sidebar-bg);
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100dvh;
       position: sticky;
       top: 0;
       z-index: 50;
@@ -669,7 +670,7 @@
 
     .engines-row {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: 1.3fr 1fr 1fr;   /* Delay Risk leads; not an equal feature row */
       gap: 14px;
       margin-bottom: 32px;
     }
@@ -950,12 +951,12 @@
     }
 
     .signal-badge.critical {
-      background: rgba(208,90,58,0.10);
+      background: var(--sp-accent-soft);
       color: var(--accent);
     }
 
     .signal-badge.moderate {
-      background: rgba(200,170,80,0.12);
+      background: color-mix(in srgb, var(--sp-warn) 12%, transparent);
       color: var(--sp-warn);
     }
 
@@ -1043,8 +1044,8 @@
       transition: height 0.3s ease;
     }
 
-    .bar-green { background: rgba(106, 202, 122, 0.6); }
-    .bar-light { background: rgba(106, 202, 122, 0.25); }
+    .bar-green { background: color-mix(in srgb, var(--sp-ok) 60%, transparent); }
+    .bar-light { background: color-mix(in srgb, var(--sp-ok) 25%, transparent); }
 
     /* ─── Dynamic Additions ─── */
     .site-select-wrap {
@@ -1087,7 +1088,7 @@
     }
     .status-badge.error {
       color: var(--accent);
-      border-color: rgba(208,90,58,0.3);
+      border-color: color-mix(in srgb, var(--sp-accent) 30%, transparent);
     }
     .status-badge.error .live-dot {
       background: var(--accent);
@@ -1097,7 +1098,7 @@
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(28, 42, 32, 0.65);
+      background: rgba(9, 9, 11, 0.55);
       backdrop-filter: blur(4px);
       z-index: 999;
       display: none;
@@ -1112,9 +1113,9 @@
       border-radius: 14px;
       width: 100%;
       max-width: 580px;
-      max-height: 92vh;
+      max-height: 92dvh;
       overflow-y: auto;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      box-shadow: var(--sp-shadow-lg);
       padding: 24px;
     }
     .modal-head {
@@ -1260,7 +1261,7 @@
     }
     .site-card:hover {
       border-color: var(--accent);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      box-shadow: var(--sp-shadow);
     }
     .site-card-top {
       display: flex;
@@ -1375,6 +1376,25 @@
       color: var(--text-primary);
       margin-top: 2px;
     }
+    /* ─── Mobile (< 768px): one column, no horizontal page scroll, 44px targets ─── */
+    @media (max-width: 767px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; min-width: 0; height: auto; position: static; }
+      .sidebar-live, .sidebar-spacer, .weather-widget, .sidebar-user, .nav-section-label { display: none; }
+      .sidebar-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 12px 12px; }
+      .nav-item { min-height: 44px; margin: 0; font-size: 0.8rem; }
+      .sidebar-logo { padding: 16px; }
+      .top-bar { position: static; flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+      .top-bar-right { width: 100%; flex-wrap: wrap; }
+      .search-box { flex: 1 1 100%; }
+      .content { padding: 20px 16px; }
+      .kpi-row, .engines-row, .bottom-section, .form-grid, .site-network-grid,
+      .content [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+      .greeting { font-size: clamp(1.5rem, 7vw, 2.1rem); }
+      table { display: block; overflow-x: auto; }   /* data tables scroll inside their own box */
+      .btn-accent, .btn-outline, .modal-close, input, select { min-height: 44px; }
+      .modal-card { padding: 18px; }
+    }
   </style>
 </head>
 <body>
@@ -1472,7 +1492,7 @@
           <input type="text" placeholder="Search signals">
         </div>
         <div class="notif-btn">
-          <span style="font-size:0.75rem; font-weight:700;">NOTIF</span>
+          <span aria-hidden="true" style="font-size:1rem; line-height:1;">◉</span><span class="sr-only">Notifications</span>
           <div class="notif-dot"></div>
         </div>
         <button class="export-btn">
@@ -1540,7 +1560,7 @@
       </div>
 
       <!-- KPI Row -->
-      <div class="kpi-row">
+      <div class="kpi-row sp-cascade">
         <div class="kpi-card">
           <div class="kpi-top">
             <div class="kpi-icon accent">⊘</div>
@@ -1598,7 +1618,7 @@
         </div>
       </div>
 
-      <div class="engines-row">
+      <div class="engines-row sp-cascade">
         <div class="engine-card highlight" onclick="navTo('signals')">
           <div class="engine-top">
             <div class="engine-icon accent">⊘</div>
@@ -1950,7 +1970,7 @@
             <div class="kpi-label-text">Deliveries Checked</div>
             <div class="kpi-value" id="seq-kpi-total">219</div>
             <div class="kpi-sub">total tracked shipments</div>
-            <div class="metric-provenance">100% coverage of active POs</div>
+            <div class="metric-provenance">Every delivery in the demo dataset</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-top">
@@ -2349,14 +2369,14 @@
           <div style="font-size:1.15rem; font-weight:700; margin-bottom:4px;">Site Economics · Estimate</div>
           <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:14px;">Losses avoided per site-year in three scenarios, computed by the API from founder assumptions (GET /economics) — not yet measured on a real site.</div>
 
-          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px;">
+          <div class="sp-cascade" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px;">
             <div class="kpi-card">
               <div class="kpi-top">
-                <div class="kpi-icon" style="background:rgba(255,94,54,0.14); color:var(--accent);">RUN</div>
+                <div class="kpi-icon" style="background:var(--sp-accent-soft); color:var(--accent);">RUN</div>
                 <span class="sp-badge sp-badge--input">Operating Input</span>
               </div>
               <div class="kpi-label">Machinery Run Cost</div>
-              <div class="kpi-value" id="cw-calc-machinery">—</div>
+              <div class="kpi-value" id="cw-calc-machinery"><span class="sp-skeleton">—</span></div>
               <div class="kpi-sub" id="cw-calc-machinery-sub"></div>
               <div class="metric-provenance">From your site inputs</div>
             </div>
@@ -2367,18 +2387,18 @@
                 <span class="badge-estimate">Estimate</span>
               </div>
               <div class="kpi-label">Losses Avoided · Base Case</div>
-              <div class="kpi-value" id="cw-calc-base-value">—</div>
+              <div class="kpi-value" id="cw-calc-base-value"><span class="sp-skeleton">—</span></div>
               <div class="kpi-sub" id="cw-calc-base-sub"></div>
               <div class="metric-provenance" id="cw-calc-base-breakdown"></div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-top">
-                <div class="kpi-icon" style="background:rgba(255,94,54,0.14); color:var(--accent);">RANGE</div>
+                <div class="kpi-icon" style="background:var(--sp-accent-soft); color:var(--accent);">RANGE</div>
                 <span class="badge-estimate">Estimate</span>
               </div>
               <div class="kpi-label">Conservative – Upside</div>
-              <div class="kpi-value" id="cw-calc-range">—</div>
+              <div class="kpi-value" id="cw-calc-range"><span class="sp-skeleton">—</span></div>
               <div class="kpi-sub" id="cw-calc-range-sub"></div>
               <div class="metric-provenance">Scenario levers: GET /economics</div>
             </div>
@@ -2389,7 +2409,7 @@
                 <span class="sp-badge sp-badge--check">Sanity Check</span>
               </div>
               <div class="kpi-label">Share of Logistics Budget</div>
-              <div class="kpi-value" id="cw-calc-budget-share">—</div>
+              <div class="kpi-value" id="cw-calc-budget-share"><span class="sp-skeleton">—</span></div>
               <div class="kpi-sub">base-case savings ÷ site logistics budget</div>
               <div class="metric-provenance">Above ~8% would not be credible</div>
             </div>
@@ -2500,7 +2520,7 @@
             <div style="font-size:0.84rem; line-height:1.7; color:var(--text-secondary);">
               <div style="margin-bottom:8px;"><strong>1. Calibrated Risk Model:</strong> Gradient-boosting model + Bayesian shrinkage parameters retrained on the regional supplier base.</div>
               <div style="margin-bottom:8px;"><strong>2. Automated Daily Dispatch Board:</strong> Equipment plan with no double-booked units (CP-SAT solver).</div>
-              <div style="margin-bottom:8px;"><strong>3. Phase-Gate Sequence Guard:</strong> 100% detection of out-of-order material deliveries before dispatch.</div>
+              <div style="margin-bottom:8px;"><strong>3. Phase-Gate Sequence Guard:</strong> flags every delivery dated before its build phase, before dispatch.</div>
               <div><strong>4. Executive ROI & Idle Reduction Audit:</strong> Bi-weekly verified reports quantifying hours saved, demurrage avoided, and concrete batches protected.</div>
             </div>
           </div>
@@ -2509,7 +2529,7 @@
         <!-- Commercial Pricing & Licensing -->
         <div style="margin-bottom:28px;">
           <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Commercial Pricing & Procurement Tiers</div>
-          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+          <div class="sp-cascade" style="display:grid; grid-template-columns:1fr 1.3fr 1fr; gap:16px;">
             <div class="kpi-card" style="padding:22px; border:1px solid var(--card-border);">
               <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Phase 1 Pilot</div>
               <div style="font-size:1.8rem; font-weight:800; color:var(--text-primary); margin-bottom:4px;">$15,000 <span style="font-size:0.85rem; font-weight:400; color:var(--text-muted);">flat fee</span></div>
@@ -3112,6 +3132,7 @@
       const fmt = (n) => '$' + Math.round(n).toLocaleString('en-US');
       const x = (n) => n.toFixed(1) + '×';
       const b = f.scenarios.base, c = f.scenarios.conservative, u = f.scenarios.upside;
+      // cwText replaces the skeleton span with the real value.
       cwText('cw-calc-machinery', fmt(f.machinery_est_cost));
       cwText('cw-calc-machinery-sub', `${cwVal('cw-cranes-count')} cranes · ${f.duration_days} days`);
       cwText('cw-calc-base-value', fmt(b.total_value));

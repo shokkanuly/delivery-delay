@@ -1,130 +1,160 @@
 # Design System: SitePulse
 
-Tokens live in [`static/design/tokens.css`](static/design/tokens.css). The HTML
-console links the file and uses the light theme; the Streamlit dashboard inlines
-it with the dark theme. `tests/test_design_system.py` guards the rules below.
-Change a colour in the token file, never in markup.
+> The single source of truth for generating and reviewing SitePulse screens:
+> the Streamlit dashboard, the HTML console, and any new screen prompted in
+> Google Stitch. Token values live in
+> [`static/design/tokens.css`](static/design/tokens.css), and
+> `tests/test_design_system.py` enforces the rules marked **(enforced)**.
 
 ## 1. Visual Theme & Atmosphere
 
-A site office at 07:00: the manager has ten minutes before the first truck is due
-and needs to know which delivery will slip and which crane is free. The interface
-is **calm, dense and legible**, like a well-kept dispatch board. It is not a
-marketing page. Neutral surfaces carry the data, one orange accent marks what needs
-action, and every number says what backs it.
+A site office at 07:00. The logistics manager has ten minutes before the first
+truck is due, and needs to know which delivery will slip and which crane is free.
+The interface feels like a **well-kept dispatch board: calm, dense, legible**.
+Neutral Zinc surfaces carry the data, a single Signal Orange marks what needs
+action, and every number wears a small badge saying what backs it. The mood is
+clinical and trustworthy, closer to an aircraft checklist than a marketing page.
 
-- **Density 7, "Cockpit Balanced":** many numbers per screen, grouped by border and
-  whitespace rather than stacked cards.
-- **Variance 3, "Predictable":** consistent grids, so the same metric sits in the
-  same place every morning. This is an operational tool, so there is no hero
-  section and no asymmetric showpiece layout.
-- **Motion 2, "Static Restrained":** the only perpetual motion is the live-status
-  dot. Numbers never animate in, because a moving number reads as an unstable one.
+- **Density 7 of 10, "Cockpit Balanced":** many numbers per screen, grouped by
+  1px borders and whitespace, not by stacked cards.
+- **Variance 3 of 10, "Predictable Symmetric":** the same metric sits in the same
+  place every morning. Asymmetry is used only to show priority (the lead engine
+  and the target market get the wider column).
+- **Motion 3 of 10, "Static Restrained":** views arrive with a short cascade and
+  loading values shimmer. Nothing else moves, and numbers never count up, because
+  a moving number reads as an unstable one.
+- **Two themes, one system:** the HTML console uses the light theme; the Streamlit
+  dashboard uses the dark theme. Both use the same token names, accent, type and
+  badges.
 
 ## 2. Color Palette & Roles
 
-One Zinc neutral ramp, one accent, four status colours. Status colours carry
-meaning (risk bands, claim badges) and are never used as decoration.
+**Neutrals: one Zinc ramp, never mixed with warm or cool greys (enforced)**
+- **Canvas Zinc** (#FAFAFA, dark: Zinc-950 #09090B): page background.
+- **Pure Surface** (#FFFFFF, dark: Charcoal #18181B): panels, inputs, table bodies.
+- **Quiet Surface** (Zinc-100 #F4F4F5, dark: Zinc-800 #27272A): table headers, hover rows, skeletons.
+- **Whisper Border** (Zinc-200 #E4E4E7, dark: Zinc-800 #27272A): 1px structural lines.
+- **Firm Border** (Zinc-300 #D4D4D8, dark: Zinc-700 #3F3F46): hover and focus borders.
+- **Charcoal Ink** (#18181B, dark: Zinc-50 #FAFAFA): primary text and key numbers.
+- **Steel Body** (Zinc-600 #52525B, dark: Zinc-400 #A1A1AA): body copy and descriptions.
+- **Muted Steel** (Zinc-500 #71717A in both themes): metadata and provenance lines.
+- **Navigation Rail** (#18181B, dark: #111113): the left rail, dark in both themes.
 
-| Token | Light | Dark | Role |
-|---|---|---|---|
-| `--sp-bg` | Canvas Zinc `#FAFAFA` | Zinc-950 `#09090B` | Page background |
-| `--sp-surface` | Pure Surface `#FFFFFF` | Charcoal `#18181B` | Panels, inputs |
-| `--sp-surface-2` | Zinc-100 `#F4F4F5` | Zinc-800 `#27272A` | Table headers, hover rows |
-| `--sp-border` | Zinc-200 `#E4E4E7` | Zinc-800 `#27272A` | 1px structure lines |
-| `--sp-border-strong` | Zinc-300 `#D4D4D8` | Zinc-700 `#3F3F46` | Hover and focus borders |
-| `--sp-text` | Charcoal Ink `#18181B` | Zinc-50 `#FAFAFA` | Primary text, key numbers |
-| `--sp-text-2` | Zinc-600 `#52525B` | Zinc-400 `#A1A1AA` | Body copy, descriptions |
-| `--sp-text-3` | Zinc-500 `#71717A` | Zinc-500 `#71717A` | Metadata, provenance lines |
-| `--sp-chrome` | Charcoal `#18181B` | `#111113` | Navigation rail (dark in both themes) |
-| **`--sp-accent`** | **Signal Orange `#E0643C`** | **`#E0643C`** | The one accent: primary actions, active nav, "act on this" |
-| `--sp-ok` | `#2F855A` | `#4FB387` | Green risk band; sanity-check badge |
-| `--sp-warn` | `#B7791F` | `#D69E2E` | Yellow risk band; estimate badge |
-| `--sp-risk` | `#C53030` | `#E26D6D` | Red risk band; errors |
-| `--sp-info` | `#2B6CB0` | `#63A4E0` | Correctness-invariant badge; neutral highlights |
+**The single accent**
+- **Signal Orange** (#E0643C, 73% saturation, same in both themes): primary
+  actions, the active nav item, focus rings, "act on this". It is construction
+  safety orange, tuned down from neon. No other colour asks for attention.
 
-Signal Orange is construction-safety orange with saturation held at 73%. It is
-the only colour that asks for attention. Tints use
-`color-mix(in srgb, var(--token) N%, transparent)`, never new hex values.
+**Status colours: meaning only, never decoration**
+- **Cleared Green** (#2F855A, dark #4FB387): green risk band, Sanity Check badge.
+- **Caution Amber** (#B7791F, dark #D69E2E): yellow risk band, Estimate badge.
+- **Critical Red** (#C53030, dark #E26D6D): red risk band, errors.
+- **Ledger Blue** (#2B6CB0, dark #63A4E0): Correctness Invariant badge, neutral highlights.
+
+Tints are always `color-mix(in srgb, <token> N%, transparent)`, never a new hex.
+Shadows are tinted Zinc-950 (`rgba(9,9,11,…)`), never pure black. Markup
+contains no raw hex apart from white text on dark or accent fills **(enforced)**.
 
 ## 3. Typography Rules
 
-- **Sans (UI and display):** `Geist`, weights 400–700. Headlines use weight 600
-  with −0.02em tracking at 2.1rem. Hierarchy comes from weight and colour, not size.
-- **Mono (numbers, keys, badges):** `Geist Mono`. KPI values, access keys,
-  timestamps and badge labels use it, so digits align in columns.
-- **Body:** 14px base, 1.55 line-height, prose blocks capped at about 65ch.
-- **Banned:** Inter; every serif (including the retired Instrument Serif) in either UI.
+- **Display & UI:** **Geist** (weights 400–700). Headlines are weight 600,
+  tracked tight (−0.02em), scaling `clamp(1.5rem, 4vw, 2.1rem)`. Hierarchy comes
+  from weight and colour, not from size.
+- **Body:** Geist at 14px with relaxed leading (1.55) in Steel Body. Prose
+  blocks are capped at about 65 characters.
+- **Mono:** **Geist Mono** for every KPI value, access key, timestamp and badge
+  label, so digits line up in columns.
+- **Banned (enforced):** Inter; every serif font in either UI, including the
+  retired Instrument Serif and Georgia.
 
-## 4. The Claim-Badge Vocabulary
+## 4. Component Stylings
 
-Every number shown to a customer or juror carries exactly one badge that says
-what backs it. These five are the only badges allowed:
+- **Buttons:** flat with gently rounded corners (8px). Primary buttons are a
+  Signal Orange fill with white text; secondary buttons are Pure Surface outlined
+  in Whisper Border, turning Firm Border on hover. Pressing a button moves it
+  down 1px. No outer glow, no gradient, no custom cursor.
+- **Panels:** Pure Surface, a 1px Whisper Border, softly rounded corners (10px).
+  Elevation is reserved for modals (a large Zinc-tinted shadow) and hovered site
+  cards (a small one). Dense views separate groups with borders and whitespace,
+  never a card inside a card.
+- **KPI tile:** in reading order: an uppercase mono label in Muted Steel, then the
+  value in mono Charcoal Ink, then one sub-line, then a dashed-top provenance line,
+  plus exactly one claim badge in the corner.
+- **Claim badges (the only five allowed, enforced):** small uppercase mono pills
+  with a 1px border in their own colour.
+  - **Correctness Invariant** (Ledger Blue): a tested property of the code, such as
+    "0 double-bookings". Never used on a money figure.
+  - **Estimate** (Caution Amber): statistical or assumption-based, not yet
+    measured on a real site, such as "$103k losses avoided".
+  - **Synthetic Data** (Muted Steel, dashed border): a result on the demo dataset,
+    such as "260 bookings".
+  - **Sanity Check** (Cleared Green): a guard-rail number that keeps an estimate
+    honest, such as "2.9% of logistics budget".
+  - **Operating Input** (Steel Body on Quiet Surface): a value the user typed.
+- **Risk bands:** green, amber and red always map to the status colours, and the
+  band name is always printed next to the colour.
+- **Inputs:** label above in Muted Steel; helper or error text below; Pure Surface
+  fill; a focus ring in Signal Orange. No floating labels. At least 44px tall on
+  mobile.
+- **Loading:** values still loading show a shimmering Quiet Surface skeleton the
+  width of the number (`.sp-skeleton`). No circular spinners on numbers.
+- **Empty and error states:** inline, where the data would have been, saying the
+  next step ("Start the API to compute site economics"). Errors use Critical Red
+  text on a 12% red tint.
 
-| Badge | Class | Meaning | Example |
-|---|---|---|---|
-| **Correctness Invariant** | `sp-badge sp-badge--invariant` (legacy: `badge-guarantee`) | A tested property of the code. Not a measure of business impact. | "0 double-bookings" |
-| **Estimate** | `sp-badge sp-badge--estimate` (legacy: `badge-estimate`) | Statistical or assumption-based; not yet measured on a real site. | "$103k losses avoided" |
-| **Synthetic Data** | `sp-badge sp-badge--synthetic` | A count or result on the demo dataset. | "260 bookings" |
-| **Sanity Check** | `sp-badge sp-badge--check` | A guard-rail number that keeps an estimate honest. | "2.9% of logistics budget" |
-| **Operating Input** | `sp-badge sp-badge--input` | A value the user typed in. | "Machinery run cost" |
+## 5. Layout Principles
 
-Never put "Correctness Invariant" on a money figure, and never call an estimate
-"proven".
+- **Frame:** a 240px Navigation Rail on the left and a content column with 32px
+  gutters, capped at 1400px. Use CSS Grid for every row, no flexbox percentage
+  maths, and `100dvh`, never `100vh` **(enforced)**. Elements never overlap.
+- **The header acts as the hero:** a left-aligned greeting headline, one line of
+  context, then one primary action (Score Delivery) beside a single utility
+  action (Refresh). No centred hero, no "learn more", no scroll prompts.
+- **Rows:** a feature row is never three equal cards. The lead item gets the
+  wider track: engines use `1.3fr 1fr 1fr` (Delay Risk leads), pricing
+  `1fr 1.3fr 1fr` (the standard tier), and market `1fr 1.3fr 1fr` (the beachhead).
+  A row of four equal KPI tiles is allowed, because it is a scan-and-compare pattern
+  rather than a feature showcase. Forms may use equal columns.
+- **Mobile (< 768px):**
+  - Every grid collapses to one column.
+  - The rail becomes a wrapped row of 44px nav targets; the weather widget and
+    user card hide.
+  - The top bar wraps and the search box goes full width.
+  - Gutters shrink to 16px, and the page never scrolls horizontally.
+  - Wide data tables scroll inside their own box.
 
-## 5. Component Stylings
+## 6. Motion & Interaction
 
-- **Buttons:** flat. Primary buttons use an accent fill with `--sp-on-accent` text;
-  secondary buttons are outlined in `--sp-border-strong`. On press they move 1px
-  down (`transform: translateY(1px)`). No glows, no gradients.
-- **Panels:** `--sp-surface` with a 1px `--sp-border` and radius `--sp-radius`
-  (10px). Use elevation only for modals. Inside dense views, separate groups with
-  borders or whitespace, not nested cards.
-- **KPI tile:** label (uppercase mono, `--sp-text-3`), then value (mono,
-  `--sp-text`), then one sub-line, then a provenance line (`.metric-provenance`),
-  plus exactly one claim badge.
-- **Inputs:** label above, helper or error text below, `--sp-surface` fill, a focus
-  ring in `--sp-accent`. No floating labels.
-- **Risk bands:** green, yellow and red always map to `--sp-ok`, `--sp-warn` and
-  `--sp-risk`, and the band name is always printed next to the colour.
-- **Loading:** skeleton blocks sized like the content. No spinners on numbers.
-- **Empty and error states:** say what to do next ("Start the API to compute site
-  economics"), inline, where the data would have been.
+- **Easing:** `cubic-bezier(0.22, 1, 0.36, 1)`, the CSS stand-in for a spring
+  (stiffness 100, damping 20): quick start, soft settle, no overshoot. Never
+  linear. Micro-interactions take 160ms; reveals take 420ms.
+- **Cascade reveal:** when a view mounts, the children of a KPI, engine or pricing
+  row rise 6px and fade in, 60ms apart (`.sp-cascade`).
+- **The only perpetual loops:** the live-status dot pulse and the skeleton
+  shimmer while data loads.
+- **Performance:** animate `transform` and `opacity` only.
+- **Accessibility:** under `prefers-reduced-motion: reduce`, every animation and
+  transition is cut to near zero **(enforced)**.
+- **Streamlit exception:** the dashboard does not cascade, because every widget
+  interaction re-runs the script and would replay the entrance as flicker.
 
-## 6. Layout Principles
+## 7. Anti-Patterns (Banned)
 
-- Navigation rail on the left (240px, `--sp-chrome`) and a content column capped
-  at 1400px.
-- Use CSS Grid for KPI rows. A row of four equal KPI tiles is allowed here, because
-  it is a scan pattern for comparison, not a marketing feature row.
-- Below 768px every grid collapses to one column. Tap targets are at least 44px.
-  Nothing scrolls horizontally except data tables inside their own container.
-
-## 7. Motion & Interaction
-
-- Transitions are 120–180ms on `opacity` and `transform` only.
-- There is one perpetual loop: the live-status dot pulse.
-- Numbers update in place; they never count up.
-
-## 8. Brand Marks
-
-- `static/design/mark.svg`: the pulse line turning into a rising arrow in Signal
-  Orange, on a Charcoal tile. Used for the favicon and the navigation rail.
-- `static/design/logo.svg`: the mark plus the "SitePulse" wordmark, for dark
-  backgrounds.
-- `static/design/icon.png`: a 128px raster of the mark, for surfaces that cannot
-  take SVG (the Streamlit page icon).
-- The product is **SitePulse**. Never put a partner's or prospect's brand into the
-  product name, logo or window title.
-
-## 9. Anti-Patterns (Banned)
-
-- Emojis in UI copy. Use geometric glyphs (↯ ◈ ◎ ▣) or nothing.
-- Inter, and any serif font.
-- Pure black `#000000`, and raw hex values in markup: use tokens.
-- Purple or neon accents, glows, and gradient text.
-- More than one accent colour.
-- Money figures without a claim badge. "Guarantee" language on estimates.
-- Fake precision: `83%` of 7 people, `221.8%` ROI, `$621,000` to the dollar.
-- AI copywriting clichés: "AI engine automatically…", "seamless", "next-gen".
-- Invented people on screen presented as real customers.
+- Emojis anywhere in UI copy. Use geometric glyphs (↯ ◈ ◎ ▣ ⌕) or nothing **(enforced)**.
+- Inter, and any serif font in the product **(enforced)**.
+- Pure black (#000000) and black shadows; raw hex in markup **(enforced)**.
+- A second accent colour; purple or neon; glows; gradient text; custom cursors.
+- Three equal feature cards in a row; centred hero headers; overlapping elements.
+- `100vh` (it jumps on iOS Safari): use `100dvh` **(enforced)**.
+- Money figures without a claim badge, and "guarantee" or "proven" wording on
+  estimates **(enforced for retired claims)**.
+- Fake precision: "83%" of 7 interviews, "221.8%" ROI, "$621,000" to the dollar,
+  "99.99%" anything.
+- AI copywriting clichés: "AI engine automatically…", "seamless", "elevate",
+  "unleash", "next-gen", "revolutionary".
+- Filler UI text: "Scroll to explore", bouncing chevrons, scroll arrows.
+- Generic placeholder names ("John Doe", "Acme"). Demo sites are labelled "Site A",
+  "Site B" and so on, and are marked as fictional.
+- A partner's or prospect's brand in the product name, logo or window title.
+  The product is **SitePulse**; the marks are `static/design/mark.svg`,
+  `logo.svg` and `icon.png` **(enforced)**.
