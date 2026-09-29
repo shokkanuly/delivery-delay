@@ -1,4 +1,8 @@
-"""SitePulse — Command Surface (Streamlit edition)
+"""SitePulse — internal analyst view (Streamlit).
+
+The customer-facing product is the console in static/index.html, served by the
+API; see docs/plans/architecture-review.md (Stage 7). This view is kept for
+model operations and exploration, and is not maintained as a customer surface.
 
 Dark theme of the shared design system: tokens in static/design/tokens.css,
 rules in DESIGN.md. Views: Overview, Delivery Signals, Resource Plan, Sequence
@@ -572,7 +576,7 @@ with st.sidebar:
         <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:12px 14px; margin-top:6px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                 <span style="font-size:0.64rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--sp-text-3);">
-                    Today · Central Hub
+                    Sample conditions · not live
                 </span>
                 <span style="font-size:0.7rem; font-weight:700; color:var(--sp-accent); font-family:var(--sp-font-mono); letter-spacing:0.06em;">CLEAR</span>
             </div>
@@ -686,13 +690,15 @@ if view == "Overview":
         unsafe_allow_html=True,
     )
 
+    _hour = datetime.datetime.now().hour
+    _greeting = "Good morning." if _hour < 12 else "Good afternoon." if _hour < 18 else "Good evening."
     st.markdown(
         f"""
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
             <span class="cmd-dot"></span>
             <span class="cmd-label">Command Surface</span>
         </div>
-        <h1 class="greeting">Good morning, Aidos.</h1>
+        <h1 class="greeting">{_greeting}</h1>
         <p class="greeting-sub">
             Live operational status for <strong>{proj_name}</strong>.
             Three engines running side-by-side to protect crane utilization, pour windows, and laydown areas.
@@ -1226,7 +1232,7 @@ elif view == "Company Workspace":
         """
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
             <span class="cmd-dot"></span>
-            <span class="cmd-label">Subcontractor & Partner Portal · Key-Secured Workspace</span>
+            <span class="cmd-label">Subcontractor & Partner Portal · Key-Based Workspace</span>
         </div>
         <h1 class="greeting">Company Project, Logistics & Financial Suite</h1>
         <p class="greeting-sub">
@@ -1245,7 +1251,8 @@ elif view == "Company Workspace":
             access_key_input = st.text_input(
                 "Company Access Key",
                 value=st.session_state.get("active_access_key", "DEMO-SITE-B-2026"),
-                help="Provided by SitePulse Logistics Operations. Demo keys: DEMO-SITE-B-2026, DEMO-SITE-A-2026, DEMO-PILOT-KEY",
+                help="Demo keys (read-only): DEMO-SITE-B-2026, DEMO-SITE-A-2026, DEMO-PILOT-KEY. "
+                     "Leave blank and save to get your own key.",
             )
         with kcol2:
             st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
@@ -1255,16 +1262,17 @@ elif view == "Company Workspace":
             new_key_btn = st.button("New Project Key", use_container_width=True)
 
     if new_key_btn:
-        import uuid
-        generated_key = f"DEMO-PRJ-{uuid.uuid4().hex[:6].upper()}"
-        st.session_state["active_access_key"] = generated_key
+        # Keys are issued by the server on first save (api/security.new_workspace_key).
+        st.session_state["active_access_key"] = ""
         st.rerun()
 
-    current_key = access_key_input.strip() or "DEMO-SITE-B-2026"
+    current_key = access_key_input.strip()   # blank = new workspace, key issued on save
 
     # The API wraps the saved workspace as {found, workspace}; unknown demo keys
     # get the fictional Site B profile.
-    loaded = api_get(f"/projects/workspace/{current_key}") or {}
+    loaded = (api_get(f"/projects/workspace/{current_key}") or {}) if current_key else {}
+    if current_key and not loaded:
+        st.warning("No workspace found for that key.")
     workspace_data = loaded.get("workspace") or {}
 
     st.markdown("---")
@@ -1337,9 +1345,11 @@ elif view == "Company Workspace":
         try:
             resp = requests.post(f"{API_URL}/projects/workspace", json=ws_payload, timeout=10)
             if resp.status_code == 200:
-                st.success(f"Workspace parameters for '{p_name}' saved under key {current_key}.")
+                issued = resp.json()["access_key"]
+                st.session_state["active_access_key"] = issued
+                st.success(f"'{p_name}' saved under key {issued}. Keep this key: it is the only way back in.")
             else:
-                st.error(f"Not saved — API returned {resp.status_code}: {resp.text}")
+                st.error(f"Not saved — {resp.json().get('detail', resp.text)}")
         except Exception as e:
             st.error(f"Backend sync error: {e}")
 
@@ -1446,17 +1456,16 @@ elif view == "Company Workspace":
         )
 
     with c_right:
-        st.markdown("#### Access & Security Credentials")
+        st.markdown("#### Workspace Access")
         st.markdown(
             f"""
             <div style="background:var(--sp-surface); padding:18px; border-radius:10px; border:1px solid var(--sp-border);">
                 <div style="font-size:0.75rem; color:var(--sp-text-3); text-transform:uppercase; font-weight:600; letter-spacing:0.06em;">Contractor Key</div>
-                <div style="font-size:1.25rem; font-weight:700; color:var(--sp-accent); font-family:var(--sp-font-mono); margin:4px 0 10px;">{current_key}</div>
+                <div style="font-size:1.25rem; font-weight:700; color:var(--sp-accent); font-family:var(--sp-font-mono); margin:4px 0 10px;">{current_key or "Issued when you save"}</div>
                 <div style="font-size:0.8rem; color:var(--sp-text-2); line-height:1.7;">
-                    • <strong>Status:</strong> <span style="color:var(--sp-ok); font-weight:600;">Active & Synchronized</span><br/>
-                    • <strong>Scope:</strong> {p_name}<br/>
-                    • <strong>Internal ML Access:</strong> <span style="color:var(--sp-risk); font-weight:600;">Restricted (Operator view only)</span><br/>
-                    • <strong>Last Computed:</strong> Just now
+                    • <strong>Access:</strong> whoever holds this key can view and edit this workspace — keep it private.<br/>
+                    • <strong>Demo keys:</strong> read-only; use "New Project Key" to get your own on save.<br/>
+                    • <strong>Scope:</strong> {p_name}
                 </div>
             </div>
             """,
@@ -1853,7 +1862,9 @@ with st.expander("Model Operations - Retrain Pipeline", expanded=False):
     st.markdown("Retrains on the newest historical database actuals and hot-swaps the model artifact with zero downtime.")
     if st.button("Trigger Retrain Now", key="retrain_btn"):
         with st.spinner("Retraining gradient-boosting delay classifier..."):
-            r = requests.post(f"{API_URL}/train", timeout=60)
+            # The admin key stays on the Streamlit server; the browser never sees it.
+            r = requests.post(f"{API_URL}/train", timeout=120,
+                              headers={"X-API-Key": os.getenv("SITEPULSE_ADMIN_KEY", "")})
         if r.status_code == 200:
             st.success("Model successfully retrained and artifact reloaded in memory!")
             st.rerun()

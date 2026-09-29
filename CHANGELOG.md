@@ -4,6 +4,27 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## [1.4.0] — 2026-09-29 · Architecture Review Fixes
+
+Plan, evidence and outcome: `docs/plans/architecture-review.md`.
+
+### Fixed
+- The local run path (`start.sh`, README quickstart) served a model trained on a different synthetic dataset and knew **0 of the 10** suppliers it scored. Training now defaults to the same CSV `db.seed` loads; the artifact records its `data_source`; `/health` reports `supplier_coverage`.
+- Console showed invented numbers (`|| 27`, `|| 99`, …) on API failure and when the real count was 0.
+
+### Security
+- `POST /train` and `POST /outcomes` require `X-API-Key` (`SITEPULSE_ADMIN_KEY`); closed (503) when unset.
+- Workspace keys are server-issued 128-bit tokens; demo workspaces are read-only; unknown keys 404; GET has no side effects.
+- CORS: explicit origins instead of `*` with credentials. UI security wording now matches what is enforced.
+
+### Changed
+- Workspaces stored in the `workspaces` table (was a git-tracked JSON file rewritten at runtime).
+- `api/main.py` is wiring only; routes live in `api/routers/{predict,projects,business,…}.py`; shared model state in `api/model_store.py`.
+- Real clock and neutral demo user instead of a fixed date and persona; Postgres user/DB renamed from the partner brand to `sitepulse`.
+- The HTML console is the product; Streamlit is an internal analyst view.
+
+---
+
 ## [1.3.0] — 2026-09-29 · Pitch Credibility, Single Source of Economics, Design System
 
 Driven by an honest jury-rubric review; plan and rationale in `docs/plans/credibility-fixes.md`.

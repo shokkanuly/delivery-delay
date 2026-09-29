@@ -34,6 +34,7 @@ BANNED = [
     r"Target Scor|Pre-Fix Score",       # self-graded rubric table
     r"100% [Rr]ecall",                  # tautological on rule-generated labels
     r"100% detection|Validation Accuracy",  # same tautology, other wording
+    r"Key-Secured|Authorized Contractor|Restricted \(Operator",  # security the code does not enforce
 ]
 
 
@@ -68,3 +69,10 @@ def test_readme_quotes_the_core_figures():
     for key in ("price_range", "pilot_fee", "value_base", "multiple_base",
                 "value_conservative", "multiple_conservative"):
         assert h[key] in readme, f"README missing {key}={h[key]!r}"
+
+
+def test_no_static_content_posing_as_live():
+    for rel in ("static/index.html", "dashboard/app.py"):
+        text = _text(rel)
+        for fake in ("Aidos", "Kassenov", "12 March 2025", "12 Mar 2025", "Today · Central Hub"):
+            assert fake not in text, f"{rel}: {fake}"

@@ -1459,7 +1459,7 @@
 
     <div class="weather-widget">
       <div class="weather-top">
-        <span class="weather-date">Today, 12 Mar 2025</span>
+        <span class="weather-date">Sample conditions · not live</span>
         <span class="weather-icon" style="font-size:0.75rem; font-weight:700; color:var(--accent);">CLEAR</span>
       </div>
       <div class="weather-temp">–6° / +2°</div>
@@ -1467,10 +1467,10 @@
     </div>
 
     <div class="sidebar-user">
-      <div class="user-avatar">AK</div>
+      <div class="user-avatar">DU</div>
       <div class="user-info">
-        <div class="user-name">Aidos Kassenov</div>
-        <div class="user-role">Regional operations · Astana</div>
+        <div class="user-name">Demo user</div>
+        <div class="user-role">Fictional demo data</div>
       </div>
       <span class="user-chevron">▾</span>
     </div>
@@ -1483,7 +1483,7 @@
       <div class="top-bar-left">
         <div class="org-badge">
           <div class="org-label">SitePulse · Regional Holding (Demo)</div>
-          <div class="org-date">Tuesday, 12 March 2025 · 07:30 local</div>
+          <div class="org-date" id="org-date"></div>
         </div>
       </div>
       <div class="top-bar-right">
@@ -1535,7 +1535,7 @@
           <span id="live-api-text">Connecting API...</span>
         </div>
       </div>
-      <h1 class="greeting" id="greeting-title">Good morning, Aidos.</h1>
+      <h1 class="greeting" id="greeting-title">Good morning.</h1>
       <p class="greeting-sub" id="greeting-sub">
         Live operational overview across active regional construction sites. <strong>Interactive decision support</strong> across all three engines.
       </p>
@@ -1866,7 +1866,7 @@
               <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Total Bookings</div>
-            <div class="kpi-value" id="res-kpi-bookings">260</div>
+            <div class="kpi-value" id="res-kpi-bookings"><span class="sp-skeleton">—</span></div>
             <div class="kpi-sub">subcontractor requests</div>
             <div class="metric-provenance">Synthetic booking set; the fleet covers demand</div>
           </div>
@@ -1875,7 +1875,7 @@
               <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Raw Conflicts Prevented</div>
-            <div class="kpi-value" id="res-kpi-conflicts" style="color:var(--accent);">99</div>
+            <div class="kpi-value" id="res-kpi-conflicts" style="color:var(--accent);"><span class="sp-skeleton">—</span></div>
             <div class="kpi-sub">overlapping requests resolved</div>
             <div class="metric-provenance">Constraint satisfaction resolution</div>
           </div>
@@ -1893,7 +1893,7 @@
               <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Solver Status & Time</div>
-            <div class="kpi-value" id="res-kpi-time" style="font-size:1.4rem;">OPTIMAL (0.2s)</div>
+            <div class="kpi-value" id="res-kpi-time" style="font-size:1.4rem;"><span class="sp-skeleton">—</span></div>
             <div class="kpi-sub">19/28 resources active</div>
             <div class="metric-provenance">Mathematical optimality proven</div>
           </div>
@@ -1968,7 +1968,7 @@
         <div class="kpi-row" style="margin-bottom: 24px;">
           <div class="kpi-card">
             <div class="kpi-label-text">Deliveries Checked</div>
-            <div class="kpi-value" id="seq-kpi-total">219</div>
+            <div class="kpi-value" id="seq-kpi-total"><span class="sp-skeleton">—</span></div>
             <div class="kpi-sub">total tracked shipments</div>
             <div class="metric-provenance">Every delivery in the demo dataset</div>
           </div>
@@ -1977,7 +1977,7 @@
               <span class="sp-badge sp-badge--synthetic">Synthetic Data</span>
             </div>
             <div class="kpi-label-text">Premature Arrivals (R1)</div>
-            <div class="kpi-value" id="seq-kpi-premature" style="color:var(--accent);">27</div>
+            <div class="kpi-value" id="seq-kpi-premature" style="color:var(--accent);"><span class="sp-skeleton">—</span></div>
             <div class="kpi-sub">arriving before phase start</div>
             <div class="metric-provenance">Deterministic rule evaluation</div>
           </div>
@@ -2230,7 +2230,7 @@
         <div class="view-header">
           <div class="command-label">
             <div class="command-dot"></div>
-            <span class="command-text">Subcontractor & Partner Portal · Key-Secured Workspace</span>
+            <span class="command-text">Subcontractor & Partner Portal · Key-Based Workspace</span>
           </div>
           <h1 class="view-title">Company Project, Logistics & Financial Suite</h1>
           <p class="view-sub">
@@ -2252,7 +2252,7 @@
           </div>
           <div style="margin-left:auto; display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--text-muted);">
             <span>Access Mode:</span>
-            <span class="signal-badge ok" id="cw-access-badge">● Authorized Contractor Portal</span>
+            <span class="signal-badge ok" id="cw-access-badge">● Key-based access</span>
           </div>
         </div>
 
@@ -2429,13 +2429,13 @@
           </div>
 
           <div style="background:var(--bg-secondary); border:1px solid var(--card-border); border-radius:12px; padding:20px;">
-            <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.06em;">Active Contractor Key</div>
+            <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.06em;">Workspace Key</div>
             <div id="cw-display-key" style="font-family:var(--sp-font-mono); font-size:1.3rem; font-weight:700; color:var(--accent); margin:4px 0 10px;">DEMO-SITE-B-2026</div>
             <div style="font-size:0.8rem; color:var(--text-secondary); line-height:1.6;">
-              • <strong>Status:</strong> <span style="color:var(--sp-ok); font-weight:600;">Active & Synced to Fleet</span><br/>
-              • <strong>Security Tier:</strong> General Contractor Sandbox<br/>
-              • <strong>ML Internal Access:</strong> <span style="color:var(--sp-accent); font-weight:600;">Restricted (Operator view only)</span><br/>
-              • <strong>Persistence:</strong> Saved to central dispatch database
+              • <strong>Access:</strong> whoever holds this key can view and edit this workspace — keep it private.<br/>
+              • <strong>Demo keys:</strong> read-only; save with a blank key to get your own.<br/>
+              • <strong>Model retraining:</strong> needs the server admin key (not available in the browser).<br/>
+              • <strong>Persistence:</strong> Saved to the SitePulse database
             </div>
           </div>
         </div>
@@ -2860,7 +2860,17 @@
     }
 
     // Live API integration
+    // Real clock, not a fixed demo date.
+    function renderClock() {
+      const now = new Date();
+      const h = now.getHours();
+      cwText('org-date', now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+        + ' · ' + now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' local');
+      cwText('greeting-title', h < 12 ? 'Good morning.' : h < 18 ? 'Good afternoon.' : 'Good evening.');
+    }
+
     async function initPlatform() {
+      renderClock();
       await checkHealth();
       await loadProjects();
       const selector = document.getElementById('project-selector');
@@ -3005,8 +3015,8 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const s = data.stats || {};
-        document.getElementById('res-kpi-bookings').textContent = s.bookings || 260;
-        document.getElementById('res-kpi-conflicts').textContent = s.raw_conflicts_before || 99;
+        document.getElementById('res-kpi-bookings').textContent = s.bookings ?? '—';
+        document.getElementById('res-kpi-conflicts').textContent = s.raw_conflicts_before ?? '—';
         document.getElementById('res-kpi-doubles').textContent = s.double_bookings_after ?? 0;
         document.getElementById('res-kpi-time').textContent = `${s.status} (${s.solve_seconds}s)`;
 
@@ -3042,8 +3052,8 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const c = data.counts || {};
-        document.getElementById('seq-kpi-total').textContent = c.total || 219;
-        document.getElementById('seq-kpi-premature').textContent = c.premature_delivery || 27;
+        document.getElementById('seq-kpi-total').textContent = c.total ?? '—';
+        document.getElementById('seq-kpi-premature').textContent = c.premature_delivery ?? '—';
         document.getElementById('seq-kpi-mismatch').textContent = c.material_phase_mismatch ?? 0;
 
         tbody.innerHTML = '';
@@ -3197,7 +3207,7 @@
     }
 
     async function saveCompanyWorkspace() {
-      const key = (cwVal('cw-key-input') || 'DEMO-SITE-B-2026').trim();
+      const key = (cwVal('cw-key-input') || '').trim();
       const payload = {
         access_key: key,
         company_name: cwVal('cw-company-name') || 'Contractor',
@@ -3218,17 +3228,20 @@
           body: JSON.stringify(payload),
         });
         if (resp.ok) {
-          renderSiteFinance((await resp.json()).workspace.finance);
+          const saved = await resp.json();
+          renderSiteFinance(saved.workspace.finance);
+          cwSet('cw-key-input', saved.access_key);
+          cwText('cw-display-key', saved.access_key);
           if (banner) {
             banner.style.display = 'block';
             banner.style.background = 'color-mix(in srgb, var(--sp-ok) 12%, var(--sp-surface))';
             banner.style.color = 'var(--sp-ok)';
             banner.style.border = '1px solid var(--sp-ok)';
-            banner.innerHTML = `<strong>Workspace saved.</strong> '<em>${payload.project_name}</em>' stored under access key <code>${key}</code>.`;
+            banner.innerHTML = `<strong>Workspace saved.</strong> '<em>${payload.project_name}</em>' stored under access key <code>${saved.access_key}</code>. Keep this key: it is the only way back in.`;
             setTimeout(() => { banner.style.display = 'none'; }, 6000);
           }
         } else {
-          throw new Error(`Server returned ${resp.status}`);
+          throw new Error((await resp.json().catch(() => ({}))).detail || `Server returned ${resp.status}`);
         }
       } catch (err) {
         if (banner) {
@@ -3241,13 +3254,11 @@
       }
     }
 
+    // Keys are issued by the server on first save (api/security.new_workspace_key).
     function generateNewCompanyKey() {
-      const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const newKey = `DEMO-PRJ-${rand}`;
       const input = document.getElementById('cw-key-input');
-      if (input) input.value = newKey;
-      const displayKey = document.getElementById('cw-display-key');
-      if (displayKey) displayKey.textContent = newKey;
+      if (input) input.value = '';
+      cwText('cw-display-key', 'Issued when you save');
       calculateCompanyKPIs();
     }
 

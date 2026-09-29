@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import JSON
 
@@ -192,3 +192,22 @@ class WeatherLog(Base):
     location = Column(String, index=True)
     condition = Column(String)
     severity = Column(Float)
+
+
+class Workspace(Base):
+    """A company's site workspace. `inputs` holds exactly the fields of
+    api.schemas.CompanyWorkspaceIn (minus the key), so that Pydantic model stays
+    the one schema definition. Finance is derived on read, never stored.
+
+    `access_key` is a bearer secret issued by the server. Demo workspaces are
+    read-only so a public demo key cannot be used to overwrite them.
+    """
+
+    __tablename__ = "workspaces"
+
+    access_key = Column(String, primary_key=True)
+    inputs = Column(JSON, nullable=False)
+    read_only = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))

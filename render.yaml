@@ -9,8 +9,8 @@
 # days; for a longer pilot move `plan: free` to a paid tier.
 databases:
   - name: logistics-db
-    databaseName: deliverydb
-    user: bigroup
+    databaseName: sitepulse
+    user: sitepulse
     plan: free
 
 services:
@@ -26,6 +26,8 @@ services:
     startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      - key: SITEPULSE_ADMIN_KEY
+        generateValue: true
       - key: DATABASE_URL
         fromDatabase:
           name: logistics-db
@@ -48,5 +50,10 @@ services:
           type: web
           name: logistics-api
           property: hostport
+      - key: SITEPULSE_ADMIN_KEY
+        fromService:
+          type: web
+          name: logistics-api
+          envVarKey: SITEPULSE_ADMIN_KEY
       - key: PYTHONPATH
         value: .

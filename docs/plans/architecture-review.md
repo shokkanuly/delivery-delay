@@ -1,6 +1,6 @@
 # Architecture Review — SitePulse (2026-09-29)
 
-Status: `[ ]` todo · `[~]` in progress · `[x]` done. **Awaiting go-ahead before any stage starts.**
+Status: `[ ]` todo · `[~]` in progress · `[x]` done. **All stages done (go-ahead given 2026-09-29).**
 
 ## 1. Why (scope and success)
 
@@ -62,7 +62,7 @@ the founder's call anyway. No new libraries: auth uses FastAPI's built-in
 
 ## 5. Roadmap
 
-### Stage 1 — One training source, detectable drift (F1) `[ ]`
+### Stage 1 — One training source, detectable drift (F1) `[x]`
 - **Goal:** every run path trains on the data the DB is seeded from, and a
   mismatch becomes visible.
 - **Steps:**
@@ -75,7 +75,7 @@ the founder's call anyway. No new libraries: auth uses FastAPI's built-in
 - **Done when:** a fresh `start.sh` run shows `/health` → `trained_rows: 2200`,
   `supplier_coverage: 1.0`; a new test fails if the seed and train defaults diverge.
 
-### Stage 2 — No invented numbers (F6) `[ ]`
+### Stage 2 — No invented numbers (F6) `[x]`
 - **Goal:** the console shows a real 0 as 0, and an inline error on API failure.
 - **Steps:** `static/index.html`: `||` → `??`; failure shows "—" plus an inline
   error (DESIGN.md §4).
@@ -83,7 +83,7 @@ the founder's call anyway. No new libraries: auth uses FastAPI's built-in
 - **Done when:** a test finds no `|| <number>` fallbacks; the Site B sequence
   view shows 0 in the browser.
 
-### Stage 3 — Workspaces in the database (F3) `[ ]`
+### Stage 3 — Workspaces in the database (F3) `[x]`
 - **Goal:** one store of record; `GET` has no side effects.
 - **Steps:**
   - Add a `Workspace` model in `db/models.py` and seed the demo workspaces in `db/seed.py`.
@@ -94,7 +94,7 @@ the founder's call anyway. No new libraries: auth uses FastAPI's built-in
   the app and saving a workspace leaves `git status` clean; a test proves `GET`
   writes nothing.
 
-### Stage 4 — Access control that matches the UI's words (F2) `[ ]`
+### Stage 4 — Access control that matches the UI's words (F2) `[x]`
 - **Goal:** mutating endpoints are protected, and the UI claims only what is true.
 - **Steps:**
   - An `X-API-Key` header (env `SITEPULSE_ADMIN_KEY`) on `POST /train` and
@@ -106,7 +106,7 @@ the founder's call anyway. No new libraries: auth uses FastAPI's built-in
 - **Done when:** tests show 401 without the key and 200 with it; a demo workspace
   rejects writes; `tests/test_pitch_claims.py` bans the unbacked security wording.
 
-### Stage 5 — Routers for every domain (F5) `[ ]`
+### Stage 5 — Routers for every domain (F5) `[x]`
 - **Goal:** `api/main.py` does wiring only, matching the existing router pattern.
 - **Steps:** `api/routers/business.py` (economics, workspace),
   `api/routers/predict.py`, `api/routers/projects.py` (overview). A pure move.
@@ -114,7 +114,7 @@ the founder's call anyway. No new libraries: auth uses FastAPI's built-in
 - **Done when:** the full suite passes unchanged, and the path list in
   `/openapi.json` is identical before and after.
 
-### Stage 6 — Honest demo content (F7) `[ ]`
+### Stage 6 — Honest demo content (F7) `[x]`
 - **Goal:** nothing static pretends to be live.
 - **Steps:** the date comes from the browser clock; a neutral "Demo user" replaces
   the persona; the weather widget gets a "sample" label or is removed; rename the
@@ -123,7 +123,7 @@ the founder's call anyway. No new libraries: auth uses FastAPI's built-in
 - **Done when:** a grep test bans the persona and the fixed date; the compose
   stack comes up healthy.
 
-### Stage 7 — Decide the one UI (F4) `[ ]` · *founder decision*
+### Stage 7 — Decide the one UI (F4) `[x]` · *founder decision*
 - **Goal:** one maintained surface.
 - **Recommendation:** keep the **HTML console**. It is served by the API itself
   (one process, one URL, one deploy), it is now mobile-responsive, and it has no
@@ -132,3 +132,34 @@ the founder's call anyway. No new libraries: auth uses FastAPI's built-in
 - **Depends on:** founder decision; best after the pitch.
 - **Done when:** the decision is recorded here and the dropped UI is removed or
   marked internal in the README.
+
+## 6. Outcome and mid-build notes
+
+- **Stage 1.** Verified on a fresh `start.sh` run: `/health` returns
+  `trained_rows: 2200`, `data_source: delay_prediction.csv`, `supplier_coverage: 1.0`
+  (it was 0.0). `tests/test_training_source.py` pins the shared default.
+- **Stage 2.** Skeletons replace the hardcoded initial KPI values too (260, 99,
+  "OPTIMAL (0.2s)", 219, 27), not only the `||` fallbacks.
+- **Stages 3 and 4 were built together** because they share the same code. The
+  workspace routes were written straight into `api/routers/business.py` so
+  Stage 5 did not have to move them. The demo data moved to
+  `data/synthetic/demo_workspaces.json` (read-only seed input). The API now
+  creates missing tables at startup (`init_db` in the lifespan).
+- **Stage 4 key flow.** A blank key on save gets a server-issued `WS-…` token.
+  Unknown keys return 404; demo keys return 403. The admin key is generated by
+  `start.sh`, set in `.env` for compose, and uses `generateValue` on Render,
+  shared with the dashboard service. Admin endpoints return 503 when no key is
+  configured. CORS is an explicit list (the console is same-origin; Streamlit
+  calls the API server-side).
+- **Stage 5.** `api/main.py` went from ~350 lines to wiring only. New modules:
+  `api/model_store.py`, `routers/predict.py`, `routers/projects.py`,
+  `routers/business.py`. The 21 OpenAPI paths are identical to the pre-split
+  commit (diffed via a worktree).
+- **Stage 6.** The Postgres user and DB are renamed `sitepulse`. The weather
+  widget is kept but labelled "Sample conditions · not live".
+- **Stage 7 decision (founder: "do everything").** The HTML console is the
+  product; Streamlit is an internal analyst view (README, `start.sh`, module
+  docstring). Nothing was deleted, so the decision is reversible.
+- **Remaining, out of scope:** Streamlit's own server runs with
+  `enableCORS=false` (pre-existing, `.streamlit/config.toml`). Revisit if
+  Streamlit is ever exposed publicly.

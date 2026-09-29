@@ -131,8 +131,8 @@ flowchart TB
 
     subgraph UI["🖥️ Command Surface"]
         API["FastAPI Backend<br/>/projects/{id}/overview"]
-        ST["Streamlit Executive Hub<br/>(localhost:8501)"]
-        HTML["Fast HTML5 Console<br/>(localhost:8000)"]
+        ST["Streamlit analyst view — internal<br/>(localhost:8501)"]
+        HTML["SitePulse Console — the product<br/>(localhost:8000)"]
         OCCL & RES & GATE --> API
         API --> ST & HTML
     end
@@ -174,13 +174,13 @@ Or run manual steps:
 ```bash
 python3 -m pip install -r requirements.txt
 python3 -m db.seed
-python3 -m ml.train
+python3 -m ml.train        # trains on data/synthetic/delay_prediction.csv (same file db.seed loads)
 python3 -m uvicorn api.main:app --port 8000 --reload &
 python3 -m streamlit run dashboard/app.py --server.port 8501
 ```
 
-* **Executive Dashboard (Streamlit):** http://localhost:8501
-* **Fast Field Console (HTML5):** http://localhost:8000
+* **SitePulse Console (the product — demo this):** http://localhost:8000
+* **Analyst view (Streamlit, internal):** http://localhost:8501 — model ops and exploration; not maintained as a customer surface
 * **Interactive OpenAPI Specs:** http://localhost:8000/docs
 * **Economics & assumptions (every pitch number):** http://localhost:8000/economics
 * **Core ML Rigor Test:** `python3 run.py`
@@ -206,8 +206,8 @@ ml/             Causal feature engineering, empirical-Bayes shrinkage, labeling,
 business/       Pricing, per-site ROI scenarios, unit economics and forecast — the source of every pitch number
 db/             SQLAlchemy models (7 tables), database connection, and synthetic seed script
 api/            FastAPI application, data sources, and Pydantic schemas
-dashboard/      Streamlit executive dashboard (dark industrial editorial design)
-static/         High-performance static HTML5/JS web console and UI assets
+dashboard/      Internal Streamlit analyst view (model retraining, exploration); not the customer UI
+static/         SitePulse Console — the one customer-facing UI, served by the API (+ design/ tokens and marks)
 docs/           ARCHITECTURE.md, PRD.md, PILOT_PROPOSAL.md, INVESTOR_DECK.md, RUNBOOK.md, and ADRs
 DESIGN.md       Design system: tokens, claim-badge vocabulary, type, anti-patterns (tokens in static/design/)
 CHANGELOG.md    Internal build notes, UI refactoring logs, and technical milestones

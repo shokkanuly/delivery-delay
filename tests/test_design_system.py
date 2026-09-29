@@ -85,3 +85,9 @@ def test_console_is_responsive_and_feature_rows_are_asymmetric():
     assert "@media (max-width: 767px)" in html
     engines = html[html.index(".engines-row {"):]
     assert "repeat(3, 1fr)" not in engines[:engines.index("}")]
+
+
+def test_console_never_invents_numbers():
+    """`x || 27` shows 27 when the API fails and when the real count is 0."""
+    html = (ROOT / "static" / "index.html").read_text()
+    assert not re.search(r"\|\|\s*\d{2,}\s*;", html)

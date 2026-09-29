@@ -13,6 +13,8 @@ re-seeding reference data must never destroy that evidence.
 """
 from __future__ import annotations
 
+import json
+
 import pathlib
 
 import pandas as pd
@@ -27,12 +29,14 @@ from db.models import (
     Project,
     Resource,
     Supplier,
+    Workspace,
 )
 from ml.data_sim import generate_deliveries
 from ml.labeling import LabelConfig, add_labels
 
 SYNTHETIC_DIR = pathlib.Path(__file__).resolve().parent.parent / "data" / "synthetic"
 DEFAULT_DELIVERIES = SYNTHETIC_DIR / "delay_prediction.csv"
+DEMO_WORKSPACES = SYNTHETIC_DIR / "demo_workspaces.json"
 
 OWNED_TABLES = [Delivery, MaterialDelivery, BookingRequest, BuildPhase,
                 PhaseMaterialMap, Resource, Supplier, Project]
@@ -182,8 +186,15 @@ def seed(n: int = 1200, seed_val: int = 7, csv_path: str | None = None) -> dict:
                     phase_end_date=pd.to_datetime(m["phase_end_date"]).date(),
                     flag=(None if pd.isna(m.get("flag")) else m["flag"])))
 
+        # ---- demo workspaces: upserted read-only, never dropped, so reseeding
+        # keeps any workspace a real company created.
+        for key, entry in json.loads(DEMO_WORKSPACES.read_text()).items():
+            inputs = {k: v for k, v in entry.items() if k not in ("access_key", "created_at")}
+            session.merge(Workspace(access_key=key, inputs=inputs, read_only=True))
+
         session.commit()
         return {
+            "demo_workspaces": session.query(Workspace).filter_by(read_only=True).count(),
             "projects": session.query(Project).count(),
             "suppliers": session.query(Supplier).count(),
             "deliveries": session.query(Delivery).count(),

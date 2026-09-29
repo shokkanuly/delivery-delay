@@ -68,7 +68,7 @@ class SiteInputsIn(BaseModel):
 
 
 class CompanyWorkspaceIn(SiteInputsIn):
-    access_key: str
+    access_key: str = ""   # blank on create: the server issues a key
     company_name: str
     project_id: str
     project_name: str

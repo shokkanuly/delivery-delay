@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 import pandas as pd
+from api.security import require_admin
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
@@ -63,7 +64,7 @@ class OutcomeIn(BaseModel):
     grace_days: int = 1                   # per-material tolerance; see ml/labeling
 
 
-@router.post("/outcomes")
+@router.post("/outcomes", dependencies=[Depends(require_admin)])
 def record_outcomes(outcomes: list[OutcomeIn],
                     db: Session = Depends(get_session)) -> dict:
     """Attach real outcomes to logged predictions."""
