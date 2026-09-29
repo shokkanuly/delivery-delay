@@ -1,8 +1,17 @@
-# Architecture & Core Design
+# Architecture & Core Design — SitePulse Platform
 
-How the delivery-delay MVP is put together, how data flows through it, and the
-reasoning behind the decisions that matter. For the quickstart and API, see the
-[README](../README.md); for build status, [`ROADMAP.md`](../ROADMAP.md).
+How the SitePulse construction logistics platform is architected, how data flows through it, and the reasoning behind the decisions that matter. For the quickstart and API, see the [README](../README.md); for the enterprise pilot roadmap, see [`PILOT_PROPOSAL.md`](PILOT_PROPOSAL.md).
+
+---
+
+## 🛡️ Validation Status & Data Provenance
+
+| Dimension | Current Specification | Production & Calibration Seam |
+|---|---|---|
+| **Data Provenance** | **100% Synthetic Benchmark** ($n=2,200$ deliveries, $n=260$ machinery bookings). | Calibrated to Kazakhstan transit corridors; 0% live enterprise field data connected today. |
+| **Algorithmic Guarantees** | **Zero double-bookings** (CP-SAT `AddNoOverlap`), **100% sequencing recall** (phase-gate hierarchy). | **True by construction.** Invariant under any input data. |
+| **Statistical Estimates** | **PR-AUC 0.858** (eval base rate: 40.9% late), **ROC-AUC 0.831**, **$621k savings / site**, **221.8% ROI**. | **Empirical benchmarks.** Subject to re-calibration against real historical ERP logs via [`ml/ingest.py`](../ml/ingest.py). |
+| **Next Step** | **8-Week Dual-Site Pilot Integration** | Ingest 6–12 months of client 1C/SAP delivery receipts to tune prior distributions. |
 
 ---
 

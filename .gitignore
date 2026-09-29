@@ -7,3 +7,4 @@ ml/artifacts/
 .venv/
 venv/
 .DS_Store
+Gemini_Generated_Image*.jpeg

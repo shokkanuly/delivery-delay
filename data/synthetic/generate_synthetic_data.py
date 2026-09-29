@@ -24,10 +24,10 @@ OUT = "/home/claude/synthetic_data"
 cities = ["Almaty", "Astana", "Shymkent", "Karagandy", "Aktobe", "Atyrau"]
 
 project_names = [
-    "Nurly Zhol Residence", "Alatau Towers", "Green Line Business Center",
-    "Saryarka Housing Complex", "Caspian Waterfront", "Silk Road Mall",
-    "Kokserek Park Residences", "Turan Business Hub", "Bereke Family Homes",
-    "Zharyk Industrial Park"
+    "Site A - Urban Residential", "Site B - High-Rise Commercial", "Site C - Embankment Towers",
+    "Site D - Industrial Logistics Park", "Site E - Regional Trade Center", "Site F - Waterfront Mixed-Use",
+    "Site G - West Logistics Hub", "Site H - Tech Park Campus", "Site I - Central Boulevard Complex",
+    "Site J - Riverfront Residences"
 ]
 
 projects = pd.DataFrame({

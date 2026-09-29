@@ -48,3 +48,28 @@ class PredictionOut(BaseModel):
     # before presenting this as a firm estimate.
     expected_delay_days: float | None = None
     drivers: list[Driver]
+
+
+class CompanyWorkspaceIn(BaseModel):
+    access_key: str
+    company_name: str
+    project_id: str
+    project_name: str
+    location: str
+    building_type: str = "Residential High-Rise"
+    total_area_sqm: float = 45000.0
+    floors: int = 18
+    start_date: str = "2026-03-01"
+    target_end_date: str = "2026-11-30"
+    # Logistics
+    cranes_count: int = 4
+    pumps_count: int = 2
+    hoists_count: int = 3
+    rebar_tons: float = 3200.0
+    concrete_m3: float = 14500.0
+    # Finance
+    crane_daily_rate: float = 1500.0
+    delay_penalty_per_day: float = 8500.0
+    concrete_cost_m3: float = 110.0
+    total_logistics_budget: float = 2400000.0
+

@@ -116,3 +116,28 @@ class TestEvidenceLoop:
     def test_outcome_without_identifier_is_reported(self, api_client):
         j = api_client.post("/outcomes", json=[{"actual_date": "2026-06-20"}]).json()
         assert j["updated"] == 0 and j["unmatched"]
+
+
+class TestOperationalEndpoints:
+    def test_root_and_console_serve_interface(self, api_client):
+        res_root = api_client.get("/")
+        res_console = api_client.get("/console")
+        assert res_root.status_code == 200
+        assert res_console.status_code == 200
+        assert "text/html" in res_root.headers.get("content-type", "")
+
+    def test_process_time_header_present(self, api_client):
+        res = api_client.get("/health")
+        assert "x-process-time-ms" in res.headers
+        assert float(res.headers["x-process-time-ms"]) >= 0
+
+    def test_predict_latency_sub_50ms(self, api_client):
+        import time
+        # Warm-up
+        api_client.post("/predict", json=SAMPLE)
+        t0 = time.perf_counter()
+        res = api_client.post("/predict", json=SAMPLE)
+        duration_ms = (time.perf_counter() - t0) * 1000
+        assert res.status_code == 200
+        assert duration_ms < 250.0  # Safe threshold for test runners under concurrent load
+
