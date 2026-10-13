@@ -10,7 +10,7 @@ How the SitePulse construction logistics platform is architected, how data flows
 |---|---|---|
 | **Data Provenance** | **100% Synthetic Benchmark** ($n=2,200$ deliveries, $n=260$ machinery bookings). | Calibrated to Kazakhstan transit corridors; 0% live enterprise field data connected today. |
 | **Correctness Invariants** | **No unit double-booked** (CP-SAT `AddNoOverlap`); **every delivery dated before its phase start is flagged** (date rule). | **Tested on every commit.** Properties of the code, not measures of business impact. |
-| **Statistical Estimates** | **PR-AUC 0.858** (eval base rate: 40.9% late), **ROC-AUC 0.831** — on synthetic data whose delay drivers the generator encodes. | **Pipeline benchmarks, not field accuracy.** Re-measured on real ERP logs via [`ml/ingest.py`](../ml/ingest.py). |
+| **Statistical Estimates** | **PR-AUC 0.669** vs 0.619 supplier baseline (eval base rate: 40.9% late), **ROC-AUC 0.728** vs 0.689 — on synthetic data whose delay drivers the generator encodes. | **Pipeline benchmarks, not field accuracy.** Re-measured on real ERP logs via [`ml/ingest.py`](../ml/ingest.py). |
 | **Business Estimates** | Losses avoided per site-year and ROI scenarios. | **Founder assumptions** in [`business/economics.py`](../business/economics.py) (`GET /economics`). |
 | **Next Step** | **8-Week Dual-Site Pilot Integration** | Ingest 6–12 months of client 1C/SAP delivery receipts to tune prior distributions. |
 

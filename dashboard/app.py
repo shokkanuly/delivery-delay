@@ -758,16 +758,18 @@ if view == "Overview":
             unsafe_allow_html=True,
         )
     with k4:
+        _m = api_get("/metrics") or {}
+        _ap, _auc = _m.get("ap", {}), _m.get("auc", {})
         st.markdown(
-            """
+            f"""
             <div class="kpi-card">
                 <div class="kpi-top-row">
                     <div class="kpi-icon muted">∿</div>
                     <span class="badge-estimate">Statistical Estimate</span>
                 </div>
                 <div class="kpi-lbl">ML Risk Performance</div>
-                <div class="kpi-val" style="font-size:1.6rem;">0.858 PR-AUC</div>
-                <div class="kpi-sub-text">+0.126 lift vs supplier avg · ROC 0.831</div>
+                <div class="kpi-val" style="font-size:1.6rem;">{_ap.get("model", "—")} PR-AUC</div>
+                <div class="kpi-sub-text">{_ap.get("lift", 0):+.3f} lift vs supplier avg · ROC {_auc.get("model", "—")}</div>
                 <div class="metric-provenance">Eval Base Rate: 40.9% late (899/2,200) · Synthetic</div>
             </div>
             """,

@@ -4,6 +4,17 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## [1.5.0] — 2026-10-13 · Repository Presentation
+
+### Added
+- README rebuilt as a project front page: SitePulse banner (light and dark), badges with live CI, an architecture map of the four layers with the ingest and evidence-loop flows, a layer-by-layer explanation, a request sequence diagram, and a docs index.
+- `scripts/render_readme_assets.py` renders `docs/assets/{banner,architecture}-{light,dark}.svg` from `static/design/tokens.css`, so the README art follows the design system.
+
+### Fixed
+- The ML scorecard quoted in README, the deck, ARCHITECTURE.md and both UIs (PR-AUC 0.858, ROC-AUC 0.831) came from the old simulator-trained model, not the served model. They now show the served model's numbers (PR-AUC 0.669 vs 0.619 baseline, ROC-AUC 0.728 vs 0.689); both UIs read them live from `GET /metrics`, and the old figures are banned in `tests/test_pitch_claims.py`.
+
+---
+
 ## [1.4.0] — 2026-09-29 · Architecture Review Fixes
 
 Plan, evidence and outcome: `docs/plans/architecture-review.md`.

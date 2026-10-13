@@ -35,6 +35,7 @@ BANNED = [
     r"100% [Rr]ecall",                  # tautological on rule-generated labels
     r"100% detection|Validation Accuracy",  # same tautology, other wording
     r"Key-Secured|Authorized Contractor|Restricted \(Operator",  # security the code does not enforce
+    r"0\.858|0\.831|\+0\.126",          # metrics of the old simulator-trained model, not the served one
 ]
 
 

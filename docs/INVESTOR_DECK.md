@@ -81,7 +81,7 @@
   * Every delivery dated before its phase start is flagged.
   * The delay model uses only information available at order time: a test fails if future data leaks in.
 * **Not yet proven:** whether real deliveries are as predictable as the synthetic ones.
-  * On synthetic data: PR-AUC 0.858 vs 0.732 for a supplier-average baseline. On a time-ordered holdout, deliveries flagged red ran late about 3× as often as green ones.
+  * On synthetic data: PR-AUC 0.669 vs 0.619 for a supplier-average baseline (lift +0.050, 95% CI 0.018–0.082). On a time-ordered holdout, deliveries flagged red ran late about 3× as often as green ones.
   * The synthetic generator *encodes* supplier reliability, season, route and lead time as delay drivers. So these results show the pipeline works end to end. They do not show real-world accuracy. Real accuracy is measured in pilot weeks 3–4 on the customer's own delivery history.
   * Recall at the default cutoff is 0.45. The expected-delay-days estimate does not beat predicting the average, so only the risk score is used for decisions.
 

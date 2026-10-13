@@ -1774,8 +1774,8 @@
               <span class="badge-estimate">Statistical Estimate</span>
             </div>
             <div class="kpi-label-text">Evaluation PR-AUC</div>
-            <div class="kpi-value" style="color:var(--text-primary);">0.858</div>
-            <div class="kpi-sub">+0.126 lift vs supplier avg (0.732)</div>
+            <div class="kpi-value" id="val-ap" style="color:var(--text-primary);"><span class="sp-skeleton">—</span></div>
+            <div class="kpi-sub" id="val-ap-sub">from GET /metrics</div>
             <div class="metric-provenance">100% Synthetic Benchmark (n=2,200)</div>
           </div>
           <div class="kpi-card">
@@ -1783,8 +1783,8 @@
               <span class="badge-estimate">Statistical Estimate</span>
             </div>
             <div class="kpi-label-text">Evaluation ROC-AUC</div>
-            <div class="kpi-value" style="color:var(--text-primary);">0.831</div>
-            <div class="kpi-sub">+0.148 lift vs baseline (0.683)</div>
+            <div class="kpi-value" id="val-auc" style="color:var(--text-primary);"><span class="sp-skeleton">—</span></div>
+            <div class="kpi-sub" id="val-auc-sub">from GET /metrics</div>
             <div class="metric-provenance">100% Synthetic Benchmark (n=2,200)</div>
           </div>
           <div class="kpi-card">
@@ -2869,8 +2869,23 @@
       cwText('greeting-title', h < 12 ? 'Good morning.' : h < 18 ? 'Good afternoon.' : 'Good evening.');
     }
 
+    // Model scorecard: always the served model's own cross-validated numbers.
+    async function loadModelMetrics() {
+      try {
+        const m = await (await fetch(`${API_BASE}/metrics`)).json();
+        const sign = (x) => (x >= 0 ? '+' : '') + x.toFixed(3);
+        cwText('val-ap', m.ap.model.toFixed(3));
+        cwText('val-ap-sub', `${sign(m.ap.lift)} lift vs supplier avg (${m.ap.baseline.toFixed(3)})`);
+        cwText('val-auc', m.auc.model.toFixed(3));
+        cwText('val-auc-sub', `${sign(m.auc.lift)} lift vs baseline (${m.auc.baseline.toFixed(3)})`);
+      } catch (err) {
+        cwText('val-ap-sub', 'Metrics unavailable — is the API running?');
+      }
+    }
+
     async function initPlatform() {
       renderClock();
+      loadModelMetrics();
       await checkHealth();
       await loadProjects();
       const selector = document.getElementById('project-selector');
