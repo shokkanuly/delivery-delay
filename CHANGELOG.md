@@ -4,6 +4,64 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## [1.5.0] — 2026-10-13 · Repository Presentation
+
+### Added
+- README rebuilt as a project front page: SitePulse banner (light and dark), badges with live CI, an architecture map of the four layers with the ingest and evidence-loop flows, a layer-by-layer explanation, a request sequence diagram, and a docs index.
+- `scripts/render_readme_assets.py` renders `docs/assets/{banner,architecture}-{light,dark}.svg` from `static/design/tokens.css`, so the README art follows the design system.
+
+### Fixed
+- The ML scorecard quoted in README, the deck, ARCHITECTURE.md and both UIs (PR-AUC 0.858, ROC-AUC 0.831) came from the old simulator-trained model, not the served model. They now show the served model's numbers (PR-AUC 0.669 vs 0.619 baseline, ROC-AUC 0.728 vs 0.689); both UIs read them live from `GET /metrics`, and the old figures are banned in `tests/test_pitch_claims.py`.
+
+---
+
+## [1.4.0] — 2026-09-29 · Architecture Review Fixes
+
+Plan, evidence and outcome: `docs/plans/architecture-review.md`.
+
+### Fixed
+- The local run path (`start.sh`, README quickstart) served a model trained on a different synthetic dataset and knew **0 of the 10** suppliers it scored. Training now defaults to the same CSV `db.seed` loads; the artifact records its `data_source`; `/health` reports `supplier_coverage`.
+- Console showed invented numbers (`|| 27`, `|| 99`, …) on API failure and when the real count was 0.
+
+### Security
+- `POST /train` and `POST /outcomes` require `X-API-Key` (`SITEPULSE_ADMIN_KEY`); closed (503) when unset.
+- Workspace keys are server-issued 128-bit tokens; demo workspaces are read-only; unknown keys 404; GET has no side effects.
+- CORS: explicit origins instead of `*` with credentials. UI security wording now matches what is enforced.
+
+### Changed
+- Workspaces stored in the `workspaces` table (was a git-tracked JSON file rewritten at runtime).
+- `api/main.py` is wiring only; routes live in `api/routers/{predict,projects,business,…}.py`; shared model state in `api/model_store.py`.
+- Real clock and neutral demo user instead of a fixed date and persona; Postgres user/DB renamed from the partner brand to `sitepulse`.
+- The HTML console is the product; Streamlit is an internal analyst view.
+
+---
+
+## [1.3.0] — 2026-09-29 · Pitch Credibility, Single Source of Economics, Design System
+
+Driven by an honest jury-rubric review; plan and rationale in `docs/plans/credibility-fixes.md`.
+
+### Added
+- `business/economics.py` — every pitch number (per-site ROI in conservative/base/upside scenarios, unit economics, the one 3-year forecast, bottom-up market) computed from assumptions tagged by source. Served at `GET /economics`; `POST /economics/site` for live what-if editing.
+- `tests/test_pitch_claims.py` — fails if README/docs/UIs reintroduce retired claims or if the deck quotes a figure `business/economics.py` does not produce.
+- `tests/test_workspace_contract.py`, `tests/test_economics.py`, `tests/test_design_system.py`.
+- `DESIGN.md` + `static/design/` (tokens.css with light/dark themes, SitePulse SVG mark/wordmark, icon) shared by both UIs; five-badge claim vocabulary.
+- `docs/CUSTDEV_LOG.md` — interview evidence template the deck's problem slide must trace to.
+
+### Fixed
+- Company workspace save returned HTTP 422 from both UIs (field names did not match `CompanyWorkspaceIn`) and the form never loaded (response envelope ignored). Finance is now computed on read, never stored.
+- Three different ROI formulas (API, dashboard, console) replaced by one.
+- Console inputs referenced an undefined `--bg-primary`; dashboard badges were recoloured by a global markdown rule; `$\rightarrow$` rendered as a carriage return.
+
+### Changed
+- Retired claims: "piloting with BI Group" (no signed pilot), "BI SITE-PULSE" branding, "LightGBM" (model is scikit-learn HistGradientBoosting), "100% recall" (tautological on rule-generated labels), $621k / 221.8% / >14× ROI, 19.4:1 LTV:CAC, 140% NRR, "83%" of 7 interviews, and the self-graded rubric table.
+- Scheduler described as what it does — cross-site equipment dispatch of fixed-time bookings — not single-tower-crane hook-time re-timing.
+- Competition section names Voyage Control, ALICE Technologies, nPlan, Procore/Fieldwire; moat stated honestly.
+- Fonts Inter/Instrument Serif/JetBrains Mono → Geist/Geist Mono; emojis removed from UI copy.
+- Design system applied in full (DESIGN.md rewritten in the Stitch 7-section format): console is responsive below 768px (single column, 2-column nav, 44px targets, zero horizontal overflow at 390px); `100vh` → `100dvh`; shadows tinted Zinc instead of black; feature rows asymmetric (engines 1.3/1/1, pricing and market lead the middle); cascade reveals, skeleton shimmer and 1px press feedback, all disabled under `prefers-reduced-motion`.
+- Remaining tautological wording retired ("100% detection", "Validation Accuracy 100%", "100% coverage").
+
+---
+
 ## [1.2.0] — 2026-09-28 · Credibility, Provenance & Partner Positioning Upgrade
 
 ### Added

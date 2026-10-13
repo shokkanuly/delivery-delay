@@ -42,7 +42,7 @@ def artifact(synthetic_deliveries):
     from ml.train import fit_and_save
     with tempfile.TemporaryDirectory() as tmp:
         path = pathlib.Path(tmp) / "m.joblib"
-        art, _ = fit_and_save(path=path, n=400, seed=3)
+        art, _ = fit_and_save(path=path, n=400, seed=3, csv_path=None)
         yield art
 
 
@@ -88,11 +88,15 @@ def seeded_client(temp_db):
         yield client
 
 
+ADMIN_KEY = "test-admin-key"
+
+
 @pytest.fixture()
-def api_client(temp_db):
-    """TestClient backed by the throwaway DB."""
+def api_client(temp_db, monkeypatch):
+    """TestClient backed by the throwaway DB, sending the admin key."""
     from fastapi.testclient import TestClient
 
     import api.main as main
-    with TestClient(main.app) as client:
+    monkeypatch.setenv("SITEPULSE_ADMIN_KEY", ADMIN_KEY)
+    with TestClient(main.app, headers={"X-API-Key": ADMIN_KEY}) as client:
         yield client

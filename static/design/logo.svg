@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 40" width="168" height="40" role="img" aria-label="SitePulse">
+  <!-- A site's pulse line that turns into a rising signal: steady readings, then an early warning. -->
+  <path d="M3 22h7l3.5-8 5.5 15 4-10h4" fill="none" stroke="#FAFAFA" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27 19 35 10" fill="none" stroke="#E0643C" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M29.5 9.5h6v6" fill="none" stroke="#E0643C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="46" y="27" fill="#FAFAFA" font-family="Geist, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="20" font-weight="600" letter-spacing="-0.4">SitePulse</text>
+</svg>

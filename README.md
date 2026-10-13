@@ -1,214 +1,239 @@
 <div align="center">
 
-# SitePulse — Enterprise Construction Logistics Platform
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+  <img alt="SitePulse — know which deliveries will slip, and dispatch equipment without clashes" src="docs/assets/banner-light.svg" width="100%">
+</picture>
 
-### Predict delivery slips, eliminate crane double-bookings, and enforce stage-gate sequencing — before site operations stall.
+<br/>
 
-![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+[![CI](https://github.com/shokkanuly/delivery-delay/actions/workflows/ci.yml/badge.svg)](https://github.com/shokkanuly/delivery-delay/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikit-learn&logoColor=white)
-![OR-Tools](https://img.shields.io/badge/Google_OR--Tools-CP--SAT-4285F4?logo=google&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![OR-Tools](https://img.shields.io/badge/OR--Tools-CP--SAT-4285F4?logo=google&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
+![License: MIT](https://img.shields.io/badge/License-MIT-E0643C)
 
-*Enterprise-grade decision support platform designed for Central Asian construction holdings — piloting with BI Group.*  
-*Three unified engines: Delay Risk (LightGBM) · Resource Scheduling (CP-SAT) · Sequence Validation (Phase-Gate).*
+**[Overview](#overview) · [Architecture](#architecture) · [The four layers](#the-four-layers) · [How a delivery is scored](#how-a-delivery-is-scored) · [Quickstart](#quickstart) · [Validation](#validation-status) · [Docs](#documentation)**
 
 </div>
 
----
+> [!NOTE]
+> **Status:** working software on **synthetic data**. There are no paying customers and no signed pilot yet; the target first pilot partner is BI Group (not yet signed). Every number below says what backs it. See [Validation status](#validation-status).
 
-> [!IMPORTANT]
-> ### 🛡️ Validation Status & Data Provenance
-> * **Data Provenance:** All metrics and performance numbers reported below are computed on a **100% Synthetic Benchmark** ($n = 2,200$ historical delivery logs, $n = 260$ heavy machinery bookings) designed to mirror Central Asian climate patterns, long-haul supply corridors, and multi-crane site density.
-> * **Current Validation Reality:** **0% live enterprise field data is connected in this demonstration build.** Statistical estimates (ML risk probabilities, dollar savings, and ROI projections) are illustrative benchmarks that require calibration against real supplier histories.
-> * **Algorithmic Guarantees:** Zero double-booking machinery allocations and 100% phase-gate sequencing recall are **true by construction** via deterministic constraint solving and logic rules, independent of training data.
-> * **Immediate Calibration Step:** Connect client 1C:Enterprise / SAP delivery receipts and crane IoT telematics via [`ml/ingest.py`](ml/ingest.py) to calibrate empirical-Bayes supplier priors during the 8-week pilot engagement. See [Pilot Proposal](docs/PILOT_PROPOSAL.md).
+## Overview
 
----
+**SitePulse** is decision support for construction holdings that run several large sites at once. Every morning it answers three questions a site logistics manager otherwise answers by phone, WhatsApp and memory:
 
-## 🎯 The Operational Problem
+| The question | Engine | How it answers |
+|---|---|---|
+| *Which of today's deliveries will arrive late, and why?* | **1 · Delay risk** | A gradient-boosted classifier scores every open order from supplier history, material, route, season and lead time, and lists the top drivers. |
+| *Which crane, pump or hoist serves which booking?* | **2 · Equipment dispatch** | A constraint solver (OR-Tools CP-SAT) assigns each booking to a free unit across sites, never double-books a unit, and prefers nearby units for at-risk deliveries. |
+| *Is anything arriving before its build phase is ready?* | **3 · Sequence check** | Deterministic phase-date rules flag premature deliveries; an Isolation Forest flags unusual volumes and timings separately. |
 
-On a multi-hectare high-rise or commercial construction site, logistics failures compound into massive margin erosion:
-1. **Unwarned Delivery Slippages:** Sites discover structural rebar or concrete is delayed only when the truck fails to arrive. Idle crews and postponed pours cascade down the critical path.
-2. **Crane & Unload Bay Deadlocks:** Competing subcontractors show up simultaneously for shared tower cranes, causing truck queues on city streets and expensive machinery standby.
-3. **Premature Material Staging:** Finishings or facades arriving before the concrete structure is ready choke laydown yards, suffer weather degradation, and incur double-handling costs.
+All three feed one morning dispatch board: the **SitePulse Console**.
 
-SitePulse provides non-technical site directors and procurement teams with **integrated decision support** to preempt all three issues every morning.
+## Architecture
 
----
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
+  <img alt="SitePulse architecture map: four layers (interfaces, API, domain engines, data) with ingest and evidence-loop flows" src="docs/assets/architecture-light.svg" width="100%">
+</picture>
 
-## ⚖️ Algorithmic Guarantees vs. Statistical Estimates
+Three rules hold the structure together. Tests enforce each one:
 
-To maintain strict scientific credibility, SitePulse explicitly categorizes every platform claim:
+1. **Calls only go down.** Interfaces call the API; the API calls engines; engines read data. Engines import no web code, so each can be tested and reused on its own.
+2. **One store of record.** Everything persistent lives in the SQL database. Reference CSVs are seed input only, and nothing writes to tracked files at runtime.
+3. **One training source.** `db.seed` and `ml.train` read the same file, so the served model knows every supplier it scores; `/health` reports `supplier_coverage`.
 
-| Category | Claim / Metric | Value | Provenance & Basis | Interpretive Reality |
-|---|---|:---:|---|---|
-| 🔵 **Algorithmic Guarantee** | **Machinery Double-Bookings** | **0** | **100% Deterministic**<br/>Google OR-Tools CP-SAT solver enforcing mathematical `AddNoOverlap` intervals. | **True by construction.** The solver cannot output an overlapping schedule on the same machine. |
-| 🔵 **Algorithmic Guarantee** | **Sequencing Detection Recall** | **100%** | **100% Deterministic**<br/>Phase-gate validation hierarchy mapping 10 material classes to structural dependencies. | **True by construction.** Catches every premature order matching known dependency rules without false negatives. |
-| 🟠 **Statistical Estimate** | **ML Delay-Risk PR-AUC** | **0.858** | **100% Synthetic Benchmark**<br/>5-fold CV on $n=2,200$ simulated orders with 3-level empirical-Bayes shrinkage. | Outperforms supplier-average baseline (0.732) and random guessing (0.409). Subject to field calibration. |
-| 🟠 **Statistical Estimate** | **ML Delay-Risk ROC-AUC** | **0.831** | **100% Synthetic Benchmark**<br/>LightGBM / HistGradientBoosting with temporal causality guards. | Demonstrates strong ranking ability between slipping and on-time shipments. |
-| 🟠 **Statistical Estimate** | **Project Capital Preserved** | **$621,000** | **Synthetic Simulation Model**<br/>Modeled on Site B (24 floors, 6 cranes, $3.5M budget, 12 conflict days resolved). | Sensitivity range: $480,000 – $720,000 depending on actual liquidated damage penalties. |
-| 🟠 **Statistical Estimate** | **Projected Net ROI** | **221.8%** | **Synthetic Simulation Model**<br/>Avoided crane standby ($115k) + concrete spoilage ($290k) + liquidated damages ($216k). | Financial projection to be validated during pilot operational audits. |
+## The four layers
 
----
+### 01 · Interfaces: what people touch
 
-## 🔬 Core ML Rigor & Class Balance
+| Surface | Path | For |
+|---|---|---|
+| **SitePulse Console** (the product) | [`static/index.html`](static/index.html) | Site and procurement teams. Served by the API at `/`, so there is one process and one URL. Mobile-ready. |
+| Analyst view (internal) | [`dashboard/app.py`](dashboard/app.py) | Model operations and exploration in Streamlit. Not a customer surface. |
+| Any HTTP client | `/docs` (OpenAPI) | ERP connectors and scripts, using the same JSON contract. |
 
-### Evaluation Set Class Balance (Base Rate)
-In binary classification with imbalanced construction delays, **PR-AUC is uninterpretable without reporting the base rate (positive class prevalence):**
+Both UIs share one design system, [`DESIGN.md`](DESIGN.md), with its tokens in [`static/design/`](static/design). Every number on screen carries a badge saying what backs it: *Correctness Invariant*, *Estimate*, *Synthetic Data*, *Sanity Check* or *Operating Input*.
 
-* **Evaluation Benchmark:** $n = 2,200$ deliveries across 5 regional project sites.
-* **Positive Class ("Late" Deliveries):** 899 deliveries.
-* **Evaluation Base Rate:** **40.9%** (prevalence of late shipments under material-specific grace windows).
+### 02 · API: FastAPI, one service
 
-### Model vs. Baseline Scorecard (5-fold Cross-Validation)
+[`api/main.py`](api/main.py) only wires things together; each domain has its own router.
 
-| Metric | Random Guess Baseline | Supplier Historical Average | **SitePulse ML Model** | Lift vs. Baseline (95% CI) | Provenance |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Avg Precision (PR-AUC)** | 0.409 | 0.732 | **0.858** | **+0.126** [0.082, 0.170] | 100% Synthetic Benchmark |
-| **ROC-AUC** | 0.500 | 0.683 | **0.831** | **+0.148** [0.104, 0.192] | 100% Synthetic Benchmark |
-| **F1 Score (@0.5 cutoff)** | 0.409 | 0.702 | **0.790** | **+0.088** [0.046, 0.130] | 100% Synthetic Benchmark |
+| Router | Endpoints |
+|---|---|
+| [`predict`](api/routers/predict.py) | `POST /predict` · `POST /predict/batch` · `GET /deliveries/{project_id}` · `GET /health` · `GET /metrics` · `POST /train`* |
+| [`schedule`](api/routers/schedule.py) | `POST /schedule` · `POST /schedule/upload` · `GET /schedule/demo` |
+| [`validate`](api/routers/validate.py) | `POST /validate` · `POST /validate/upload` · `GET /validate/demo` |
+| [`projects`](api/routers/projects.py) | `GET /projects` · `GET /projects/{id}/overview` (all three engines for one site) |
+| [`business`](api/routers/business.py) | `GET /economics` · `POST /economics/site` · `POST /projects/workspace` · `GET /projects/workspace/{key}` |
+| [`monitoring`](api/routers/monitoring.py) | `POST /outcomes`* · `GET /accuracy` · `GET /predictions` |
 
-*Notice:* The naive random model achieves a PR-AUC of 0.409 (exactly the base rate). The historical supplier average achieves 0.732. SitePulse reaches **0.858** (+0.126 lift), and every fold's 95% confidence interval strictly clears zero.
+\* Admin routes need an `X-API-Key` header that matches `SITEPULSE_ADMIN_KEY` ([`api/security.py`](api/security.py)). With no key configured they are closed. Workspace keys are issued by the server, and demo workspaces are read-only. Request and response shapes live in [`api/schemas.py`](api/schemas.py); the served model is cached in [`api/model_store.py`](api/model_store.py).
 
-### The Number That Convinces Field Engineers (Time-Ordered Holdout)
+### 03 · Domain engines: pure Python
 
-```bash
-python3 -m scripts.evidence_loop
-```
+| Engine | Package | In → out | Guarantee and limit |
+|---|---|---|---|
+| **1 · Delay risk** | [`ml/`](ml) | order fields → late probability, risk band, top drivers | Features are causal (a test fails on future leakage). New suppliers fall back to material×route priors. The model is scikit-learn `HistGradientBoostingClassifier`, with LightGBM as an optional one-line swap. |
+| **2 · Equipment dispatch** | [`engines/scheduler/`](engines/scheduler) | fixed-time bookings + fleet → assignment per booking | No unit is ever double-booked (`AddNoOverlap`, tested). When demand exceeds the fleet it drops the lowest-priority bookings and reports them. It does not yet re-time bookings on a single tower crane. |
+| **3 · Sequence check** | [`engines/validator/`](engines/validator) | deliveries + phase schedule → flags with reasons | Flags every delivery dated before its phase. It is only as good as the phase schedule it is given. |
+| **Economics** | [`business/`](business) | source-tagged assumptions → ROI scenarios, unit economics, forecast | The single source of every pitch number; [`tests/test_pitch_claims.py`](tests/test_pitch_claims.py) fails if a doc quotes anything else. |
 
-Trained on the **oldest 80%** of deliveries and evaluated strictly on the **newest 20%** ($n=440$ unseen deliveries ordered in the future):
+### 04 · Data: the store of record
 
-| Assigned Risk Band | Scored Deliveries | **Actually Slipped in Field** | Actionable Guidance |
-|---|:---:|:---:|---|
-| 🟢 **Green (Low Risk)** | 286 | **24.8%** | Proceed with standard dispatch |
-| 🟡 **Yellow (Medium Risk)** | 52 | **40.4%** | Place vendor on standby notice |
-| 🔴 **Red (High Risk)** | 102 | **74.5%** | Re-sequence trade crews; demand buffer delivery |
+- **Database** ([`db/`](db)): SQLAlchemy over SQLite locally, or Postgres in Docker and Render. It has 11 tables: `suppliers`, `projects`, `deliveries`, `resources`, `booking_requests`, `build_phases`, `phase_material_map`, `material_deliveries`, `prediction_log`, `weather_log` and `workspaces`.
+- **Reference data** ([`data/synthetic/`](data/synthetic)): seed CSVs for five fictional sites. Engines read data through `read_reference()`, which tries the database first and falls back to the CSV.
+- **Model artifact** (`ml/artifacts/model.joblib`): the model, a frozen feature snapshot (so scoring is stateless), its metrics and its `data_source`.
 
-Deliveries flagged **Red** slipped **3× more often than Green** on unseen data. Site managers do not need a machine learning degree to trust and act on this signal.
+**Cross-cutting flows** (the side lanes of the map):
+- **Ingest:** 1C / ERP CSV → [`ml/ingest.py`](ml/ingest.py) (schema and date validation) → `db.seed` and `ml.train`, both from the same file.
+- **Evidence loop:** every served score goes to `prediction_log` with its model version → `POST /outcomes` records what really happened → `GET /accuracy` reports realized precision and recall.
 
-> **Known Limits (Stated Plainly):**  
-> 1. Overall recall at the 0.5 cutoff is 0.45; threshold tuning is required per site based on the cost of false alarms vs. missed delays.  
-> 2. `expected_delay_days` regressor does not statistically beat predicting the mean (MAE 4.20 vs 4.19 days). Therefore, the platform flags the **probability risk score** as the trustworthy decision metric, not the day count.
-
----
-
-## 🏗️ 3-Engine Architecture
+## How a delivery is scored
 
 ```mermaid
-flowchart TB
-    subgraph DATA["🗄️ Master Data & Ingestion Layer"]
-        ERP["Client ERP / 1C Export<br/>(sample_deliveries.csv)"]
-        INGEST["ml/ingest.py<br/>Schema validation & date parsing"]
-        DB[("PostgreSQL / SQLite<br/>7 relational tables")]
-        ERP --> INGEST --> DB
-    end
-
-    subgraph E1["Engine 1: Delay Risk (LightGBM)"]
-        FEAT["Causal feature snapshot<br/>(Empirical-Bayes shrinkage)"]
-        MOD[("Trained model artifact<br/>model.joblib")]
-        OCCL["Occlusion explainability<br/>(Top risk drivers)"]
-        DB --> FEAT --> MOD --> OCCL
-    end
-
-    subgraph E2["Engine 2: Resource Scheduler (CP-SAT)"]
-        SLOTS["Subcontractor crane bookings"]
-        SOLV["Google OR-Tools CP-SAT<br/>AddNoOverlap() constraints"]
-        RES["Conflict-free schedule<br/>(0 double-bookings)"]
-        DB --> SLOTS --> SOLV --> RES
-    end
-
-    subgraph E3["Engine 3: Sequence Validator (Phase-Gate)"]
-        PHASE["Site construction phases"]
-        RULES["Phase-material hierarchy<br/>+ Isolation Forest anomaly check"]
-        GATE["Premature arrival flags<br/>(100% recall)"]
-        DB --> PHASE --> RULES --> GATE
-    end
-
-    subgraph UI["🖥️ Command Surface"]
-        API["FastAPI Backend<br/>/projects/{id}/overview"]
-        ST["Streamlit Executive Hub<br/>(localhost:8501)"]
-        HTML["Fast HTML5 Console<br/>(localhost:8000)"]
-        OCCL & RES & GATE --> API
-        API --> ST & HTML
-    end
-
-    classDef g fill:#0284C7,stroke:#0369A1,color:#FFFFFF;
-    classDef e fill:#D97706,stroke:#B45309,color:#FFFFFF;
-    class RES,GATE g;
-    class OCCL,MOD e;
+sequenceDiagram
+    autonumber
+    participant C as SitePulse Console
+    participant A as API · routers/projects.py
+    participant M as model_store (cached artifact)
+    participant E as ml.predict (engine 1)
+    participant D as Database / reference CSV
+    C->>A: GET /projects/PRJ_002/overview
+    A->>D: read_reference("delay_prediction.csv")
+    A->>M: get_artifact()
+    A->>E: score(open deliveries, artifact)
+    E-->>A: risk · band · top drivers (snapshot lookup, no DB round-trips)
+    A->>A: add schedule (engine 2) + sequence flags (engine 3)
+    A-->>C: one JSON payload for the morning board
 ```
 
----
+## Quickstart
 
-## 💼 Pilot Engagement & Procurement
-
-For enterprise construction holdings (including our pilot partner BI Group), we offer a structured **6–8 week dual-site pilot engagement**:
-
-* **Scope:** 2 active sites (e.g. Site A and Site B) under shadow decision support.
-* **Client Data Needed:** 6–12 months of historical purchase orders and gate arrival receipts, machinery registers, and milestone schedules. No PII or financial contract terms required.
-* **Timeline to Production:** 8 weeks pilot → 2 weeks executive review → multi-site enterprise rollout.
-* **Commercial Model:**
-  * **Pilot Setup & Calibration:** $15,000 flat fee (creditable toward annual contract).
-  * **Production SaaS:** Tiered at $3,500 – $4,500 / active site / month.
-  * **Estimated Site Net Savings:** >$50,000 / site / month in mitigated downtime and wastage.
-
-Full pilot blueprint, data dictionary, and legal SLA terms: [`docs/PILOT_PROPOSAL.md`](docs/PILOT_PROPOSAL.md).
-
----
-
-## 🚀 Quickstart
-
-Requirements: Python 3.11+ (macOS/Linux).
+Requirements: Python 3.11+ on macOS or Linux.
 
 ```bash
-# 1. Start full stack (API on 8000, Dashboard on 8501)
-./start.sh
+./start.sh            # seeds, trains, generates an admin key, starts API + analyst view
 ```
 
-Or run manual steps:
+| Open | URL |
+|---|---|
+| **SitePulse Console**, the product (demo this) | http://localhost:8000 |
+| API reference (OpenAPI) | http://localhost:8000/docs |
+| Every pitch number and its assumptions | http://localhost:8000/economics |
+| Model health and supplier coverage | http://localhost:8000/health |
+| Analyst view (Streamlit, internal) | http://localhost:8501 |
+
+<details>
+<summary><b>Manual steps · Docker · tests</b></summary>
+
 ```bash
 python3 -m pip install -r requirements.txt
-python3 -m db.seed
-python3 -m ml.train
-python3 -m uvicorn api.main:app --port 8000 --reload &
-python3 -m streamlit run dashboard/app.py --server.port 8501
+python3 -m db.seed                      # loads data/synthetic/delay_prediction.csv
+python3 -m ml.train                     # trains on the same file
+export SITEPULSE_ADMIN_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
+python3 -m uvicorn api.main:app --port 8000
 ```
 
-* **Executive Dashboard (Streamlit):** http://localhost:8501
-* **Fast Field Console (HTML5):** http://localhost:8000
-* **Interactive OpenAPI Specs:** http://localhost:8000/docs
-* **Core ML Rigor Test:** `python3 run.py`
-* **Full Automated Test Suite (55 tests):** `pytest`
-
----
-
-## 📍 Multi-Site Fictional Portfolio (Demonstration Data)
-
-All project designations use clearly fictional placeholders until final commercial authorization:
-* **Site A** (`PRJ_001`): Urban Residential Complex (Almaty) — Access Key: `DEMO-SITE-A-2026`
-* **Site B** (`PRJ_002`): Commercial & Residential High-Rise (Astana) — Access Key: `DEMO-SITE-B-2026`
-* **Site C** (`PRJ_003`): Embankment Towers (Astana) — Access Key: `DEMO-PILOT-KEY`
-* **Site D** (`PRJ_004`): Industrial Logistics Park (Karaganda)
-* **Site E** (`PRJ_005`): Regional Trade Center (Shymkent)
-
----
-
-## 📁 Repository Structure
-
-```
-ml/             Causal feature engineering, empirical-Bayes shrinkage, labeling, and training
-db/             SQLAlchemy models (7 tables), database connection, and synthetic seed script
-api/            FastAPI application, data sources, and Pydantic schemas
-dashboard/      Streamlit executive dashboard (dark industrial editorial design)
-static/         High-performance static HTML5/JS web console and UI assets
-docs/           ARCHITECTURE.md, PRD.md, PILOT_PROPOSAL.md, INVESTOR_DECK.md, RUNBOOK.md, and ADRs
-CHANGELOG.md    Internal build notes, UI refactoring logs, and technical milestones
-start.sh        One-command startup script
+```bash
+cp .env.example .env                    # set SITEPULSE_ADMIN_KEY
+docker compose up --build               # Postgres + seed/train + API + analyst view
 ```
 
-## 📄 License
+```bash
+pytest                                  # full suite: leakage guard, solver invariant, contracts, claims, design rules
+python3 -m scripts.evidence_loop        # train on oldest 80%, score newest 20%
+python3 -m scripts.render_readme_assets # regenerate the banner and architecture map
+```
+</details>
+
+## Validation status
+
+> [!IMPORTANT]
+> All metrics come from a **synthetic benchmark**: 2,200 deliveries and 260 equipment bookings. **No live field data is connected yet.** The generator encodes supplier reliability, season, route and lead time as the delay drivers, so these numbers show the pipeline works end to end without leakage. They do **not** show that real deliveries are this predictable; the pilot measures that on the customer's own 1C history.
+
+**Delay model vs. baselines** (5-fold CV, n = 2,200, late base rate 40.9%; reproduce with `python3 -m ml.train`):
+
+| Metric | Random | Supplier-average baseline | SitePulse model | Lift (95% CI) |
+|---|:---:|:---:|:---:|:---:|
+| PR-AUC | 0.409 | 0.619 | **0.669** | +0.050 [0.018, 0.082] |
+| ROC-AUC | 0.500 | 0.689 | **0.728** | +0.039 [0.025, 0.053] |
+| F1 @ 0.5 | — | 0.533 | **0.551** | +0.017 [−0.006, 0.040] *(not significant)* |
+
+**Time-ordered holdout** (train on the oldest 80%, score the newest 440 deliveries; `python3 -m scripts.evidence_loop`):
+
+| Risk band | Deliveries | Actually late |
+|---|:---:|:---:|
+| Green | 287 | 24.4% |
+| Yellow | 51 | 43.1% |
+| Red | 102 | **74.5%** |
+
+Red deliveries ran late about 3× as often as green ones. The bands rank risk usefully even though the overall lift is modest.
+
+**Known limits.** Recall at the 0.5 cutoff is 0.45, so set the threshold from the real cost of a missed delay. The expected-delay-days estimate does not beat predicting the mean (MAE 4.20 vs 4.19 days), so only the risk score is used for decisions.
+
+| Claim | Kind | What it means |
+|---|---|---|
+| No equipment unit double-booked | **Correctness invariant** | A tested property of the solver, like a calendar lock; not a measure of business impact. |
+| Every delivery dated before its phase is flagged | **Correctness invariant** | True by definition of the rule; useful only if the schedule is current. |
+| Delay-model lift above | **Statistical estimate** | Synthetic benchmark; re-measured on real data in pilot weeks 3–4. |
+| Losses avoided per site-year | **Assumption-based** | Founder assumptions in [`business/economics.py`](business/economics.py), not yet measured on a site. |
+
+## Business model
+
+- **Pilot:** $15k flat for 8 weeks on 2 sites, credited against the first annual contract.
+- **Subscription:** $3,500 – $4,800 / site / month.
+- **Estimated losses avoided** on demo Site B, per site-year: **$103k** in the base case (2.5× the licence). The conservative case is $46k (1.1×), so the licence is still covered. These are assumptions until the pilot measures them.
+
+Every figure comes from [`business/economics.py`](business/economics.py) (`GET /economics`). Pilot plan and data requirements: [`docs/PILOT_PROPOSAL.md`](docs/PILOT_PROPOSAL.md).
+
+<details>
+<summary><b>Demo data</b> (fictional sites and read-only demo keys)</summary>
+
+| Site | Project | City | Demo workspace key |
+|---|---|---|---|
+| Site A | `PRJ_001` · Urban residential | Almaty | `DEMO-SITE-A-2026` |
+| Site B | `PRJ_002` · Commercial & residential high-rise | Astana | `DEMO-SITE-B-2026` |
+| Site C | `PRJ_003` · Embankment towers | Astana | `DEMO-PILOT-KEY` |
+| Site D | `PRJ_004` · Industrial logistics park | Karaganda | — |
+| Site E | `PRJ_005` · Regional trade center | Shymkent | — |
+
+Demo keys are read-only. Save a workspace with a blank key and the server issues your own.
+</details>
+
+## Repository structure
+
+```
+api/              FastAPI service: main.py (wiring), routers/, schemas.py, security.py, model_store.py
+ml/               Engine 1: labeling, causal features, training, prediction, ingest
+engines/          Engine 2 (scheduler/, CP-SAT) and Engine 3 (validator/, rules + Isolation Forest)
+business/         Economics: pricing, ROI scenarios, unit economics, forecast
+db/               SQLAlchemy models (11 tables), session, seed
+data/synthetic/   Seed CSVs and demo workspaces (fictional sites)
+static/           SitePulse Console (index.html) and design/ tokens, logo and mark
+dashboard/        Internal Streamlit analyst view
+scripts/          evidence_loop.py, render_readme_assets.py
+tests/            pytest suite, run in CI on Python 3.11 and 3.12
+docs/             Architecture, PRD, pilot proposal, pitch deck, runbook, ADRs, plans, README assets
+```
+
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Data flows and the reasoning behind the key design choices |
+| [`docs/adr/`](docs/adr) | Architecture decision records: stateless feature snapshot, CP-SAT, hybrid validation |
+| [`DESIGN.md`](DESIGN.md) | Design system: tokens, the claim-badge vocabulary, layout and motion rules |
+| [`docs/PILOT_PROPOSAL.md`](docs/PILOT_PROPOSAL.md) | The 8-week pilot, data requirements, pricing |
+| [`docs/INVESTOR_DECK.md`](docs/INVESTOR_DECK.md) | Pitch script and Q&A preparation |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Operating and deployment procedures |
+| [`docs/plans/`](docs/plans) | Credibility fixes and architecture review: findings and outcomes |
+| [`CHANGELOG.md`](CHANGELOG.md) | Build history |
+
+## License
 
 [MIT](LICENSE) © 2026 shokkanuly

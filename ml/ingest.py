@@ -1,6 +1,6 @@
 """Load & validate a real deliveries CSV into the canonical schema.
 
-This is the seam for replacing synthetic data with actual BI Group exports.
+This is the seam for replacing synthetic data with a holding's real 1C/ERP exports.
 Point the training / seeding paths at a file:
     ml.train.load_training_frame(csv_path="deliveries.csv")
     db.seed.seed(csv_path="deliveries.csv")

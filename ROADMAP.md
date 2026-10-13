@@ -1,6 +1,6 @@
 # Delivery-Delay MVP — Build Roadmap
 
-Full 3-layer MVP (Data → ML → Application) designed for regional construction holdings (piloting with BI Group). Each stage ends with
+Full 3-layer MVP (Data → ML → Application) designed for regional construction holdings. Each stage ends with
 something runnable/verifiable. Status: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 **Key design decision.** Causal features need history to score a delivery, so

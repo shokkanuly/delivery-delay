@@ -2,7 +2,7 @@
 
 Defaults to a local SQLite file so the project runs with zero setup. Point it at
 Postgres (as the plan specifies, and as docker-compose does) by exporting:
-    DATABASE_URL=postgresql+psycopg://user:pass@host:5432/deliverydb
+    DATABASE_URL=postgresql+psycopg://user:pass@host:5432/sitepulse
 """
 from __future__ import annotations
 

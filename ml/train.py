@@ -34,6 +34,11 @@ from ml.features import build_features, build_snapshot
 from ml.labeling import LabelConfig, add_labels
 
 ARTIFACT_PATH = pathlib.Path(__file__).resolve().parent / "artifacts" / "model.joblib"
+# The same CSV db.seed loads by default. Training and seeding MUST share one
+# source, or every supplier lookup misses and silently cold-starts
+# (tests/test_training_source.py pins this).
+DEFAULT_TRAINING_CSV = (pathlib.Path(__file__).resolve().parent.parent
+                        / "data" / "synthetic" / "delay_prediction.csv")
 
 
 def make_model(seed: int = 0):
@@ -243,8 +248,8 @@ def metrics_summary(folds: pd.DataFrame) -> dict:
 
 def load_training_frame(n: int = 1200, seed: int = 7,
                         csv_path: str | None = None) -> pd.DataFrame:
-    """Synthetic by default; pass csv_path to train on a real deliveries CSV
-    (validated via ml.ingest). Swap either for a SELECT from the deliveries table."""
+    """Train on a deliveries CSV (validated via ml.ingest); csv_path=None uses
+    the in-process simulator (tests only)."""
     if csv_path:
         from ml.ingest import load_deliveries_csv
         df = load_deliveries_csv(csv_path, require_actual=True)
@@ -255,7 +260,7 @@ def load_training_frame(n: int = 1200, seed: int = 7,
 
 def fit_and_save(path=ARTIFACT_PATH, n: int = 1200, seed: int = 7,
                  k_shrink: float = 8.0, prior_late_rate: float = 0.35,
-                 csv_path: str | None = None):
+                 csv_path: str | None = str(DEFAULT_TRAINING_CSV)):
     """Train on all data, snapshot the causal rate tables, and persist everything
     /predict needs into one joblib artifact. Returns (artifact, cv_folds)."""
     df = load_training_frame(n=n, seed=seed, csv_path=csv_path)
@@ -294,6 +299,7 @@ def fit_and_save(path=ARTIFACT_PATH, n: int = 1200, seed: int = 7,
         "status_metrics": status_metrics,
         "threshold_baseline": evaluate_threshold_baseline(X, y),
         "trained_rows": int(len(df)),
+        "data_source": pathlib.Path(csv_path).name if csv_path else "ml.data_sim",
         "trained_at": trained_at,
         # Stamped onto every logged prediction so realized accuracy can always be
         # traced back to the exact model that produced it.
@@ -309,7 +315,7 @@ if __name__ == "__main__":
     import sys
 
     csv = next((a for a in sys.argv[1:] if not a.startswith("-")), None)
-    artifact, folds = fit_and_save(csv_path=csv)
+    artifact, folds = fit_and_save(csv_path=csv or str(DEFAULT_TRAINING_CSV))
     print(f"saved artifact -> {ARTIFACT_PATH}  ({artifact['trained_rows']} rows, "
           f"version {artifact['model_version']})\n")
     print(summarize(folds))

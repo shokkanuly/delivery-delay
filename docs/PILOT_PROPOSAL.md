@@ -1,6 +1,6 @@
 # Pilot & Procurement Proposal
 ## Construction Logistics Platform (SitePulse)
-**Target Partner:** Regional Construction Holdings (Piloting with BI Group)  
+**Target Partner:** Regional construction holdings (first target: BI Group — not yet signed)  
 **Status:** Pre-Review / Enterprise Pilot Specification  
 **Version:** 1.0.0
 
@@ -53,7 +53,7 @@ gantt
 
 ### Phase 4: Financial Audit & Production Sign-Off (Weeks 7–8)
 - Compare predicted delay risks against actual contractor claims, crane standstill hours, and laydown congestion events.
-- Quantify measured capital preservation (targeting >$50,000 preserved per pilot site per month).
+- Measure losses avoided against the base-case estimate ($103k per site-year on the demo site — see [`business/economics.py`](../business/economics.py)) and replace the founder assumptions with measured values.
 - Transition to multi-site enterprise production rollout.
 
 ---
@@ -93,8 +93,11 @@ SitePulse operates on a transparent, ROI-backed software-as-a-service model:
 | **Enterprise SaaS** | **Flagship Mega-Site Tier** | **$4,800 / site / month** | • High-density complex sites (>4 cranes, >1,000 deliveries/mo)<br/>• Real-time IoT telematics integration<br/>• Dedicated SLA & customized phase-gate hierarchy |
 | **Holding Portfolio** | **10+ Sites Volume License** | **Custom / 25% portfolio discount** | • Centralized procurement & executive command center<br/>• Cross-regional supplier benchmarking dashboard<br/>• Self-hosted on-premise / private cloud deployment |
 
-### ROI Benchmark
-On an average commercial project with 6 cranes and $3.5M logistics spend:
-- **SitePulse Cost:** ~$42,000 / year
-- **Projected Risk Mitigated:** **$621,000 / site / year** (crane standstill reduction + perishable concrete protection + liquidated damage avoidance)
-- **Net ROI:** **>14× return** on software investment.
+### ROI Estimate (to be measured in Phase 4)
+On the demo site (6 cranes, $3.5M logistics budget), losses avoided per site-year against the $42k licence
+(founder assumptions from [`business/economics.py`](../business/economics.py), also served at `GET /economics`):
+- **Conservative:** $46k — 1.1× the licence
+- **Base:** $103k — 2.5× the licence (≈2.9% of the site's logistics budget)
+- **Upside:** $207k — 4.9× the licence
+
+Phase 4 replaces each lever (crane idle days, concrete loss share, penalty days avoided) with the values measured on the pilot sites.

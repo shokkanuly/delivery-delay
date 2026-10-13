@@ -8,12 +8,14 @@ PY=python3
 API_HOST=127.0.0.1
 API_PORT=8000
 DASH_PORT=8501
+# Admin key shared by the API and the dashboard server for POST /train.
+export SITEPULSE_ADMIN_KEY="${SITEPULSE_ADMIN_KEY:-$("$PY" -c 'import secrets; print(secrets.token_urlsafe(24))')}"
 
 # 1. Ensure a model artifact exists (seed the DB + train if not).
 if [ ! -f ml/artifacts/model.joblib ]; then
   echo "No model artifact found — preparing data and training..."
   [ -f delivery.db ] || "$PY" -m db.seed
-  "$PY" -m ml.train
+  "$PY" -m ml.train   # trains on data/synthetic/delay_prediction.csv, the same file db.seed loads
 fi
 
 # 2. Start the API in the background; stop it when this script exits.
@@ -29,6 +31,7 @@ for _ in $(seq 1 30); do
 done
 
 # 4. Run the dashboard in the foreground (Ctrl-C here stops everything).
-echo "Starting dashboard -> http://${API_HOST}:${DASH_PORT}"
+echo "SitePulse Console -> http://${API_HOST}:${API_PORT}   (the product)"
+echo "Analyst view      -> http://${API_HOST}:${DASH_PORT}   (internal, Streamlit)"
 API_URL="http://${API_HOST}:${API_PORT}" "$PY" -m streamlit run dashboard/app.py \
   --server.port "$DASH_PORT" --server.address "$API_HOST" --server.headless true

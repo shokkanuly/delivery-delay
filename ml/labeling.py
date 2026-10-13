@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-# Business-defined tolerance per material, in days. Tune WITH the BI Group site
+# Business-defined tolerance per material, in days. Tune WITH the pilot site
 # teams -- this single table encodes how much lateness actually causes pain.
 DEFAULT_GRACE_DAYS = {
     "ready_mix_concrete": 0,   # perishable, same-day or it's late

@@ -1,7 +1,7 @@
 # Operations & SRE Runbook
 ## Construction Logistics Platform (SitePulse)
 
-This runbook outlines operational procedures, health monitoring, deployment commands, and incident response runbooks for operating the BI Group Construction Logistics Platform.
+This runbook outlines operational procedures, health monitoring, deployment commands, and incident response runbooks for operating the SitePulse Construction Logistics Platform.
 
 ---
 
