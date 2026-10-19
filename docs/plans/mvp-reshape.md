@@ -156,7 +156,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Steps:** `CLAUDE.md` at the repo root; this file.
 - **Done when:** `python -m pytest -q` passes (155).
 
-### Stage 1 — 1C column profile and data-quality report (D3) `[ ]`  · *needed by the final, 28 Oct*
+### Stage 1 — 1C column profile and data-quality report (D3) `[x]`  · *needed by the final, 28 Oct*
 - **Goal:** a real-looking 1C export becomes the canonical delivery frame, with a report of what was dropped.
 - **Steps:** in `ml/ingest.py` add `COLUMN_PROFILE` (alias table, e.g. «Поставщик», «Контрагент» → `supplier_id`;
   «Номенклатура»/«Материал» → `material_type`; «Дата заказа» → `order_date`; «Плановая дата поставки»/«Срок» →
@@ -251,3 +251,17 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
 ## 7. Mid-build notes
 - 2026-10-19: Stage 0 done. Signed ingest, review queue and audit log were added the same day (branch
   `feat/posttech-ports`, 155 tests).
+- 2026-10-19: Stage 1 done. `ml/ingest.py` gained `COLUMN_PROFILE`, `sniff_csv()`, `QualityReport` and
+  `load_export()`, appended after the existing `load_deliveries_csv()` (untouched — `ml.train`/`db.seed`
+  keep using it on canonical headers). `route_type` is deliberately not in `COLUMN_PROFILE`: it always
+  defaults to `"unknown"` and the default is counted in `QualityReport.route_type_defaulted`
+  (CLAUDE.md rule 6 — a 1C export has no route data; reporting the default is honest, inventing a
+  route would not be). Duplicate detection is on the mapped business columns (supplier, material,
+  quantity, the three dates), not on `route_type`/`project_site` since those are constant placeholders
+  pre-dedup. `tests/fixtures/1c_export_cp1251.csv` is genuinely cp1251-only (verified it does not also
+  decode as utf-8, so the fixture exercises the encoding fallback instead of passing by luck) — 12 rows:
+  1 exact duplicate, 1 unparseable `actual_date` ("не прибыло"), 1 invalid `promised_date`
+  ("32.13.2026"), 1 blank `actual_date` (a missing-field drop, deliberately not counted as a "bad date"
+  so the two failure modes stay distinguishable), 1 `promised_date` before `order_date` (kept, flagged),
+  quantities with 1C's space thousand-separator. `tests/test_ingest_profile.py`, 14 tests, all green.
+  Full suite 169 (155 + 14). Next: Stage 2 (supplier scorecard, depends on Stage 1).
