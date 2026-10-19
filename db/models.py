@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import JSON
 
@@ -211,3 +211,48 @@ class Workspace(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
+
+
+class IngestNonce(Base):
+    """One row per accepted signed request: a second request with the same nonce is a replay."""
+
+    __tablename__ = "ingest_nonces"
+
+    nonce = Column(String, primary_key=True)
+    key_id = Column(String, nullable=False)
+    seen_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class IntegrationEvent(Base):
+    """A delivery event pushed by a gate scanner or a 1C receipt export.
+
+    `event_id` is the sender's own id, so a retried push is recognised and never applied twice.
+    Events that match no served prediction stay here with status "unmatched" -- a review queue,
+    never a guess (JanaМен's profile-sync rule: match by the business key only).
+    """
+
+    __tablename__ = "integration_events"
+    __table_args__ = (UniqueConstraint("source", "event_id", name="uq_integration_event"),)
+
+    id = Column(Integer, primary_key=True)
+    source = Column(String, nullable=False, index=True)      # key_id of the signed sender
+    event_id = Column(String, nullable=False, index=True)
+    kind = Column(String, nullable=False)                    # "arrived"
+    delivery_ref = Column(String, index=True)
+    occurred_on = Column(Date)
+    gate = Column(String)
+    status = Column(String, nullable=False, index=True)      # applied / unmatched
+    received_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class AuditEvent(Base):
+    """Append-only log of who changed what (ported from JanaМен's audit_events)."""
+
+    __tablename__ = "audit_events"
+
+    id = Column(Integer, primary_key=True)
+    at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    actor = Column(String, nullable=False)                   # "admin" or "ingest:<key_id>"
+    action = Column(String, nullable=False, index=True)
+    target = Column(String)
+    details = Column(JSON)

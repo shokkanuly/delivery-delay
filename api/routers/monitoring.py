@@ -22,7 +22,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from db.database import get_session
-from db.models import PredictionLog
+from db.models import AuditEvent, PredictionLog
 
 router = APIRouter(tags=["monitoring"])
 
@@ -73,30 +73,44 @@ def record_outcomes(outcomes: list[OutcomeIn],
 
     updated, missed = 0, []
     for o in outcomes:
-        q = db.query(PredictionLog)
-        if o.prediction_id is not None:
-            q = q.filter(PredictionLog.id == o.prediction_id)
-        elif o.delivery_ref:
-            q = q.filter(PredictionLog.delivery_ref == o.delivery_ref)
-        else:
+        if o.prediction_id is None and not o.delivery_ref:
             missed.append("outcome needs prediction_id or delivery_ref")
             continue
-
-        row = q.order_by(PredictionLog.predicted_at.desc()).first()
-        if row is None:
+        if apply_outcome(db, o.actual_date, o.grace_days, o.prediction_id, o.delivery_ref):
+            updated += 1
+        else:
             missed.append(o.delivery_ref or str(o.prediction_id))
-            continue
 
-        row.actual_date = o.actual_date
-        if row.promised_date:
-            delay = (o.actual_date - row.promised_date).days
-            row.actual_delay_days = float(delay)
-            row.actual_late = int(delay > o.grace_days)
-        row.outcome_recorded_at = datetime.now(timezone.utc)
-        updated += 1
-
+    log_audit(db, "admin", "outcomes.recorded", None, {"updated": updated, "unmatched": len(missed)})
     db.commit()
     return {"updated": updated, "unmatched": missed}
+
+
+def apply_outcome(db: Session, actual_date: date, grace_days: int = 1,
+                  prediction_id: int | None = None, delivery_ref: str | None = None) -> bool:
+    """Fill in what happened on the latest logged prediction for this delivery. No commit."""
+    q = db.query(PredictionLog)
+    if prediction_id is not None:
+        q = q.filter(PredictionLog.id == prediction_id)
+    elif delivery_ref:
+        q = q.filter(PredictionLog.delivery_ref == delivery_ref)
+    else:
+        return False
+    row = q.order_by(PredictionLog.predicted_at.desc()).first()
+    if row is None:
+        return False
+    row.actual_date = actual_date
+    if row.promised_date:
+        delay = (actual_date - row.promised_date).days
+        row.actual_delay_days = float(delay)
+        row.actual_late = int(delay > grace_days)
+    row.outcome_recorded_at = datetime.now(timezone.utc)
+    return True
+
+
+def log_audit(db: Session, actor: str, action: str, target: str | None, details: dict | None) -> None:
+    """Append an audit row (JanaМен's audit_service.log_event). The caller commits."""
+    db.add(AuditEvent(actor=actor, action=action, target=target, details=details))
 
 
 @router.get("/accuracy")

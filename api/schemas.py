@@ -15,6 +15,9 @@ class DeliveryIn(BaseModel):
     quantity: int = Field(gt=0)
     order_date: date
     promised_date: date
+    # Optional: your own delivery id (1C order line, waybill). Logged, not a model feature, so a later gate
+    # arrival or POST /outcomes can be matched to this prediction.
+    delivery_ref: str | None = Field(None, max_length=64)
 
     model_config = {
         "json_schema_extra": {
