@@ -34,11 +34,33 @@ from api.routers import monitoring as monitoring_router
 from api.routers import schedule as schedule_router
 from api.routers import validate as validate_router
 from api.security import cors_origins
-from db.database import init_db
+from db.database import SessionLocal, init_db
+
+
+def _seed_if_empty() -> None:
+    """First boot on a fresh database (a new Railway/Render Postgres, or a
+    container with no volume): load the reference data so the three engines
+    have something to read. Safe to call on every restart -- it's a no-op
+    once `projects` is populated, and it never touches `workspaces` or
+    `prediction_log`, so real saved data and the evidence log survive a
+    redeploy. Best-effort: a seed failure must not stop the API from serving
+    the (fallback-to-CSV) engines, so it's logged, not raised."""
+    from db.models import Project
+    try:
+        with SessionLocal() as db:
+            if db.query(Project).count() > 0:
+                return
+        from db.seed import seed
+        print("[startup] empty database — seeding reference data...")
+        print("[startup] seeded:", seed())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[startup] seed skipped ({exc}); engines fall back to bundled CSVs")
+
 
 @asynccontextmanager
 async def lifespan(_app):
     init_db()   # idempotent: creates tables the seed has not (e.g. workspaces)
+    _seed_if_empty()
     yield
 
 

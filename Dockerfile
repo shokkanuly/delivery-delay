@@ -10,7 +10,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# api: 8000, streamlit: 8501
+# api: 8000, streamlit: 8501 (local/compose defaults; Railway and other PaaS
+# targets inject their own $PORT at runtime -- the shell form below expands it,
+# falling back to 8000 so docker-compose and bare `docker run` still work).
 EXPOSE 8000 8501
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}
