@@ -168,7 +168,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Done when:** the fixture loads to the canonical columns; a file missing a required column fails with the Russian
   names of the missing columns; the quality report counts bad dates and duplicates; all tests pass.
 
-### Stage 2 — Supplier scorecard (D4) `[ ]` · *final*
+### Stage 2 — Supplier scorecard (D4) `[x]` · *final*
 - **Goal:** the first sellable output.
 - **Steps:** `ml/scorecard.py` with `supplier_scorecard(df) -> DataFrame` and `material_breakdown(df)`; Wilson interval
   helper; lateness via `ml.labeling` grace. `tests/test_scorecard.py` with a hand-computed known answer (e.g. 7 of 10 on
@@ -265,3 +265,18 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
   so the two failure modes stay distinguishable), 1 `promised_date` before `order_date` (kept, flagged),
   quantities with 1C's space thousand-separator. `tests/test_ingest_profile.py`, 14 tests, all green.
   Full suite 169 (155 + 14). Next: Stage 2 (supplier scorecard, depends on Stage 1).
+- 2026-10-19: Stage 2 done. `ml/scorecard.py`: `wilson_interval()` (own implementation, no new
+  dependency), `supplier_scorecard()` and `material_breakdown()` share one `_rollup()` so the two
+  never compute a metric two different ways. Lateness comes from `ml.labeling.add_labels()`, not
+  reimplemented. Per-row metrics: deliveries, on-time share + Wilson 95% CI, median/p90 days late
+  computed only over the late deliveries (None, not 0, when a supplier has none — "never late" and
+  "typically 0 days late" are different claims), and a 90-day trend split on `promised_date` vs an
+  `as_of` cutoff (defaults to the latest `promised_date` in the data; None in a bucket with no rows).
+  Sorted worst-on-time-share-first, matching the risk-descending convention already used in
+  `api/routers/predict.py`. Known-answer check: 7/10 on time -> 0.70, Wilson interval verified against
+  an independent from-scratch re-derivation of the same published formula (0.396773, 0.892211), not
+  just checked against the module's own code. `tests/test_scorecard.py`, 12 tests; every number in it
+  (CI bounds, median/p90, trend split) was computed by hand/dry-run and checked against the function's
+  actual output before being hardcoded into an assertion. Full suite 182 (169 + 1 new layering
+  parametrization for ml/scorecard.py + 12). Next: Stage 3 (history audit endpoint + console view,
+  depends on Stages 1-2).
