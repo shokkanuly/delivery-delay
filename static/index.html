@@ -3039,16 +3039,20 @@
         const list = (data.assignments || []).slice(0, 30);
         list.forEach(a => {
           const tr = document.createElement('tr');
+          const hasRisk = ['red', 'yellow', 'green'].includes(a.upstream_risk_band) || Number.isFinite(a.delay_risk);
           const isAtRisk = a.upstream_risk_band === 'red' || a.delay_risk > 0.5;
-          const riskBadge = isAtRisk ? '<span class="signal-badge critical">● High Delay Risk</span>' : '<span class="signal-badge ok">● Nominal</span>';
+          const riskBadge = !hasRisk ? '<span class="signal-badge">Нет данных</span>'
+            : isAtRisk ? '<span class="signal-badge critical">● High Delay Risk</span>'
+            : a.upstream_risk_band === 'yellow' ? '<span class="signal-badge moderate">● Moderate</span>'
+            : '<span class="signal-badge ok">● Nominal</span>';
           tr.innerHTML = `
             <td><strong class="mono">${a.booking_id}</strong></td>
             <td><span class="site-code">${a.project_id}</span></td>
             <td><strong>${a.assigned_resource_id || '--'}</strong></td>
             <td>${(a.resource_type || '--').replace(/_/g, ' ').toUpperCase()}</td>
-            <td class="mono" style="font-size:0.78rem;">${(a.start || '').slice(0,16).replace('T', ' ')} → ${(a.end || '').slice(11,16)}</td>
+            <td class="mono" style="font-size:0.78rem;">${(a.requested_start || 'Нет данных').slice(0,16).replace('T', ' ')} → ${a.requested_end ? a.requested_end.slice(11,16) : 'Нет данных'}</td>
             <td>${riskBadge}</td>
-            <td><span class="signal-badge ok">Optimal · no overlap</span></td>
+            <td><span class="signal-badge ok">${s.status === 'OPTIMAL' ? 'Optimal' : 'Назначено'} · no overlap</span></td>
           `;
           tbody.appendChild(tr);
         });
