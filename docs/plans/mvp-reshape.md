@@ -168,7 +168,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Done when:** the fixture loads to the canonical columns; a file missing a required column fails with the Russian
   names of the missing columns; the quality report counts bad dates and duplicates; all tests pass.
 
-### Stage 2 — Supplier scorecard (D4) `[ ]` · *final*
+### Stage 2 — Supplier scorecard (D4) `[x]` · *final*
 - **Goal:** the first sellable output.
 - **Steps:** `ml/scorecard.py` with `supplier_scorecard(df) -> DataFrame` and `material_breakdown(df)`; Wilson interval
   helper; lateness via `ml.labeling` grace. `tests/test_scorecard.py` with a hand-computed known answer (e.g. 7 of 10 on
@@ -265,3 +265,13 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
   so the two failure modes stay distinguishable), 1 `promised_date` before `order_date` (kept, flagged),
   quantities with 1C's space thousand-separator. `tests/test_ingest_profile.py`, 14 tests, all green.
   Full suite 169 (155 + 14). Next: Stage 2 (supplier scorecard, depends on Stage 1).
+- 2026-10-20: Stage 2 done. `ml/scorecard.py` adds supplier and supplier × material scorecards,
+  reusing `ml.labeling.add_labels` for the material grace rule. The Wilson 95% interval for 7/10
+  on time is [0.3967781475, 0.8922087326]. Delay quantiles cover late deliveries only and measure
+  days from the promise, not days beyond grace. All groups share the same inclusive 90-calendar-day
+  window ending on the export's latest actual arrival; a positive trend means better on-time share.
+  Missing cohorts and groups without late deliveries produce missing statistics, not zeros. Empty
+  canonical frames preserve the output columns. Twelve known-answer/edge/seam tests and the layering
+  check pass; the full suite passes (182 = 169 + 12 scorecard tests + 1 discovered layering case).
+  Next: Stage 3, the history audit endpoint and console upload view; the scorecard is currently a
+  domain function and is not yet exposed in the console.
