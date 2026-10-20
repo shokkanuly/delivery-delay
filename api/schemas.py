@@ -71,6 +71,16 @@ class SiteInputsIn(BaseModel):
     total_logistics_budget: float = 2400000.0
 
 
+class ExposureIn(BaseModel):
+    """business.exposure.exposure's inputs -- the customer's own figures, no
+    defaults: every field is required, so a missing one is a 422 naming it."""
+    contract_value_kzt: float = Field(gt=0)
+    late_penalty_rate: float = Field(ge=0)
+    days_late: float = Field(ge=0)
+    downtime_hours: float = Field(ge=0)
+    downtime_cost_per_hour_kzt: float = Field(ge=0)
+
+
 class CompanyWorkspaceIn(SiteInputsIn):
     access_key: str = ""   # blank on create: the server issues a key
     company_name: str

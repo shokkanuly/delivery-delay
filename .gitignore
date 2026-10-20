@@ -3,6 +3,7 @@ __pycache__/
 *.db
 *.sqlite3
 ml/artifacts/
+data/customer_uploads/
 .env
 .venv/
 venv/
