@@ -2,8 +2,9 @@
 
 Admin operations (retraining the model, recording ground-truth outcomes) need
 the `X-API-Key` header to match the SITEPULSE_ADMIN_KEY environment variable.
-The key lives server-side only: the Streamlit server sends it, the browser
-console never sees it. With no key configured, admin endpoints are closed
+The configured key is never injected into HTML: Streamlit sends it server-side;
+an operator can enter their key for a console history audit (memory only).
+With no key configured, admin endpoints are closed
 (503) rather than open.
 
 Workspaces use their own bearer secret: the server-issued access key.

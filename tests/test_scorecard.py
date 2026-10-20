@@ -1,136 +1,122 @@
-"""Stage 2 (docs/plans/mvp-reshape.md): the supplier scorecard.
-
-Covers the Done when of Stage 2: known-answer tests (7 of 10 on time -> 0.70,
-Wilson interval checked against an independently hand-derived reference
-value) pass; tests/test_layering.py still passes (checked separately, but
-every fixture here stays import-clean of fastapi/streamlit/requests/api on
-purpose).
-"""
-from __future__ import annotations
+"""Known-answer checks for descriptive supplier reliability, not model accuracy."""
+from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from ml.ingest import load_export
 from ml.scorecard import material_breakdown, supplier_scorecard, wilson_interval
 
 
-def _delivery(supplier, material, promised, delay_days, order=None):
-    promised = pd.Timestamp(promised)
-    return {
-        "supplier_id": supplier, "material_type": material,
-        "order_date": pd.Timestamp(order) if order else promised - pd.Timedelta(days=10),
+def history():
+    # 5 old arrivals: 2 on time, 3 late (delays 1, 3, 10); 5 recent, all on time.
+    promised = pd.to_datetime(["2026-01-01"] * 5 + ["2026-10-01"] * 5)
+    return pd.DataFrame({
+        "supplier_id": ["A"] * 10, "material_type": ["ready_mix_concrete"] * 10,
         "promised_date": promised,
-        "actual_date": promised + pd.Timedelta(days=delay_days),
-    }
+        "actual_date": promised + pd.to_timedelta([0, 0, 1, 3, 10, 0, 0, 0, 0, 0], unit="D"),
+    })
 
 
-class TestWilsonInterval:
-    def test_known_answer_7_of_10(self):
-        """7/10 -> point estimate 0.70; interval against an independently
-        re-derived value of the same published formula (not the module's own
-        code), so this doesn't just check the function against itself."""
-        lo, hi = wilson_interval(7, 10)
-        assert 7 / 10 == pytest.approx(0.70)
-        assert lo == pytest.approx(0.396773, abs=1e-6)
-        assert hi == pytest.approx(0.892211, abs=1e-6)
-
-    def test_zero_trials_is_maximum_uncertainty(self):
-        assert wilson_interval(0, 0) == (0.0, 1.0)
-
-    def test_never_collapses_to_a_point_at_the_extremes(self):
-        """The whole reason to use Wilson over a normal approximation at
-        small n: 10/10 and 0/10 must still have real width."""
-        lo, hi = wilson_interval(10, 10)
-        assert lo > 0.0 and hi == 1.0
-        lo, hi = wilson_interval(0, 10)
-        assert lo == 0.0 and hi < 1.0
-
-    def test_stays_inside_zero_one(self):
-        for successes, n in [(0, 1), (1, 1), (50, 50), (1, 1000)]:
-            lo, hi = wilson_interval(successes, n)
-            assert 0.0 <= lo <= hi <= 1.0
+def test_wilson_seven_of_ten():
+    low, high = wilson_interval(7, 10)
+    assert low == pytest.approx(0.39677814746114537)
+    assert high == pytest.approx(0.8922087325936989)
 
 
-class TestSupplierScorecard:
-    def test_known_answer_seven_of_ten_on_time(self):
-        """rebar grace is 2 days (ml.labeling.DEFAULT_GRACE_DAYS): delays of
-        0,1,2,-1,-2,0,1 are on time; 3,5,10 are late. 7 on time of 10 ->
-        0.70, matching the Wilson known-answer above exactly."""
-        rows = [_delivery("S1", "rebar", "2026-01-10", d)
-               for d in (0, 1, 2, -1, -2, 0, 1, 3, 5, 10)]
-        sc = supplier_scorecard(pd.DataFrame(rows))
-
-        assert len(sc) == 1
-        row = sc.iloc[0]
-        assert row["supplier_id"] == "S1"
-        assert row["deliveries"] == 10
-        assert row["on_time_share"] == pytest.approx(0.70)
-        assert row["on_time_ci_low"] == pytest.approx(0.396773, abs=1e-4)
-        assert row["on_time_ci_high"] == pytest.approx(0.892211, abs=1e-4)
-        # late delays are 3, 5, 10 -> median 5, p90 (pandas linear interp) 9.0
-        assert row["median_days_late"] == pytest.approx(5.0)
-        assert row["p90_days_late"] == pytest.approx(9.0)
-
-    def test_no_late_deliveries_gives_none_not_zero(self):
-        """A supplier who is never late has an UNDEFINED typical lateness,
-        not a lateness of zero days -- those mean different things to a site
-        manager reading the scorecard."""
-        rows = [_delivery("S3", "bricks", "2026-01-10", 0) for _ in range(4)]
-        sc = supplier_scorecard(pd.DataFrame(rows))
-        row = sc.iloc[0]
-        assert row["median_days_late"] is None
-        assert row["p90_days_late"] is None
-
-    def test_trend_splits_on_the_90_day_window(self):
-        """5 old on-time deliveries, then 5 recent late-by-5-days deliveries
-        (cement grace is 1 day), as_of pinned to the recent batch's date so
-        the 90-day cutoff falls cleanly between the two groups."""
-        old, recent = pd.Timestamp("2026-01-10"), pd.Timestamp("2026-05-10")  # 120 days apart
-        rows = ([_delivery("S2", "cement", old, 0) for _ in range(5)]
-               + [_delivery("S2", "cement", recent, 5) for _ in range(5)])
-        sc = supplier_scorecard(pd.DataFrame(rows), as_of=recent)
-        row = sc.iloc[0]
-        assert row["on_time_share"] == pytest.approx(0.5)
-        assert row["on_time_share_recent_90d"] == pytest.approx(0.0)
-        assert row["on_time_share_before_90d"] == pytest.approx(1.0)
-
-    def test_trend_bucket_with_no_rows_is_none(self):
-        rows = [_delivery("S1", "rebar", "2026-01-10", 0)]
-        sc = supplier_scorecard(pd.DataFrame(rows))
-        assert sc.iloc[0]["on_time_share_before_90d"] is None
-
-    def test_sorted_worst_first(self):
-        """An audit leads with who needs attention: lowest on-time share
-        first, matching the rest of the platform's risk-descending order."""
-        rows = ([_delivery("GOOD", "rebar", "2026-01-10", 0) for _ in range(5)]
-               + [_delivery("BAD", "rebar", "2026-01-10", 10) for _ in range(5)])
-        sc = supplier_scorecard(pd.DataFrame(rows))
-        assert list(sc["supplier_id"]) == ["BAD", "GOOD"]
-
-    def test_multiple_suppliers_get_independent_rows(self):
-        rows = ([_delivery("S1", "rebar", "2026-01-10", 0) for _ in range(3)]
-               + [_delivery("S2", "rebar", "2026-01-10", 10) for _ in range(2)])
-        sc = supplier_scorecard(pd.DataFrame(rows))
-        assert set(sc["supplier_id"]) == {"S1", "S2"}
-        assert sc.set_index("supplier_id").loc["S1", "deliveries"] == 3
-        assert sc.set_index("supplier_id").loc["S2", "deliveries"] == 2
+def test_wilson_empty_and_extremes():
+    assert wilson_interval(0, 0) == (None, None)
+    assert wilson_interval(0, 10)[1] == pytest.approx(0.2775327998628892)
+    assert wilson_interval(10, 10)[0] == pytest.approx(0.7224672001371107)
+    for args in ((-1, 10), (11, 10), (0, -1), (1.5, 10)):
+        with pytest.raises(ValueError):
+            wilson_interval(*args)
 
 
-class TestMaterialBreakdown:
-    def test_one_row_per_supplier_material_pair(self):
-        """Same supplier, two materials, two different reliability records --
-        the scorecard alone would average these together and hide it."""
-        rows = ([_delivery("S1", "rebar", "2026-01-10", 0) for _ in range(5)]      # always on time
-               + [_delivery("S1", "cement", "2026-01-10", 10) for _ in range(5)])  # always late
-        mb = material_breakdown(pd.DataFrame(rows))
-        assert len(mb) == 2
-        by_material = mb.set_index("material_type")
-        assert by_material.loc["rebar", "on_time_share"] == pytest.approx(1.0)
-        assert by_material.loc["cement", "on_time_share"] == pytest.approx(0.0)
+def test_counts_interval_quantiles_and_trend():
+    row = supplier_scorecard(history()).iloc[0]
+    assert (row.supplier_id, row.deliveries, row.on_time, row.late) == ("A", 10, 7, 3)
+    assert row.on_time_share == 0.7
+    assert row.on_time_ci_low == pytest.approx(0.39677814746114537)
+    assert row.on_time_ci_high == pytest.approx(0.8922087325936989)
+    assert row.median_late_days == 3
+    assert row.p90_late_days == pytest.approx(8.6)
+    assert (row.recent_deliveries, row.previous_deliveries) == (5, 5)
+    assert (row.recent_on_time_share, row.previous_on_time_share) == (1, 0.4)
+    assert row.trend_pp == pytest.approx(60)
 
-    def test_matches_supplier_rollup_when_one_material(self):
-        rows = [_delivery("S1", "rebar", "2026-01-10", d) for d in (0, 1, 2, 3, 5, 10)]
-        df = pd.DataFrame(rows)
-        sc_share = supplier_scorecard(df).iloc[0]["on_time_share"]
-        mb_share = material_breakdown(df).iloc[0]["on_time_share"]
-        assert sc_share == mb_share
+
+def test_material_grace_and_stale_labels():
+    frame = history().iloc[:3].copy()
+    frame["material_type"] = ["cement", "rebar", "unknown"]
+    frame["actual_date"] = frame.promised_date + pd.to_timedelta([1, 2, 2], unit="D")
+    frame["is_late"] = 1  # must not override the shared labeling rule
+    row = supplier_scorecard(frame).iloc[0]
+    assert (row.on_time, row.late) == (2, 1)
+
+
+def test_material_breakdown_rolls_up():
+    frame = history()
+    frame.loc[:4, "material_type"] = "cement"
+    detail = material_breakdown(frame).set_index("material_type")
+    assert set(detail.index) == {"cement", "ready_mix_concrete"}
+    assert detail.loc["cement", "on_time"] == 3  # 1-day delay falls within cement grace
+    assert detail.deliveries.sum() == supplier_scorecard(frame).iloc[0].deliveries
+    assert detail.on_time.sum() == supplier_scorecard(frame).iloc[0].on_time
+
+
+def test_missing_history_is_not_zero_performance():
+    row = supplier_scorecard(history().iloc[5:]).iloc[0]
+    assert row.on_time_share == 1
+    assert pd.isna(row.median_late_days) and pd.isna(row.p90_late_days)
+    assert pd.isna(row.previous_on_time_share) and pd.isna(row.trend_pp)
+
+
+def test_recent_window_is_shared_by_suppliers():
+    frame = history()
+    frame.loc[:4, "supplier_id"] = "old-only"
+    rows = supplier_scorecard(frame).set_index("supplier_id")
+    assert rows.loc["old-only", "recent_deliveries"] == 0
+    assert pd.isna(rows.loc["old-only", "recent_on_time_share"])
+    assert pd.isna(rows.loc["old-only", "trend_pp"])
+
+
+def test_ninety_day_boundary():
+    frame = history().iloc[:3].copy()
+    frame["promised_date"] = pd.to_datetime(["2026-07-03", "2026-07-04", "2026-10-01"])
+    frame["actual_date"] = frame.promised_date
+    row = supplier_scorecard(frame).iloc[0]
+    assert (row.recent_deliveries, row.previous_deliveries) == (2, 1)
+
+
+def test_empty_frame_preserves_output_columns():
+    empty = history().iloc[:0]
+    assert supplier_scorecard(empty).empty
+    assert "on_time_ci_low" in supplier_scorecard(empty).columns
+    assert "material_type" in material_breakdown(empty).columns
+
+
+def test_invalid_history_is_rejected():
+    with pytest.raises(ValueError, match="Missing scorecard columns"):
+        supplier_scorecard(pd.DataFrame())
+    for column in ("supplier_id", "material_type", "actual_date", "promised_date"):
+        frame = history()
+        frame.loc[0, column] = None
+        with pytest.raises(ValueError):
+            supplier_scorecard(frame)
+
+
+def test_input_is_unchanged_and_order_is_deterministic():
+    frame = history()
+    before = frame.copy(deep=True)
+    expected = supplier_scorecard(frame)
+    pd.testing.assert_frame_equal(frame, before)
+    pd.testing.assert_frame_equal(supplier_scorecard(frame.sample(frac=1, random_state=3)), expected)
+
+
+def test_real_export_seam():
+    frame, quality = load_export(Path(__file__).parent / "fixtures" / "1c_export_cp1251.csv")
+    scorecard = supplier_scorecard(frame)
+    assert scorecard.deliveries.sum() == quality.rows_kept
+    assert scorecard.on_time.sum() + scorecard.late.sum() == quality.rows_kept
+    assert scorecard.on_time_share.between(0, 1).all()

@@ -1,119 +1,95 @@
-"""Stage 2 (docs/plans/mvp-reshape.md D4): the supplier on-time scorecard --
-the first sellable output, sold ahead of the ML model.
+"""Historical supplier reliability, with the same material grace as model labels.
 
-Lateness is computed by `ml.labeling.add_labels()`, the SAME per-material
-grace window used everywhere else in the platform (the delay-risk model,
-`/accuracy`). A supplier's "late" here means exactly what it means there --
-never a second, scorecard-only definition of lateness.
-
-Pure, framework-free (tests/test_layering.py). Input is a canonical
-deliveries DataFrame with `actual_date` populated (ml.ingest's output shape,
-or db-sourced equivalent); output is plain pandas DataFrames.
+This describes completed deliveries; it is not a prediction. Delay quantiles
+cover late deliveries only, measured from the promised date (not after grace).
+The recent window is the last 90 calendar days ending on the latest arrival in
+the entire export, so every supplier is compared over the same observed period.
 """
 from __future__ import annotations
 
-import numpy as np
+import math
+from statistics import NormalDist
+
 import pandas as pd
 
 from ml.labeling import LabelConfig, add_labels
 
-# "Trend" = on-time share in the most recent N days of promised_date vs.
-# everything before that cutoff. 90 days matches the plan's pilot cadence
-# (D4) -- long enough to not be noise at one-site volume, short enough to
-# catch a supplier's performance actually changing.
-TREND_WINDOW_DAYS = 90
+_METRICS = [
+    "deliveries", "on_time", "late", "on_time_share", "on_time_ci_low", "on_time_ci_high",
+    "median_late_days", "p90_late_days", "recent_deliveries", "previous_deliveries",
+    "recent_on_time_share", "previous_on_time_share", "trend_pp",
+]
 
 
-def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
-    """Wilson score interval for a binomial proportion (default z=1.96, 95%).
-
-    Chosen over a normal-approximation interval because it stays inside
-    [0, 1] and doesn't collapse to a point at p=0 or p=1 -- exactly the
-    small-n regime a single supplier at a one-site pilot will be in.
-    n=0 returns (0.0, 1.0): no deliveries, no evidence, maximum uncertainty.
-    """
-    if n <= 0:
-        return (0.0, 1.0)
-    phat = successes / n
-    z2 = z * z
-    denom = 1.0 + z2 / n
-    centre = phat + z2 / (2 * n)
-    margin = z * np.sqrt((phat * (1 - phat) + z2 / (4 * n)) / n)
-    lo = (centre - margin) / denom
-    hi = (centre + margin) / denom
-    return (max(0.0, lo), min(1.0, hi))
+def wilson_interval(on_time: int, total: int) -> tuple[float | None, float | None]:
+    """Two-sided Wilson 95% interval; no observations means no estimate."""
+    if total < 0 or on_time < 0 or on_time > total or int(total) != total or int(on_time) != on_time:
+        raise ValueError("Counts must be integers with 0 <= on_time <= total")
+    if total == 0:
+        return None, None
+    z = NormalDist().inv_cdf(0.975)
+    p = on_time / total
+    denominator = 1 + z * z / total
+    center = (p + z * z / (2 * total)) / denominator
+    half = z * math.sqrt(p * (1 - p) / total + z * z / (4 * total * total)) / denominator
+    return max(0.0, center - half), min(1.0, center + half)
 
 
-def _rollup(group: pd.DataFrame, cutoff: pd.Timestamp) -> dict:
-    """One scorecard row's metrics for a single supplier (or supplier x
-    material) group that already has `is_late` and `delay_days`."""
-    n = len(group)
-    on_time_n = int((group["is_late"] == 0).sum())
-    lo, hi = wilson_interval(on_time_n, n)
-    late = group[group["is_late"] == 1]
-    recent = group[group["promised_date"] > cutoff]
-    before = group[group["promised_date"] <= cutoff]
-
-    def _share(rows: pd.DataFrame) -> float | None:
-        return round(float((rows["is_late"] == 0).mean()), 4) if len(rows) else None
-
-    return {
-        "deliveries": n,
-        "on_time_share": round(on_time_n / n, 4) if n else None,
-        "on_time_ci_low": round(lo, 4),
-        "on_time_ci_high": round(hi, 4),
-        "median_days_late": float(late["delay_days"].median()) if len(late) else None,
-        "p90_days_late": float(late["delay_days"].quantile(0.9)) if len(late) else None,
-        "on_time_share_recent_90d": _share(recent),
-        "on_time_share_before_90d": _share(before),
-    }
+def _history(df: pd.DataFrame) -> pd.DataFrame:
+    required = ["supplier_id", "material_type", "promised_date", "actual_date"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError("Missing scorecard columns: " + ", ".join(missing))
+    out = df.copy()
+    if out[["supplier_id", "material_type"]].isna().any().any():
+        raise ValueError("Supplier and material must be present on every delivery")
+    for col in ("promised_date", "actual_date"):
+        out[col] = pd.to_datetime(out[col], errors="raise")
+        if out[col].isna().any():
+            raise ValueError("Scorecards require completed deliveries with valid dates")
+    if out.empty:
+        return out
+    # Recompute rather than trusting a caller's possibly stale is_late column.
+    return add_labels(out, LabelConfig())
 
 
-def _scorecard(df: pd.DataFrame, group_cols: list[str], config: LabelConfig | None,
-              as_of: pd.Timestamp | None) -> pd.DataFrame:
-    labeled = add_labels(df, config)
-    as_of = pd.Timestamp(as_of) if as_of is not None else labeled["promised_date"].max()
-    cutoff = as_of - pd.Timedelta(days=TREND_WINDOW_DAYS)
-
+def _scorecard(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+    history = _history(df)
+    columns = keys + _METRICS
+    if history.empty:
+        return pd.DataFrame(columns=columns)
+    # Inclusive 90-day window: the latest arrival plus its 89 preceding days.
+    cutoff = history["actual_date"].max().normalize() - pd.Timedelta(days=89)
     rows = []
-    for key, group in labeled.groupby(group_cols, sort=False):
-        key_tuple = key if isinstance(key, tuple) else (key,)
-        rows.append({**dict(zip(group_cols, key_tuple)), **_rollup(group, cutoff)})
-
-    out = pd.DataFrame(rows, columns=group_cols + [
-        "deliveries", "on_time_share", "on_time_ci_low", "on_time_ci_high",
-        "median_days_late", "p90_days_late",
-        "on_time_share_recent_90d", "on_time_share_before_90d",
-    ])
-    # Worst on-time share first: an audit leads with who needs attention,
-    # matching how the rest of the platform ranks (e.g. risk descending in
-    # api/routers/predict.py).
-    return out.sort_values("on_time_share", na_position="last").reset_index(drop=True)
-
-
-def supplier_scorecard(df: pd.DataFrame, config: LabelConfig | None = None,
-                       as_of: pd.Timestamp | None = None) -> pd.DataFrame:
-    """One row per supplier: deliveries, on-time share with its Wilson 95%
-    interval, typical (median) and worst-case (p90) days late among the late
-    deliveries, and the last-90-day trend. `as_of` defaults to the latest
-    `promised_date` in the data; pass it explicitly for a reproducible audit
-    on a fixed date."""
-    return _scorecard(df, ["supplier_id"], config, as_of)
-
-
-def material_breakdown(df: pd.DataFrame, config: LabelConfig | None = None,
-                       as_of: pd.Timestamp | None = None) -> pd.DataFrame:
-    """Same metrics, one row per (supplier, material): a supplier can be
-    reliable for one material and not another, and the scorecard alone would
-    hide that."""
-    return _scorecard(df, ["supplier_id", "material_type"], config, as_of)
+    for key, group in history.groupby(keys, sort=True, observed=True):
+        values = key if isinstance(key, tuple) else (key,)
+        n = len(group)
+        late = group[group["is_late"] == 1]
+        on_time = n - len(late)
+        lower, upper = wilson_interval(on_time, n)
+        recent = group[group["actual_date"] >= cutoff]
+        previous = group[group["actual_date"] < cutoff]
+        recent_share = float(1 - recent["is_late"].mean()) if len(recent) else None
+        previous_share = float(1 - previous["is_late"].mean()) if len(previous) else None
+        rows.append({
+            **dict(zip(keys, values)),
+            "deliveries": n, "on_time": on_time, "late": len(late), "on_time_share": on_time / n,
+            "on_time_ci_low": lower, "on_time_ci_high": upper,
+            "median_late_days": float(late["delay_days"].median()) if len(late) else None,
+            "p90_late_days": float(late["delay_days"].quantile(0.9)) if len(late) else None,
+            "recent_deliveries": len(recent), "previous_deliveries": len(previous),
+            "recent_on_time_share": recent_share, "previous_on_time_share": previous_share,
+            "trend_pp": 100 * (recent_share - previous_share)
+            if recent_share is not None and previous_share is not None else None,
+        })
+    return pd.DataFrame(rows, columns=columns)
 
 
-if __name__ == "__main__":
-    import sys
+def supplier_scorecard(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per supplier; positive trend_pp means improved on-time share."""
+    return _scorecard(df, ["supplier_id"])
 
-    from ml.ingest import load_deliveries_csv
 
-    path = sys.argv[1] if len(sys.argv) > 1 else "sample_deliveries.csv"
-    deliveries = load_deliveries_csv(path)
-    print(supplier_scorecard(deliveries).to_string(index=False))
+def material_breakdown(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per supplier/material pair, using the same global recent window."""
+    return _scorecard(df, ["supplier_id", "material_type"])

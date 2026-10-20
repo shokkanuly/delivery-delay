@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -89,3 +90,68 @@ class CompanyWorkspaceIn(SiteInputsIn):
     building_type: str = "Residential High-Rise"
     total_area_sqm: float = 45000.0
     floors: int = 18
+
+
+class AuditQualityOut(BaseModel):
+    rows_total: int
+    rows_kept: int
+    rows_dropped: int
+    bad_dates: int
+    bad_quantity: int
+    duplicates: int
+    promised_before_order: int
+    route_type_defaulted: int
+    material_grace_defaulted: int
+    unmapped_columns: list[str]
+
+
+class SupplierScorecardOut(BaseModel):
+    supplier_id: str
+    material_type: str | None = None
+    deliveries: int
+    on_time: int
+    late: int
+    on_time_share: float
+    on_time_ci_low: float
+    on_time_ci_high: float
+    median_late_days: float | None
+    p90_late_days: float | None
+    recent_deliveries: int
+    previous_deliveries: int
+    recent_on_time_share: float | None
+    previous_on_time_share: float | None
+    trend_pp: float | None
+
+
+class AuditBandOut(BaseModel):
+    deliveries: int
+    late_rate: float | None
+
+
+class HistoryBacktestOut(BaseModel):
+    status: Literal["evaluated", "insufficient_data"]
+    reason: str | None
+    train_rows: int
+    test_rows: int
+    excluded_chronology: int
+    purged_train_rows: int
+    cutoff: str | None
+    train_order_max: str | None
+    train_actual_max: str | None
+    test_order_min: str | None
+    model_average_precision: float | None
+    baseline_average_precision: float | None
+    lift: float | None
+    beats_baseline: bool | None
+    risk_bands: dict[str, AuditBandOut]
+
+
+class HistoryAuditOut(BaseModel):
+    data_source: Literal["synthetic_upload", "uploaded_unverified"]
+    quality: AuditQualityOut
+    scorecard: list[SupplierScorecardOut]
+    material_breakdown: list[SupplierScorecardOut]
+    backtest: HistoryBacktestOut
+    notes: list[str]
+    saved: bool = False
+    audit_id: str | None = None

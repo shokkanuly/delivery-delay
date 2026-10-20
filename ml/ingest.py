@@ -29,7 +29,10 @@ import io
 import pathlib
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
+
+from ml.labeling import DEFAULT_GRACE_DAYS, canonical_material_type
 
 CANONICAL_COLUMNS = ["supplier_id", "project_site", "material_type", "route_type",
                      "quantity", "distance_km", "order_date", "promised_date",
@@ -155,6 +158,7 @@ class QualityReport:
     duplicates: int = 0
     promised_before_order: int = 0
     route_type_defaulted: int = 0
+    material_grace_defaulted: int = 0
     unmapped_columns: list[str] = field(default_factory=list)
 
     @property
@@ -178,6 +182,8 @@ class QualityReport:
         if self.unmapped_columns:
             lines.append(f"{len(self.unmapped_columns)} column(s) not recognised and ignored: "
                          f"{self.unmapped_columns}")
+        if self.material_grace_defaulted:
+            lines.append(f"default material grace used on {self.material_grace_defaulted} kept row(s)")
         return "; ".join(lines)
 
 
@@ -229,6 +235,8 @@ def load_export(
         else:
             unmapped.append(col)
     df = df.rename(columns=rename)
+    if df.columns.duplicated().any():
+        raise DeliveryCSVError("Несколько столбцов соответствуют одному полю. Оставьте один столбец для каждого поля.")
 
     required = list(_REQUIRED_CORE) + (["actual_date"] if require_actual else [])
     missing = [c for c in required if c not in df.columns]
@@ -246,12 +254,22 @@ def load_export(
     bad_dates = 0
     for col in [c for c in DATE_COLUMNS if c in df.columns]:
         before_na = int(df[col].isna().sum())
-        df[col] = pd.to_datetime(df[col].astype(str).str.strip(), dayfirst=True, errors="coerce")
+        values = df[col].astype("string").str.strip()
+        iso = values.str.match(r"^\d{4}-\d{2}-\d{2}", na=False)
+        # ISO dates are year-first, while 1C's dotted dates are day-first.
+        # Parsing the entire column day-first misreads ISO dates and drops most
+        # canonical exports on pandas 2/3's strict inferred-format parser.
+        df[col] = pd.to_datetime(values.where(iso), format="ISO8601", errors="coerce").fillna(
+            pd.to_datetime(values.where(~iso), format="mixed", dayfirst=True, errors="coerce")
+        )
         bad_dates += int(df[col].isna().sum()) - before_na
 
     before_qty_na = int(df["quantity"].isna().sum())
     df["quantity"] = pd.to_numeric(df["quantity"].map(_clean_quantity), errors="coerce")
     bad_quantity = int(df["quantity"].isna().sum()) - before_qty_na
+    invalid_quantity = df["quantity"].notna() & (~np.isfinite(df["quantity"]) | (df["quantity"] <= 0))
+    bad_quantity += int(invalid_quantity.sum())
+    df.loc[invalid_quantity, "quantity"] = np.nan
 
     dup_subset = [c for c in ("supplier_id", "material_type", "quantity",
                               "order_date", "promised_date", "actual_date") if c in df.columns]
@@ -280,6 +298,7 @@ def load_export(
         duplicates=duplicates,
         promised_before_order=promised_before_order,
         route_type_defaulted=route_type_defaulted,
+        material_grace_defaulted=int((~df["material_type"].map(canonical_material_type).isin(DEFAULT_GRACE_DAYS)).sum()),
         unmapped_columns=unmapped,
     )
     return df, report

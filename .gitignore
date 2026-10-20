@@ -8,3 +8,4 @@ data/customer_uploads/
 .venv/
 venv/
 .DS_Store
+var/audits/

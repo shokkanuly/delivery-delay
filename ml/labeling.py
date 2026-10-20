@@ -30,6 +30,19 @@ DEFAULT_GRACE_DAYS = {
     "tiles_finishing": 3,      # finishing trades, more schedule float
 }
 
+# Exact 1C material names only; do not guess from free-text nomenclature.
+MATERIAL_ALIASES = {
+    "бетон": "ready_mix_concrete", "товарный бетон": "ready_mix_concrete",
+    "цемент": "cement", "арматура": "rebar", "утеплитель": "insulation",
+    "кирпич": "bricks", "плитка": "tiles_finishing",
+}
+
+
+def canonical_material_type(material: str) -> str:
+    """Recognize exact aliases while keeping the original name in the export."""
+    normalized = str(material).strip().casefold()
+    return MATERIAL_ALIASES.get(normalized, normalized)
+
 
 @dataclass
 class LabelConfig:
@@ -41,7 +54,8 @@ class LabelConfig:
     early_grace_days: int = 2                # only used when mode="three_class"
 
     def grace_for(self, material: str) -> int:
-        return self.grace_days_by_material.get(material, self.default_grace_days)
+        return self.grace_days_by_material.get(material, self.grace_days_by_material.get(
+            canonical_material_type(material), self.default_grace_days))
 
 
 def add_labels(df: pd.DataFrame, config: LabelConfig | None = None) -> pd.DataFrame:

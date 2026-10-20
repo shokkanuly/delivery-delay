@@ -39,30 +39,30 @@ class TestAuditHistory:
 
     def test_scorecard_has_a_row_per_supplier(self, api_client):
         body = _upload(api_client).json()
-        suppliers = body["scorecard"]["suppliers"]
+        suppliers = body["scorecard"]
         assert len(suppliers) == 5          # 5 distinct suppliers across the 8 kept rows
         assert {"on_time_share", "on_time_ci_low", "on_time_ci_high"} <= set(suppliers[0])
-        assert body["scorecard"]["by_material"]
+        assert body["material_breakdown"]
 
     def test_backtest_skips_honestly_on_too_little_data(self, api_client):
         """8 kept rows cannot support an honest 70/30 time split -- the
         endpoint must say so, not fabricate a PR-AUC."""
         body = _upload(api_client).json()
-        assert body["backtest"]["skipped"] is True
+        assert body["backtest"]["status"] == "insufficient_data"
         assert "reason" in body["backtest"]
-        assert body["model_beats_baseline"] is None
+        assert body["backtest"]["beats_baseline"] is None
 
     def test_json_is_cyrillic_safe(self, api_client):
         """Supplier/material names are Cyrillic -- must round-trip, not
         mojibake or raise."""
         body = _upload(api_client).json()
-        names = {row["supplier_id"] for row in body["scorecard"]["suppliers"]}
+        names = {row["supplier_id"] for row in body["scorecard"]}
         assert any("ТОО" in n or "ИП" in n or "ООО" in n for n in names)
 
-    def test_missing_required_column_is_400_with_russian_name(self, api_client):
+    def test_missing_required_column_is_422_with_russian_name(self, api_client):
         bad = "Поставщик;Количество\nA;5\n".encode("utf-8")
         r = api_client.post("/audit/history", files={"file": ("bad.csv", bad, "text/csv")})
-        assert r.status_code == 400
+        assert r.status_code == 422
         assert "Номенклатура" in r.json()["detail"]
 
     def test_requires_admin_key(self, temp_db, monkeypatch):
@@ -78,17 +78,20 @@ class TestAuditHistory:
 
     def test_nothing_saved_by_default(self, api_client):
         body = _upload(api_client).json()
-        assert body["saved_to"] is None
+        assert body["saved"] is False and body["audit_id"] is None
 
-    def test_save_true_persists_the_upload(self, api_client, tmp_path, monkeypatch):
-        import api.routers.audit as audit_mod
-        monkeypatch.setattr(audit_mod, "UPLOAD_DIR", tmp_path / "customer_uploads")
-
-        body = _upload(api_client, save="true").json()
-        assert body["saved_to"] is not None
-        saved_path = pathlib.Path(body["saved_to"])
-        assert saved_path.exists()
-        assert saved_path.read_bytes() == FIXTURE.read_bytes()
+    def test_save_true_archives_canonical_history_only_when_configured(self, api_client, tmp_path, monkeypatch):
+        archive = tmp_path / "customer_audits"
+        monkeypatch.setenv("SITEPULSE_AUDIT_DIR", str(archive))
+        response = _upload(api_client, save="true")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["saved"] is True
+        folder = archive / body["audit_id"]
+        assert {p.name for p in folder.iterdir()} == {"deliveries.csv", "report.json"}
+        import pandas as pd
+        assert len(pd.read_csv(folder / "deliveries.csv")) == 8
+        assert (folder / "deliveries.csv").read_bytes() != FIXTURE.read_bytes()
 
     def test_file_too_large_is_413(self, api_client, monkeypatch):
         import api.routers.audit as audit_mod

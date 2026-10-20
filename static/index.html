@@ -1395,16 +1395,38 @@
       .btn-accent, .btn-outline, .modal-close, input, select { min-height: 44px; }
       .modal-card { padding: 18px; }
     }
-
-    /* Аудит выгрузки: Ctrl+P prints only the audit results, nothing else. */
+    /* History audit: uses the same console panels and semantic tokens. */
+    .audit-panel { background: var(--sp-surface); border: 1px solid var(--sp-border); border-radius: var(--sp-radius); padding: 24px; margin: 20px 0; }
+    .audit-panel h2, .audit-panel h3 { margin-bottom: 14px; }
+    .audit-copy { color: var(--sp-text-2); line-height: 1.65; max-width: 80ch; }
+    .audit-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 18px; }
+    .audit-table { overflow-x: auto; margin: 16px 0 28px; }
+    .audit-table th, .audit-table td { padding: 12px 10px; white-space: normal; overflow-wrap: anywhere; }
+    .audit-table th { font-size: 0.7rem; }
+    .audit-table td { font-size: 0.8rem; }
+    .audit-table table { min-width: 760px; }
+    .audit-notes { padding-left: 20px; line-height: 1.7; color: var(--sp-text-2); }
+    #audit-status { margin-top: 16px; }
+    #audit-verdict { font-weight: 600; margin: 14px 0; line-height: 1.6; }
+    body.audit-active #validation-footer { display: none !important; }
     @media print {
-      .sidebar, .top-bar, .audit-no-print, #audit-banner { display: none !important; }
-      body, .content { background: #fff !important; }
-      main { margin: 0 !important; padding: 0 !important; }
-      .page-view { display: none !important; }
-      #view-audit { display: block !important; }
-      #view-audit #audit-results { display: block !important; }
-      .kpi-card, .queue-table, #audit-backtest-block, #exposure-result { break-inside: avoid; }
+      @page { size: A4 landscape; margin: 12mm; }
+      body.audit-active { display: block; background: white; color: black; font-size: 10pt; }
+      body.audit-active .sidebar, body.audit-active .top-bar, body.audit-active .modal-backdrop,
+      body.audit-active .audit-no-print, body.audit-active .content > :not(#view-audit) { display: none !important; }
+      body.audit-active .main, body.audit-active .content { margin: 0; padding: 0; width: 100%; max-width: none; overflow: visible; }
+      body.audit-active #audit-report { display: block; }
+      body.audit-active #view-audit { animation: none !important; opacity: 1 !important; transform: none !important; }
+      body.audit-active .audit-panel { padding: 12px 0; border: 0; margin: 8px 0; }
+      body.audit-active .audit-table { overflow: visible; }
+      body.audit-active .audit-table table { display: table; width: 100%; min-width: 0; }
+      body.audit-active .audit-table th, body.audit-active .audit-table td { font-size: 8pt; padding: 6px; color: black; }
+      body.audit-active .audit-table thead { display: table-header-group; }
+      body.audit-active tr, body.audit-active .kpi-card { break-inside: avoid; }
+      body.audit-active h2, body.audit-active h3 { break-after: avoid; }
+      body.audit-active .kpi-row { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; }
+      body.audit-active .audit-copy, body.audit-active .audit-notes { color: black; }
+      body.audit-active #exposure-panel:not(.has-result) { display: none !important; }
     }
   </style>
 </head>
@@ -1429,6 +1451,10 @@
       <a href="#" class="nav-item active" data-view="overview">
         <span class="nav-icon">◉</span>
         Overview
+      </a>
+      <a href="#audit" class="nav-item" data-view="audit">
+        <span class="nav-icon">▤</span>
+        Аудит выгрузки
       </a>
       <a href="#" class="nav-item" data-view="signals">
         <span class="nav-icon">↯</span>
@@ -1463,13 +1489,6 @@
       <a href="#" class="nav-item" onclick="openPredictModal(); return false;">
         <span class="nav-icon">◎</span>
         Score Simulator
-      </a>
-
-      <div class="nav-section-label">Инструменты аудита</div>
-      <a href="#" class="nav-item" data-view="audit">
-        <span class="nav-icon">▤</span>
-        Аудит выгрузки
-        <span class="badge" style="background:var(--sp-info); color:#FFFFFF;">1С</span>
       </a>
     </nav>
 
@@ -1521,6 +1540,111 @@
 
     <!-- Content -->
     <div class="content">
+      <section id="view-audit" class="page-view" lang="ru" style="display:none;">
+        <div class="audit-no-print">
+          <div class="eyebrow">История поставок · 1С / CSV</div>
+          <h1 class="greeting">Аудит выгрузки</h1>
+          <p class="audit-copy">Проверьте качество истории и надёжность поставщиков. Затем сравните модель с простым прогнозом по истории поставщика на более поздних заказах.</p>
+          <form class="audit-panel" id="audit-form" onsubmit="handleAuditSubmit(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="audit-file">Выгрузка CSV</label>
+                <input class="form-input" id="audit-file" type="file" accept=".csv,text/csv" required aria-describedby="audit-file-help">
+                <p id="audit-file-help" class="audit-copy">До 5 МБ и 10 000 строк. UTF-8 или Windows-1251, разделитель — запятая, «;» или табуляция.</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="audit-key">Ключ администратора</label>
+                <input class="form-input" id="audit-key" type="password" required autocomplete="off" aria-describedby="audit-key-help">
+                <p id="audit-key-help" class="audit-copy">Ключ очищается после запроса и не сохраняется в браузере.</p>
+              </div>
+            </div>
+            <p class="audit-copy">Обязательные поля: поставщик, материал, количество, дата заказа, плановая и фактическая дата поставки. Файл и отчёт не сохраняются на сервере.</p>
+            <div class="audit-controls">
+              <label><input id="audit-synthetic" type="checkbox" checked> Это синтетические данные</label>
+              <a href="/static/samples/1c_export_synthetic.csv" download>Скачать синтетический пример</a>
+              <button class="btn-accent" type="submit" id="audit-submit">Проверить выгрузку</button>
+            </div>
+            <p class="audit-copy" style="margin-top:14px;">Публичное демо в Railway предназначено для синтетики. Реальную историю загружайте только в развёртывание в Казахстане или на сервере клиента.</p>
+            <p id="audit-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <div id="audit-report" hidden>
+          <header>
+            <h2>SitePulse · Аудит поставок</h2>
+            <p id="audit-source" class="audit-copy"></p>
+            <p id="audit-file-name" class="audit-copy"></p>
+            <div class="audit-controls audit-no-print">
+              <button type="button" class="btn-outline" onclick="window.print()">Печать / сохранить PDF</button>
+            </div>
+          </header>
+          <section class="audit-panel" aria-labelledby="audit-quality-title">
+            <h2 id="audit-quality-title">1. Качество данных</h2>
+            <div class="kpi-row" id="audit-quality-kpis"></div>
+            <ul id="audit-quality-notes" class="audit-notes"></ul>
+          </section>
+          <section class="audit-panel" aria-labelledby="audit-suppliers-title">
+            <h2 id="audit-suppliers-title">2. Надёжность поставщиков</h2>
+            <p class="audit-copy">«Вовремя» учитывает допуск по материалу. Дни опоздания — только по опоздавшим поставкам, от плановой даты. Тренд: последние 90 дней истории против более раннего периода; плюс означает улучшение. «—» означает отсутствие наблюдений.</p>
+            <div id="audit-suppliers" class="audit-table"></div>
+            <h3>Поставщик × материал</h3>
+            <div id="audit-materials" class="audit-table"></div>
+          </section>
+          <section class="audit-panel" aria-labelledby="audit-backtest-title">
+            <h2 id="audit-backtest-title">3. Проверка на более поздних заказах</h2>
+            <p id="audit-split" class="audit-copy"></p>
+            <p id="audit-verdict" role="status"></p>
+            <div id="audit-metrics" class="audit-table"></div>
+            <div id="audit-bands" class="audit-table"></div>
+            <p class="audit-copy">PR-AUC (average precision) показывает качество ранжирования опозданий; больше — лучше. Это одно историческое разделение, без гарантии будущей точности.</p>
+          </section>
+          <section class="audit-panel">
+            <h2>Как читать отчёт</h2>
+            <ul id="audit-notes" class="audit-notes"></ul>
+          </section>
+        </div>
+        <!-- Exposure calculator stands on its own -- it needs no uploaded export. -->
+        <section id="exposure-panel" class="audit-panel">
+        <h2>Экспозиция в тенге</h2>
+        <div class="audit-no-print" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:20px 22px; margin-bottom:16px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-contract-value" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Сумма контракта, ₸</label>
+            <input type="number" id="exp-contract-value" placeholder="50000000" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:150px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-penalty-rate" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Ставка пени, % в день</label>
+            <input type="number" id="exp-penalty-rate" placeholder="0.1" step="0.01" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:130px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-days-late" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Дней опоздания</label>
+            <input type="number" id="exp-days-late" placeholder="4" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:110px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-downtime-hours" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Простой, часов</label>
+            <input type="number" id="exp-downtime-hours" placeholder="6" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:110px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-downtime-cost" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Стоимость простоя, ₸/час</label>
+            <input type="number" id="exp-downtime-cost" placeholder="25000" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:150px;">
+          </div>
+          <button class="btn-accent" onclick="runExposure()">Рассчитать</button>
+        </div>
+        <div id="exposure-banner" class="audit-no-print" style="display:none; margin-bottom:16px; padding:14px 18px; border-radius:10px; font-size:0.85rem;"></div>
+        <div id="exposure-result" style="display:none; grid-template-columns:repeat(3, 1fr); gap:16px;">
+          <div class="kpi-card">
+            <div class="kpi-label-text">Пени по контракту</div>
+            <div class="kpi-value"><span id="exp-kpi-penalty">—</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label-text">Простой</div>
+            <div class="kpi-value"><span id="exp-kpi-downtime">—</span></div>
+          </div>
+          <div class="kpi-card" style="border:2px solid var(--sp-accent);">
+            <div class="kpi-label-text">Итоговая экспозиция</div>
+            <div class="kpi-value"><span id="exp-kpi-total">—</span></div>
+          </div>
+        </div>
+        </section>
+      </section>
 
       <!-- ─── VIEW 1: OVERVIEW ─── -->
       <div id="view-overview" class="page-view active">
@@ -2604,124 +2728,8 @@
         </div>
       </div>
 
-      <!-- ─── VIEW 8: АУДИТ ВЫГРУЗКИ 1С ─── -->
-      <div id="view-audit" class="page-view" style="display:none;">
-        <div class="view-header">
-          <div class="command-label">
-            <div class="command-dot"></div>
-            <span class="command-text">Pilot Readiness · Historical Export Audit</span>
-          </div>
-          <h1 class="view-title">Аудит выгрузки 1С</h1>
-          <p class="view-sub">
-            Загрузите выгрузку поставок (CSV из 1С/Excel) — отчёт о качестве данных, карточку поставщиков и
-            честную проверку модели на срезе «прошлое → будущее» (без утечки будущих данных). Ничего не
-            сохраняется на сервере, если не включена опция «Режим пилота».
-          </p>
-        </div>
-
-        <div class="audit-no-print" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:20px 22px; margin-bottom:22px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px;">
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label for="audit-api-key" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Ключ доступа (X-API-Key)</label>
-            <input type="password" id="audit-api-key" placeholder="admin key" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); min-width:220px;">
-          </div>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label for="audit-file-input" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Файл выгрузки (CSV)</label>
-            <input type="file" id="audit-file-input" accept=".csv" style="padding:6px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary);">
-          </div>
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--text-secondary); padding-bottom:9px;">
-            <input type="checkbox" id="audit-save-checkbox">
-            Режим пилота (сохранить файл на сервере)
-          </label>
-          <button class="btn-accent" onclick="runAudit()">Загрузить и проверить</button>
-          <button class="btn-outline" id="audit-print-btn" style="display:none;" onclick="window.print()">Печать / PDF</button>
-        </div>
-
-        <div id="audit-banner" class="audit-no-print" style="display:none; margin-bottom:22px; padding:14px 18px; border-radius:10px; font-size:0.85rem;"></div>
-
-        <div id="audit-results" style="display:none;">
-          <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Качество данных</div>
-          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:28px;">
-            <div class="kpi-card">
-              <div class="kpi-label-text">Строк всего / принято</div>
-              <div class="kpi-value"><span id="audit-kpi-rows">—</span></div>
-              <div class="kpi-sub" id="audit-kpi-rows-sub"></div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label-text">Некорректные даты</div>
-              <div class="kpi-value"><span id="audit-kpi-dates">—</span></div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label-text">Дубликаты строк</div>
-              <div class="kpi-value"><span id="audit-kpi-dupes">—</span></div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label-text">Тип маршрута не определён</div>
-              <div class="kpi-value"><span id="audit-kpi-route">—</span></div>
-            </div>
-          </div>
-
-          <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Карточка поставщиков</div>
-          <table class="queue-table" style="margin-bottom:28px;">
-            <thead>
-              <tr>
-                <th>Поставщик</th>
-                <th>Поставок</th>
-                <th>Доля в срок</th>
-                <th>95% ДИ (Wilson)</th>
-                <th>Медиана опоздания, дн.</th>
-              </tr>
-            </thead>
-            <tbody id="audit-scorecard-body"></tbody>
-          </table>
-
-          <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Проверка модели на историческом срезе</div>
-          <div id="audit-backtest-block" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:22px;"></div>
-        </div>
-
-        <!-- Exposure calculator stands on its own -- it needs no uploaded export. -->
-        <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Экспозиция в тенге</div>
-        <div class="audit-no-print" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:20px 22px; margin-bottom:16px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px;">
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label for="exp-contract-value" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Сумма контракта, ₸</label>
-            <input type="number" id="exp-contract-value" placeholder="50000000" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:150px;">
-          </div>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label for="exp-penalty-rate" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Ставка пени, % в день</label>
-            <input type="number" id="exp-penalty-rate" placeholder="0.1" step="0.01" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:130px;">
-          </div>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label for="exp-days-late" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Дней опоздания</label>
-            <input type="number" id="exp-days-late" placeholder="4" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:110px;">
-          </div>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label for="exp-downtime-hours" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Простой, часов</label>
-            <input type="number" id="exp-downtime-hours" placeholder="6" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:110px;">
-          </div>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label for="exp-downtime-cost" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Стоимость простоя, ₸/час</label>
-            <input type="number" id="exp-downtime-cost" placeholder="25000" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:150px;">
-          </div>
-          <button class="btn-accent" onclick="runExposure()">Рассчитать</button>
-        </div>
-        <div id="exposure-banner" class="audit-no-print" style="display:none; margin-bottom:16px; padding:14px 18px; border-radius:10px; font-size:0.85rem;"></div>
-        <div id="exposure-result" style="display:none; grid-template-columns:repeat(3, 1fr); gap:16px;">
-          <div class="kpi-card">
-            <div class="kpi-label-text">Пени по контракту</div>
-            <div class="kpi-value"><span id="exp-kpi-penalty">—</span></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label-text">Простой</div>
-            <div class="kpi-value"><span id="exp-kpi-downtime">—</span></div>
-          </div>
-          <div class="kpi-card" style="border:2px solid var(--sp-accent);">
-            <div class="kpi-label-text">Итоговая экспозиция</div>
-            <div class="kpi-value"><span id="exp-kpi-total">—</span></div>
-          </div>
-        </div>
-      </div>
-
       <!-- ─── VALIDATION STATUS FOOTER ─── -->
-      <div style="margin-top:40px; padding:16px 20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; font-size:0.8rem;">
+      <div id="validation-footer" style="margin-top:40px; padding:16px 20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; font-size:0.8rem;">
         <div style="display:flex; align-items:center; gap:10px;">
           <span class="badge-guarantee">Correctness Invariant</span>
           <span class="badge-estimate">Statistical Estimate</span>
@@ -2829,6 +2837,7 @@
 
     // Navigation state & View switching
     function switchView(viewName) {
+      document.body.classList.toggle('audit-active', viewName === 'audit');
       document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.toggle('active', item.dataset.view === viewName);
       });
@@ -2849,129 +2858,119 @@
       }
     }
 
-    // ─── Аудит выгрузки 1С (Stage 3, docs/plans/mvp-reshape.md D4) ───
-    function showAuditBanner(message, kind) {
-      const banner = document.getElementById('audit-banner');
-      banner.textContent = message;
-      banner.style.display = 'block';
-      banner.style.background = kind === 'error' ? 'var(--sp-accent-soft)' : 'rgba(37,99,235,0.1)';
-      banner.style.color = kind === 'error' ? 'var(--sp-accent)' : 'var(--text-secondary)';
-      banner.style.border = `1px solid ${kind === 'error' ? 'var(--sp-accent)' : 'var(--card-border)'}`;
-    }
-
-    function hideAuditBanner() {
-      document.getElementById('audit-banner').style.display = 'none';
-    }
-
-    async function runAudit() {
-      const fileInput = document.getElementById('audit-file-input');
-      const apiKey = document.getElementById('audit-api-key').value;
-      const save = document.getElementById('audit-save-checkbox').checked;
-      if (!fileInput.files.length) {
-        showAuditBanner('Выберите файл выгрузки (CSV).', 'error');
-        return;
-      }
-
-      hideAuditBanner();
-      document.getElementById('audit-results').style.display = 'none';
-      document.getElementById('audit-print-btn').style.display = 'none';
-      showAuditBanner('Загрузка и анализ выгрузки...', 'info');
-
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-
-      try {
-        const res = await fetch(`${API_BASE}/audit/history${save ? '?save=true' : ''}`, {
-          method: 'POST',
-          headers: { 'X-API-Key': apiKey },
-          body: formData,
-        });
-        if (!res.ok) {
-          const detail = (await res.json().catch(() => ({}))).detail;
-          throw new Error(detail || `HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        hideAuditBanner();
-        renderAuditResults(data);
-        document.getElementById('audit-print-btn').style.display = 'inline-block';
-      } catch (err) {
-        showAuditBanner(`Ошибка проверки: ${err.message}`, 'error');
-      }
-    }
-
-    function renderAuditResults(data) {
-      const q = data.quality || {};
-      document.getElementById('audit-kpi-rows').textContent = `${q.rows_total ?? '—'} / ${q.rows_kept ?? '—'}`;
-      document.getElementById('audit-kpi-rows-sub').textContent =
-        q.rows_dropped ? `${q.rows_dropped} строк отброшено` : 'все строки приняты';
-      document.getElementById('audit-kpi-dates').textContent = q.bad_dates ?? '—';
-      document.getElementById('audit-kpi-dupes').textContent = q.duplicates ?? '—';
-      document.getElementById('audit-kpi-route').textContent = q.route_type_defaulted ?? '—';
-
-      const scorecardBody = document.getElementById('audit-scorecard-body');
-      scorecardBody.innerHTML = '';
-      const suppliers = (data.scorecard && data.scorecard.suppliers) || [];
-      if (!suppliers.length) {
-        scorecardBody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px;">Нет данных по поставщикам.</td></tr>';
-      }
-      suppliers.forEach(s => {
-        const tr = document.createElement('tr');
-        const onTimePct = s.on_time_share != null ? `${(s.on_time_share * 100).toFixed(1)}%` : '—';
-        const ciLow = s.on_time_ci_low != null ? (s.on_time_ci_low * 100).toFixed(1) : '—';
-        const ciHigh = s.on_time_ci_high != null ? (s.on_time_ci_high * 100).toFixed(1) : '—';
-        const medianLate = s.median_days_late != null ? s.median_days_late : '—';
-        tr.innerHTML = `
-          <td><strong>${s.supplier_id ?? '--'}</strong></td>
-          <td class="mono">${s.n_deliveries ?? '--'}</td>
-          <td class="mono">${onTimePct}</td>
-          <td class="mono">${ciLow}% – ${ciHigh}%</td>
-          <td class="mono">${medianLate}</td>
-        `;
-        scorecardBody.appendChild(tr);
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        const view = this.dataset.view;
+        if (view) switchView(view);
       });
+    });
 
-      const backtestBlock = document.getElementById('audit-backtest-block');
-      const bt = data.backtest || {};
-      if (bt.skipped) {
-        backtestBlock.innerHTML = `
-          <span class="badge-estimate">Estimate</span>
-          <p style="margin-top:10px; color:var(--text-secondary); font-size:0.85rem; line-height:1.6;">
-            Пропущено: недостаточно данных для честной проверки на историческом срезе — ${bt.reason ?? ''}
-          </p>
-        `;
-      } else {
-        const beats = bt.beats_baseline;
-        const beatsLabel = beats ? 'Да' : 'Нет';
-        const cal = bt.calibration || {};
-        const calRow = (label, key) => {
-          const c = cal[key] || {};
-          const share = c.actually_late_share != null ? `${(c.actually_late_share * 100).toFixed(1)}%` : '—';
-          return `<tr><td>${label}</td><td class="mono">${c.n ?? '—'}</td><td class="mono">${share}</td></tr>`;
-        };
-        backtestBlock.innerHTML = `
-          <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-            <span class="badge-estimate">Estimate</span>
-            <span style="font-size:0.82rem; color:var(--text-secondary);">
-              <strong>Модель лучше базовой оценки: ${beatsLabel}.</strong>
-              PR-AUC модели: ${bt.model_pr_auc ?? '—'} · PR-AUC базовой оценки по поставщику: ${bt.baseline_pr_auc ?? '—'}
-            </span>
-          </div>
-          <div style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:10px;">
-            Обучение: ${bt.train_rows ?? '—'} строк (${(bt.train_period || []).join(' — ')}) ·
-            Проверка: ${bt.test_rows ?? '—'} строк (${(bt.test_period || []).join(' — ')})
-          </div>
-          <table class="queue-table">
-            <thead><tr><th>Зона риска</th><th>Строк</th><th>Фактически опоздало</th></tr></thead>
-            <tbody>
-              ${calRow('Зелёная', 'green')}
-              ${calRow('Жёлтая', 'yellow')}
-              ${calRow('Красная', 'red')}
-            </tbody>
-          </table>
-        `;
+    function navTo(view) {
+      switchView(view);
+    }
+
+    // User-controlled names and headers are rendered as text, never HTML.
+    function renderAuditTable(id, headers, rows) {
+      const target = document.getElementById(id);
+      target.replaceChildren();
+      if (!rows.length) return;
+      const table = document.createElement('table');
+      const thead = table.createTHead();
+      const head = thead.insertRow();
+      headers.forEach(label => {
+        const th = document.createElement('th');
+        th.scope = 'col'; th.textContent = label; head.appendChild(th);
+      });
+      const body = table.createTBody();
+      rows.forEach(values => {
+        const tr = body.insertRow();
+        values.forEach(value => { tr.insertCell().textContent = value ?? '—'; });
+      });
+      target.appendChild(table);
+    }
+
+    function renderAudit(report, filename) {
+      const number = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 1});
+      const pct = value => value == null ? '—' : number.format(value * 100) + ' %';
+      const days = value => value == null ? '—' : number.format(value);
+      const list = (id, items) => {
+        const target = document.getElementById(id); target.replaceChildren();
+        items.forEach(text => { const li = document.createElement('li'); li.textContent = text; target.appendChild(li); });
+      };
+      document.getElementById('audit-source').textContent = report.data_source === 'synthetic_upload'
+        ? 'СИНТЕТИЧЕСКИЕ ДАННЫЕ · результаты демонстрации'
+        : 'Загруженная история · происхождение данных не проверено';
+      document.getElementById('audit-file-name').textContent = 'Файл: ' + filename + ' · ' + new Date().toLocaleString('ru-RU');
+      const q = report.quality;
+      const kpis = document.getElementById('audit-quality-kpis'); kpis.replaceChildren();
+      [['Строк в файле', q.rows_total], ['Принято', q.rows_kept], ['Исключено', q.rows_dropped], ['Поставщиков', report.scorecard.length]].forEach(([label, value]) => {
+        const card = document.createElement('div'); card.className = 'kpi-card';
+        const title = document.createElement('div'); title.textContent = label;
+        const count = document.createElement('strong'); count.textContent = number.format(value); count.style.fontSize = '1.8rem';
+        card.append(title, count); kpis.appendChild(card);
+      });
+      list('audit-quality-notes', [
+        `Некорректных значений дат: ${q.bad_dates}. Некорректных количеств: ${q.bad_quantity}. Удалено дублей: ${q.duplicates}.`,
+        `Плановая дата раньше заказа: ${q.promised_before_order} (оставлены в карточке, исключены из проверки модели).`,
+        `Маршрут заменён на unknown: ${q.route_type_defaulted} строк.`,
+        `Неизвестный материал: ${q.material_grace_defaulted} принятых строк (допуск по умолчанию — 1 день).`,
+        q.unmapped_columns.length ? 'Неиспользованные столбцы: ' + q.unmapped_columns.join(', ') : 'Все столбцы распознаны.',
+        'Причины исключения могут пересекаться; их сумма не обязана совпадать с числом исключённых строк.'
+      ]);
+      const headers = ['Поставщик', 'Всего', 'Вовремя', 'Опоздали', 'Вовремя, %', '95% интервал', 'Медиана, дни', 'p90, дни', 'Тренд, п.п.'];
+      const values = row => [row.supplier_id, row.deliveries, row.on_time, row.late, pct(row.on_time_share),
+        `${pct(row.on_time_ci_low)} – ${pct(row.on_time_ci_high)}`, days(row.median_late_days), days(row.p90_late_days),
+        row.trend_pp == null ? '—' : (row.trend_pp > 0 ? '+' : '') + number.format(row.trend_pp)];
+      renderAuditTable('audit-suppliers', headers, report.scorecard.map(values));
+      renderAuditTable('audit-materials', [headers[0], 'Материал', ...headers.slice(1)], report.material_breakdown.map(row => {
+        const result = values(row); result.splice(1, 0, row.material_type); return result;
+      }));
+      const b = report.backtest;
+      document.getElementById('audit-split').textContent = `Обучение: ${b.train_rows} поставок. Проверка: ${b.test_rows}. Граница: ${b.cutoff ? b.cutoff.slice(0, 10) : 'не определена'}. Исключено незавершённых к границе: ${b.purged_train_rows}; с нарушением хронологии: ${b.excluded_chronology}.`;
+      document.getElementById('audit-verdict').textContent = b.status !== 'evaluated'
+        ? 'Недостаточно истории для проверки модели. ' + b.reason
+        : b.beats_baseline ? 'Модель превзошла прогноз по истории поставщика на проверочном периоде.'
+        : 'Модель не превзошла прогноз по истории поставщика. Используйте карточку поставщиков; сигналы модели не показаны.';
+      renderAuditTable('audit-metrics', ['PR-AUC модели', 'PR-AUC по истории поставщика', 'Разница'], b.status === 'evaluated'
+        ? [[b.model_average_precision.toFixed(3), b.baseline_average_precision.toFixed(3), (b.lift > 0 ? '+' : '') + b.lift.toFixed(3)]] : []);
+      const bandNames = {green: 'Зелёная', yellow: 'Жёлтая', red: 'Красная'};
+      renderAuditTable('audit-bands', ['Группа риска', 'Поставок в проверке', 'Доля опозданий'], b.beats_baseline
+        ? Object.entries(b.risk_bands).map(([band, row]) => [bandNames[band], row.deliveries, pct(row.late_rate)]) : []);
+      list('audit-notes', report.notes);
+      document.getElementById('audit-report').hidden = false;
+    }
+
+    async function handleAuditSubmit(event) {
+      event.preventDefault();
+      const fileInput = document.getElementById('audit-file');
+      const keyInput = document.getElementById('audit-key');
+      const button = document.getElementById('audit-submit');
+      const status = document.getElementById('audit-status');
+      const file = fileInput.files[0];
+      document.getElementById('audit-report').hidden = true;
+      if (!file || file.size > 5 * 1024 * 1024) { status.textContent = 'Выберите CSV размером до 5 МБ.'; return; }
+      const body = new FormData(); body.append('file', file);
+      body.append('synthetic', String(document.getElementById('audit-synthetic').checked));
+      const key = keyInput.value;
+      button.disabled = true; keyInput.disabled = true; fileInput.disabled = true;
+      button.textContent = 'Проверяем…'; status.textContent = 'Обрабатываем историю. Большая выгрузка может занять несколько минут.';
+      try {
+        const response = await fetch(`${API_BASE}/audit/history`, {method: 'POST', headers: {'X-API-Key': key}, body});
+        const data = await response.json();
+        if (!response.ok) {
+          const detail = Array.isArray(data.detail) ? data.detail.map(item => item.msg).join('; ') : data.detail;
+          throw new Error(detail || `Ошибка ${response.status}`);
+        }
+        renderAudit(data, file.name);
+        status.textContent = 'Аудит готов. Файл и отчёт не сохранены на сервере.';
+        document.getElementById('audit-report').scrollIntoView({behavior: 'smooth', block: 'start'});
+      } catch (error) {
+        status.textContent = 'Не удалось выполнить аудит: ' + error.message;
+      } finally {
+        keyInput.value = ''; button.disabled = false; keyInput.disabled = false; fileInput.disabled = false;
+        button.textContent = 'Проверить выгрузку';
       }
-
-      document.getElementById('audit-results').style.display = 'block';
     }
 
     // ─── Экспозиция в тенге (Stage 4, docs/plans/mvp-reshape.md D8) ───
@@ -2979,8 +2978,14 @@
       const banner = document.getElementById('exposure-banner');
       const result = document.getElementById('exposure-result');
       result.style.display = 'none';
+      document.getElementById('exposure-panel').classList.remove('has-result');
       banner.style.display = 'none';
 
+      try {
+        const fields = ['exp-contract-value', 'exp-penalty-rate', 'exp-days-late', 'exp-downtime-hours', 'exp-downtime-cost'];
+        if (fields.some(id => document.getElementById(id).value.trim() === '' || !Number.isFinite(Number(document.getElementById(id).value)))) {
+          throw new Error('Все пять полей обязательны.');
+        }
       const payload = {
         contract_value_kzt: Number(document.getElementById('exp-contract-value').value),
         late_penalty_rate: Number(document.getElementById('exp-penalty-rate').value) / 100,
@@ -2989,7 +2994,6 @@
         downtime_cost_per_hour_kzt: Number(document.getElementById('exp-downtime-cost').value),
       };
 
-      try {
         const res = await fetch(`${API_BASE}/economics/exposure`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3008,6 +3012,7 @@
         document.getElementById('exp-kpi-downtime').textContent = fmt(data.downtime_exposure_kzt);
         document.getElementById('exp-kpi-total').textContent = fmt(data.total_exposure_kzt);
         result.style.display = 'grid';
+        document.getElementById('exposure-panel').classList.add('has-result');
       } catch (err) {
         banner.textContent = `Заполните все поля корректно: ${err.message}`;
         banner.style.background = 'var(--sp-accent-soft)';
@@ -3017,17 +3022,7 @@
       }
     }
 
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', function(e) {
-        e.preventDefault();
-        const view = this.dataset.view;
-        if (view) switchView(view);
-      });
-    });
-
-    function navTo(view) {
-      switchView(view);
-    }
+    window.addEventListener('DOMContentLoaded', () => { if (location.hash === '#audit') switchView('audit'); });
 
     function selectSiteAndGo(projectId) {
       const sel = document.getElementById('project-selector');
@@ -3341,16 +3336,20 @@
         const list = (data.assignments || []).slice(0, 30);
         list.forEach(a => {
           const tr = document.createElement('tr');
+          const hasRisk = ['red', 'yellow', 'green'].includes(a.upstream_risk_band) || Number.isFinite(a.delay_risk);
           const isAtRisk = a.upstream_risk_band === 'red' || a.delay_risk > 0.5;
-          const riskBadge = isAtRisk ? '<span class="signal-badge critical">● High Delay Risk</span>' : '<span class="signal-badge ok">● Nominal</span>';
+          const riskBadge = !hasRisk ? '<span class="signal-badge">Нет данных</span>'
+            : isAtRisk ? '<span class="signal-badge critical">● High Delay Risk</span>'
+            : a.upstream_risk_band === 'yellow' ? '<span class="signal-badge moderate">● Moderate</span>'
+            : '<span class="signal-badge ok">● Nominal</span>';
           tr.innerHTML = `
             <td><strong class="mono">${a.booking_id}</strong></td>
             <td><span class="site-code">${a.project_id}</span></td>
             <td><strong>${a.assigned_resource_id || '--'}</strong></td>
             <td>${(a.resource_type || '--').replace(/_/g, ' ').toUpperCase()}</td>
-            <td class="mono" style="font-size:0.78rem;">${(a.start || '').slice(0,16).replace('T', ' ')} → ${(a.end || '').slice(11,16)}</td>
+            <td class="mono" style="font-size:0.78rem;">${(a.requested_start || 'Нет данных').slice(0,16).replace('T', ' ')} → ${a.requested_end ? a.requested_end.slice(11,16) : 'Нет данных'}</td>
             <td>${riskBadge}</td>
-            <td><span class="signal-badge ok">Optimal · no overlap</span></td>
+            <td><span class="signal-badge ok">${s.status === 'OPTIMAL' ? 'Optimal' : 'Назначено'} · no overlap</span></td>
           `;
           tbody.appendChild(tr);
         });

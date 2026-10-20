@@ -265,50 +265,36 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
   so the two failure modes stay distinguishable), 1 `promised_date` before `order_date` (kept, flagged),
   quantities with 1C's space thousand-separator. `tests/test_ingest_profile.py`, 14 tests, all green.
   Full suite 169 (155 + 14). Next: Stage 2 (supplier scorecard, depends on Stage 1).
-- 2026-10-19: Stage 2 done. `ml/scorecard.py`: `wilson_interval()` (own implementation, no new
-  dependency), `supplier_scorecard()` and `material_breakdown()` share one `_rollup()` so the two
-  never compute a metric two different ways. Lateness comes from `ml.labeling.add_labels()`, not
-  reimplemented. Per-row metrics: deliveries, on-time share + Wilson 95% CI, median/p90 days late
-  computed only over the late deliveries (None, not 0, when a supplier has none — "never late" and
-  "typically 0 days late" are different claims), and a 90-day trend split on `promised_date` vs an
-  `as_of` cutoff (defaults to the latest `promised_date` in the data; None in a bucket with no rows).
-  Sorted worst-on-time-share-first, matching the risk-descending convention already used in
-  `api/routers/predict.py`. Known-answer check: 7/10 on time -> 0.70, Wilson interval verified against
-  an independent from-scratch re-derivation of the same published formula (0.396773, 0.892211), not
-  just checked against the module's own code. `tests/test_scorecard.py`, 12 tests; every number in it
-  (CI bounds, median/p90, trend split) was computed by hand/dry-run and checked against the function's
-  actual output before being hardcoded into an assertion. Full suite 182 (169 + 1 new layering
-  parametrization for ml/scorecard.py + 12). Next: Stage 3 (history audit endpoint + console view,
-  depends on Stages 1-2).
-
-- **2026-10-20 — Stage 3 done.** `ml/train.time_split_backtest()`: sorts by `order_date`, trains on the
-  oldest 70% into a `tempfile` artifact (never `ml.train.ARTIFACT_PATH`, the one `/predict` serves),
-  scores the newest 30% with `ml.predict.score()`, compares model PR-AUC against
-  `SupplierAverageBaseline` PR-AUC, and reports red/yellow/green calibration (actual late-share per
-  risk band). Honest-skip (`{"skipped": True, "reason": ...}`, no fabricated number) below 50 train /
-  20 test rows — verified it fires on the 8-row Stage 1 fixture and does not fire on a 600-row
-  synthetic set, where it also showed monotonic calibration (green 19.4% < yellow 48.9% < red 77.3%)
-  and `beats_baseline: true` (0.773 vs 0.758). `api/routers/audit.py`: `POST /audit/history`
-  (`require_admin`, 10 MB cap -> 413, multipart -> `ml.ingest.load_export` -> 400 with the Russian
-  column name on a `DeliveryCSVError`) returns `{quality, scorecard, backtest, model_beats_baseline}`;
-  nothing is written to disk unless `?save=true`, and even then only to the gitignored
-  `data/customer_uploads/` (never the `deliveries` table — its schema is shared with the synthetic
-  demo data and isn't customer-upload-shaped yet, so real intake stays out of scope). Wired into
-  `api/main.py`. `tests/test_audit.py`, 13 tests (the three-blocks Done-when, the honest-skip path,
-  Cyrillic round-trip, 401/400/413, `?save=true`); added one assertion to
-  `tests/test_security.py::test_admin_endpoints_reject_missing_or_wrong_key` for `/audit/history`.
-  Console: new «Аудит выгрузки» view in `static/index.html` (API-key field, file input, pilot-mode
-  checkbox, `runAudit()`/`renderAuditResults()` following `loadSequenceValidator()`'s fetch/render
-  style) plus an `@media print` block (hides sidebar/top-bar/controls, forces `#view-audit` and
-  `#audit-results` to `display:block`). Verified live in a real browser (Playwright against a running
-  `uvicorn` instance): uploading `tests/fixtures/1c_export_cp1251.csv` renders the quality KPIs (12/8
-  rows, 2 bad dates), a 5-row supplier scorecard, and the honest backtest skip message in Russian;
-  switching to print media keeps the sidebar hidden and the results visible. Full suite 195 (182 + 13
-  new). Two pre-existing design-system guard tests
-  (`test_design_system.py::test_ui_uses_shared_tokens_not_raw_colours` and `::test_only_the_badge_vocabulary`)
-  caught a raw `#DC2626` and a non-vocabulary badge label in the first draft of the view; fixed by
-  using `var(--sp-accent)`/`--sp-accent-soft` for the error state and the existing "Estimate" badge
-  text. Next: Stage 4 (exposure in tenge, depends on Stage 3).
+- 2026-10-20: Stage 2 done. `ml/scorecard.py` adds supplier and supplier × material scorecards,
+  reusing `ml.labeling.add_labels` for the material grace rule. The Wilson 95% interval for 7/10
+  on time is [0.3967781475, 0.8922087326]. Delay quantiles cover late deliveries only and measure
+  days from the promise, not days beyond grace. All groups share the same inclusive 90-calendar-day
+  window ending on the export's latest actual arrival; a positive trend means better on-time share.
+  Missing cohorts and groups without late deliveries produce missing statistics, not zeros. Empty
+  canonical frames preserve the output columns. Twelve known-answer/edge/seam tests and the layering
+  check pass; the full suite passes (182 = 169 + 12 scorecard tests + 1 discovered layering case).
+  Next: Stage 3, the history audit endpoint and console upload view; the scorecard is currently a
+  domain function and is not yet exposed in the console.
+- 2026-10-20: Stage 3 done. `POST /audit/history` returns quality, supplier/material scorecards and
+  an in-memory backtest, with admin authentication, 5 MB / 10,000-row limits and one audit per process.
+  The console's Russian «Аудит выгрузки» view renders the cp1251 fixture (12 input, 8 kept, 4 dropped,
+  5 suppliers), clears the entered key after the request and prints the report without navigation or
+  upload controls. Safari print preview was checked in A4 landscape; disabling the view animation
+  during printing fixes blank pages. A synthetic CSV is downloadable from the view.
+  The 70/30 order-date split keeps equal dates together, purges training deliveries unresolved at the
+  cutoff, and excludes impossible chronology from the backtest. Training vocabulary and snapshot
+  come only from the training period. At least 50 training / 20 test rows and both outcome classes
+  are required; missing evidence returns no accuracy. Risk bands appear only when model average
+  precision beats the supplier baseline. Neither the serving artifact nor business tables are changed.
+  Uploads are not archived by default; `?save=true` requires a configured customer audit directory
+  and writes only canonical CSV and report JSON under a server-generated ID. Fixed mixed ISO/1C
+  date parsing, non-finite/non-positive quantities and duplicate column aliases. Exact Russian
+  material aliases now reuse the shared grace rules; unknown-material defaults are counted.
+  Full suite: 203 passed, including leakage, baseline, malformed-file, auth, storage and layering
+  checks. The bundled 2,200-row synthetic export also completes through the running HTTP endpoint;
+  its historical results are demonstration evidence only. Railway deployment remains pending its
+  action confirmation; this local feature has not been pushed or deployed. Next: Stage 4, exposure
+  in tenge using the customer's own inputs.
 
 - **2026-10-20 — Stage 4 done.** `business/exposure.py::exposure()`: two independent, additive
   exposures computed only from the customer's own figures -- a contract's late-penalty clause
@@ -329,3 +315,11 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
   (Playwright): typing the known-answer inputs and clicking "Рассчитать" renders exactly "200 000 ₸" /
   "150 000 ₸" / "350 000 ₸". Full suite 200 (195 + 4 new tests + 1 layering parametrization for
   `business/exposure.py`). Next: Stage 5 (migrations -- confirm Alembic with the founder first).
+
+- 2026-10-20: Reconciled the Railway branch with main after PR #4 added parallel Stage 2/3 work
+  and Stage 4. Preserved the tenge exposure endpoint and standalone calculator. The audit uses
+  the typed report contract above (`scorecard` list, separate `material_breakdown`, backtest
+  `status` / `beats_baseline`), 5 MB / 10,000-row limits, and explicit configured archival instead
+  of saving raw uploads automatically to a repository folder. Console names are text-only;
+  unknown/defaulted material rules and insufficient backtest evidence are visible. The shared
+  audit router is registered once. Final combined validation is recorded in the deployment PR.
