@@ -176,7 +176,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Depends on:** Stage 1.
 - **Done when:** known-answer tests pass; `tests/test_layering.py` still passes.
 
-### Stage 3 — History audit endpoint and console view (D4) `[ ]` · *final*
+### Stage 3 — History audit endpoint and console view (D4) `[x]` · *final*
 - **Goal:** upload a 1C export → audit report in the console, printable to PDF from the browser.
 - **Steps:** `api/routers/audit.py` with `POST /audit/history` (multipart, size limit, admin or approver key) returning
   quality report + scorecard + time-split backtest (`ml/train` helpers on the uploaded frame, temp artifact, never the
@@ -280,3 +280,32 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
   actual output before being hardcoded into an assertion. Full suite 182 (169 + 1 new layering
   parametrization for ml/scorecard.py + 12). Next: Stage 3 (history audit endpoint + console view,
   depends on Stages 1-2).
+
+- **2026-10-20 — Stage 3 done.** `ml/train.time_split_backtest()`: sorts by `order_date`, trains on the
+  oldest 70% into a `tempfile` artifact (never `ml.train.ARTIFACT_PATH`, the one `/predict` serves),
+  scores the newest 30% with `ml.predict.score()`, compares model PR-AUC against
+  `SupplierAverageBaseline` PR-AUC, and reports red/yellow/green calibration (actual late-share per
+  risk band). Honest-skip (`{"skipped": True, "reason": ...}`, no fabricated number) below 50 train /
+  20 test rows — verified it fires on the 8-row Stage 1 fixture and does not fire on a 600-row
+  synthetic set, where it also showed monotonic calibration (green 19.4% < yellow 48.9% < red 77.3%)
+  and `beats_baseline: true` (0.773 vs 0.758). `api/routers/audit.py`: `POST /audit/history`
+  (`require_admin`, 10 MB cap -> 413, multipart -> `ml.ingest.load_export` -> 400 with the Russian
+  column name on a `DeliveryCSVError`) returns `{quality, scorecard, backtest, model_beats_baseline}`;
+  nothing is written to disk unless `?save=true`, and even then only to the gitignored
+  `data/customer_uploads/` (never the `deliveries` table — its schema is shared with the synthetic
+  demo data and isn't customer-upload-shaped yet, so real intake stays out of scope). Wired into
+  `api/main.py`. `tests/test_audit.py`, 13 tests (the three-blocks Done-when, the honest-skip path,
+  Cyrillic round-trip, 401/400/413, `?save=true`); added one assertion to
+  `tests/test_security.py::test_admin_endpoints_reject_missing_or_wrong_key` for `/audit/history`.
+  Console: new «Аудит выгрузки» view in `static/index.html` (API-key field, file input, pilot-mode
+  checkbox, `runAudit()`/`renderAuditResults()` following `loadSequenceValidator()`'s fetch/render
+  style) plus an `@media print` block (hides sidebar/top-bar/controls, forces `#view-audit` and
+  `#audit-results` to `display:block`). Verified live in a real browser (Playwright against a running
+  `uvicorn` instance): uploading `tests/fixtures/1c_export_cp1251.csv` renders the quality KPIs (12/8
+  rows, 2 bad dates), a 5-row supplier scorecard, and the honest backtest skip message in Russian;
+  switching to print media keeps the sidebar hidden and the results visible. Full suite 195 (182 + 13
+  new). Two pre-existing design-system guard tests
+  (`test_design_system.py::test_ui_uses_shared_tokens_not_raw_colours` and `::test_only_the_badge_vocabulary`)
+  caught a raw `#DC2626` and a non-vocabulary badge label in the first draft of the view; fixed by
+  using `var(--sp-accent)`/`--sp-accent-soft` for the error state and the existing "Estimate" badge
+  text. Next: Stage 4 (exposure in tenge, depends on Stage 3).

@@ -1395,6 +1395,17 @@
       .btn-accent, .btn-outline, .modal-close, input, select { min-height: 44px; }
       .modal-card { padding: 18px; }
     }
+
+    /* Аудит выгрузки: Ctrl+P prints only the audit results, nothing else. */
+    @media print {
+      .sidebar, .top-bar, .audit-no-print, #audit-banner { display: none !important; }
+      body, .content { background: #fff !important; }
+      main { margin: 0 !important; padding: 0 !important; }
+      .page-view { display: none !important; }
+      #view-audit { display: block !important; }
+      #view-audit #audit-results { display: block !important; }
+      .kpi-card, .queue-table, #audit-backtest-block { break-inside: avoid; }
+    }
   </style>
 </head>
 <body>
@@ -1452,6 +1463,13 @@
       <a href="#" class="nav-item" onclick="openPredictModal(); return false;">
         <span class="nav-icon">◎</span>
         Score Simulator
+      </a>
+
+      <div class="nav-section-label">Инструменты аудита</div>
+      <a href="#" class="nav-item" data-view="audit">
+        <span class="nav-icon">▤</span>
+        Аудит выгрузки
+        <span class="badge" style="background:var(--sp-info); color:#FFFFFF;">1С</span>
       </a>
     </nav>
 
@@ -2586,6 +2604,81 @@
         </div>
       </div>
 
+      <!-- ─── VIEW 8: АУДИТ ВЫГРУЗКИ 1С ─── -->
+      <div id="view-audit" class="page-view" style="display:none;">
+        <div class="view-header">
+          <div class="command-label">
+            <div class="command-dot"></div>
+            <span class="command-text">Pilot Readiness · Historical Export Audit</span>
+          </div>
+          <h1 class="view-title">Аудит выгрузки 1С</h1>
+          <p class="view-sub">
+            Загрузите выгрузку поставок (CSV из 1С/Excel) — отчёт о качестве данных, карточку поставщиков и
+            честную проверку модели на срезе «прошлое → будущее» (без утечки будущих данных). Ничего не
+            сохраняется на сервере, если не включена опция «Режим пилота».
+          </p>
+        </div>
+
+        <div class="audit-no-print" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:20px 22px; margin-bottom:22px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="audit-api-key" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Ключ доступа (X-API-Key)</label>
+            <input type="password" id="audit-api-key" placeholder="admin key" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); min-width:220px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="audit-file-input" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Файл выгрузки (CSV)</label>
+            <input type="file" id="audit-file-input" accept=".csv" style="padding:6px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary);">
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--text-secondary); padding-bottom:9px;">
+            <input type="checkbox" id="audit-save-checkbox">
+            Режим пилота (сохранить файл на сервере)
+          </label>
+          <button class="btn-accent" onclick="runAudit()">Загрузить и проверить</button>
+          <button class="btn-outline" id="audit-print-btn" style="display:none;" onclick="window.print()">Печать / PDF</button>
+        </div>
+
+        <div id="audit-banner" class="audit-no-print" style="display:none; margin-bottom:22px; padding:14px 18px; border-radius:10px; font-size:0.85rem;"></div>
+
+        <div id="audit-results" style="display:none;">
+          <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Качество данных</div>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:28px;">
+            <div class="kpi-card">
+              <div class="kpi-label-text">Строк всего / принято</div>
+              <div class="kpi-value"><span id="audit-kpi-rows">—</span></div>
+              <div class="kpi-sub" id="audit-kpi-rows-sub"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label-text">Некорректные даты</div>
+              <div class="kpi-value"><span id="audit-kpi-dates">—</span></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label-text">Дубликаты строк</div>
+              <div class="kpi-value"><span id="audit-kpi-dupes">—</span></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label-text">Тип маршрута не определён</div>
+              <div class="kpi-value"><span id="audit-kpi-route">—</span></div>
+            </div>
+          </div>
+
+          <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Карточка поставщиков</div>
+          <table class="queue-table" style="margin-bottom:28px;">
+            <thead>
+              <tr>
+                <th>Поставщик</th>
+                <th>Поставок</th>
+                <th>Доля в срок</th>
+                <th>95% ДИ (Wilson)</th>
+                <th>Медиана опоздания, дн.</th>
+              </tr>
+            </thead>
+            <tbody id="audit-scorecard-body"></tbody>
+          </table>
+
+          <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Проверка модели на историческом срезе</div>
+          <div id="audit-backtest-block" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:22px;"></div>
+        </div>
+      </div>
+
       <!-- ─── VALIDATION STATUS FOOTER ─── -->
       <div style="margin-top:40px; padding:16px 20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; font-size:0.8rem;">
         <div style="display:flex; align-items:center; gap:10px;">
@@ -2713,6 +2806,131 @@
       } else if (viewName === 'company') {
         loadCompanyWorkspace();
       }
+    }
+
+    // ─── Аудит выгрузки 1С (Stage 3, docs/plans/mvp-reshape.md D4) ───
+    function showAuditBanner(message, kind) {
+      const banner = document.getElementById('audit-banner');
+      banner.textContent = message;
+      banner.style.display = 'block';
+      banner.style.background = kind === 'error' ? 'var(--sp-accent-soft)' : 'rgba(37,99,235,0.1)';
+      banner.style.color = kind === 'error' ? 'var(--sp-accent)' : 'var(--text-secondary)';
+      banner.style.border = `1px solid ${kind === 'error' ? 'var(--sp-accent)' : 'var(--card-border)'}`;
+    }
+
+    function hideAuditBanner() {
+      document.getElementById('audit-banner').style.display = 'none';
+    }
+
+    async function runAudit() {
+      const fileInput = document.getElementById('audit-file-input');
+      const apiKey = document.getElementById('audit-api-key').value;
+      const save = document.getElementById('audit-save-checkbox').checked;
+      if (!fileInput.files.length) {
+        showAuditBanner('Выберите файл выгрузки (CSV).', 'error');
+        return;
+      }
+
+      hideAuditBanner();
+      document.getElementById('audit-results').style.display = 'none';
+      document.getElementById('audit-print-btn').style.display = 'none';
+      showAuditBanner('Загрузка и анализ выгрузки...', 'info');
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res = await fetch(`${API_BASE}/audit/history${save ? '?save=true' : ''}`, {
+          method: 'POST',
+          headers: { 'X-API-Key': apiKey },
+          body: formData,
+        });
+        if (!res.ok) {
+          const detail = (await res.json().catch(() => ({}))).detail;
+          throw new Error(detail || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        hideAuditBanner();
+        renderAuditResults(data);
+        document.getElementById('audit-print-btn').style.display = 'inline-block';
+      } catch (err) {
+        showAuditBanner(`Ошибка проверки: ${err.message}`, 'error');
+      }
+    }
+
+    function renderAuditResults(data) {
+      const q = data.quality || {};
+      document.getElementById('audit-kpi-rows').textContent = `${q.rows_total ?? '—'} / ${q.rows_kept ?? '—'}`;
+      document.getElementById('audit-kpi-rows-sub').textContent =
+        q.rows_dropped ? `${q.rows_dropped} строк отброшено` : 'все строки приняты';
+      document.getElementById('audit-kpi-dates').textContent = q.bad_dates ?? '—';
+      document.getElementById('audit-kpi-dupes').textContent = q.duplicates ?? '—';
+      document.getElementById('audit-kpi-route').textContent = q.route_type_defaulted ?? '—';
+
+      const scorecardBody = document.getElementById('audit-scorecard-body');
+      scorecardBody.innerHTML = '';
+      const suppliers = (data.scorecard && data.scorecard.suppliers) || [];
+      if (!suppliers.length) {
+        scorecardBody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px;">Нет данных по поставщикам.</td></tr>';
+      }
+      suppliers.forEach(s => {
+        const tr = document.createElement('tr');
+        const onTimePct = s.on_time_share != null ? `${(s.on_time_share * 100).toFixed(1)}%` : '—';
+        const ciLow = s.on_time_ci_low != null ? (s.on_time_ci_low * 100).toFixed(1) : '—';
+        const ciHigh = s.on_time_ci_high != null ? (s.on_time_ci_high * 100).toFixed(1) : '—';
+        const medianLate = s.median_days_late != null ? s.median_days_late : '—';
+        tr.innerHTML = `
+          <td><strong>${s.supplier_id ?? '--'}</strong></td>
+          <td class="mono">${s.n_deliveries ?? '--'}</td>
+          <td class="mono">${onTimePct}</td>
+          <td class="mono">${ciLow}% – ${ciHigh}%</td>
+          <td class="mono">${medianLate}</td>
+        `;
+        scorecardBody.appendChild(tr);
+      });
+
+      const backtestBlock = document.getElementById('audit-backtest-block');
+      const bt = data.backtest || {};
+      if (bt.skipped) {
+        backtestBlock.innerHTML = `
+          <span class="badge-estimate">Estimate</span>
+          <p style="margin-top:10px; color:var(--text-secondary); font-size:0.85rem; line-height:1.6;">
+            Пропущено: недостаточно данных для честной проверки на историческом срезе — ${bt.reason ?? ''}
+          </p>
+        `;
+      } else {
+        const beats = bt.beats_baseline;
+        const beatsLabel = beats ? 'Да' : 'Нет';
+        const cal = bt.calibration || {};
+        const calRow = (label, key) => {
+          const c = cal[key] || {};
+          const share = c.actually_late_share != null ? `${(c.actually_late_share * 100).toFixed(1)}%` : '—';
+          return `<tr><td>${label}</td><td class="mono">${c.n ?? '—'}</td><td class="mono">${share}</td></tr>`;
+        };
+        backtestBlock.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+            <span class="badge-estimate">Estimate</span>
+            <span style="font-size:0.82rem; color:var(--text-secondary);">
+              <strong>Модель лучше базовой оценки: ${beatsLabel}.</strong>
+              PR-AUC модели: ${bt.model_pr_auc ?? '—'} · PR-AUC базовой оценки по поставщику: ${bt.baseline_pr_auc ?? '—'}
+            </span>
+          </div>
+          <div style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:10px;">
+            Обучение: ${bt.train_rows ?? '—'} строк (${(bt.train_period || []).join(' — ')}) ·
+            Проверка: ${bt.test_rows ?? '—'} строк (${(bt.test_period || []).join(' — ')})
+          </div>
+          <table class="queue-table">
+            <thead><tr><th>Зона риска</th><th>Строк</th><th>Фактически опоздало</th></tr></thead>
+            <tbody>
+              ${calRow('Зелёная', 'green')}
+              ${calRow('Жёлтая', 'yellow')}
+              ${calRow('Красная', 'red')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      document.getElementById('audit-results').style.display = 'block';
     }
 
     document.querySelectorAll('.nav-item').forEach(item => {

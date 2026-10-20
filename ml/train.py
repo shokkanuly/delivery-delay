@@ -311,6 +311,90 @@ def fit_and_save(path=ARTIFACT_PATH, n: int = 1200, seed: int = 7,
     return artifact, folds
 
 
+# ─── Time-split backtest (Stage 3, docs/plans/mvp-reshape.md D4) ───────────
+# Same idea as scripts/evidence_loop.py (train on the past, score the
+# unseen future), repackaged as a pure function that returns data instead of
+# printing, so api/routers/audit.py can call it directly on an uploaded
+# customer export. Always writes to a tempfile.TemporaryDirectory -- never
+# ARTIFACT_PATH, the one /predict serves.
+
+MIN_BACKTEST_TRAIN_ROWS = 50
+MIN_BACKTEST_TEST_ROWS = 20
+
+
+def time_split_backtest(df: pd.DataFrame, train_fraction: float = 0.7,
+                        k_shrink: float = 8.0, prior_late_rate: float = 0.35,
+                        seed: int = 7) -> dict:
+    """Train on the oldest `train_fraction` of `df` by `order_date`, score the
+    newest remainder -- never seen in training, exactly like production.
+
+    Returns the model's PR-AUC against the supplier-average baseline
+    (ml.baseline.SupplierAverageBaseline, fed from the SAME trained
+    snapshot, so cold-start suppliers get the same fair treatment in both),
+    the red/yellow/green calibration (actual late share per band) on that
+    holdout, and whether the model clears the baseline. Too little data to
+    split honestly returns `{"skipped": True, "reason": ...}` rather than a
+    number nobody should trust.
+    """
+    import tempfile
+
+    import ml.predict as predict_mod
+
+    df = df.sort_values("order_date").reset_index(drop=True)
+    cut = int(len(df) * train_fraction)
+    past, future = df.iloc[:cut].copy(), df.iloc[cut:].copy()
+    if len(past) < MIN_BACKTEST_TRAIN_ROWS or len(future) < MIN_BACKTEST_TEST_ROWS:
+        return {
+            "skipped": True,
+            "reason": (f"too few rows for an honest time-split backtest "
+                      f"(train={len(past)}, test={len(future)}; need >= "
+                      f"{MIN_BACKTEST_TRAIN_ROWS} and >= {MIN_BACKTEST_TEST_ROWS})"),
+            "train_rows": int(len(past)), "test_rows": int(len(future)),
+        }
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = pathlib.Path(tmp)
+        train_csv = tmp_dir / "past.csv"
+        past.to_csv(train_csv, index=False)
+        artifact_path = tmp_dir / "temp_model.joblib"
+        fit_and_save(path=artifact_path, csv_path=str(train_csv),
+                    k_shrink=k_shrink, prior_late_rate=prior_late_rate, seed=seed)
+        artifact = predict_mod.load_artifact(artifact_path)
+        scored = predict_mod.score(
+            future[["supplier_id", "material_type", "route_type", "quantity",
+                    "order_date", "promised_date"]],
+            artifact,
+        )
+
+    truth = add_labels(future, LabelConfig())["is_late"].to_numpy()
+    model_pr_auc = float(average_precision_score(truth, scored["risk"].to_numpy()))
+    baseline_proba = SupplierAverageBaseline().predict_proba_late(
+        pd.DataFrame({"supplier_late_rate": scored["supplier_late_rate"].to_numpy()})
+    )
+    baseline_pr_auc = float(average_precision_score(truth, baseline_proba))
+
+    calibration = {}
+    bands = pd.DataFrame({"band": scored["risk_band"].to_numpy(), "late": truth})
+    for band in ("green", "yellow", "red"):
+        sel = bands[bands["band"] == band]
+        calibration[band] = {
+            "n": int(len(sel)),
+            "actually_late_share": (float(round(sel["late"].mean(), 4)) if len(sel) else None),
+        }
+
+    return {
+        "skipped": False,
+        "train_rows": int(len(past)), "test_rows": int(len(future)),
+        "train_period": [str(past["order_date"].min().date()), str(past["order_date"].max().date())],
+        "test_period": [str(future["order_date"].min().date()), str(future["order_date"].max().date())],
+        "model_pr_auc": round(model_pr_auc, 4),
+        "baseline_pr_auc": round(baseline_pr_auc, 4),
+        "lift": round(model_pr_auc - baseline_pr_auc, 4),
+        "beats_baseline": model_pr_auc > baseline_pr_auc,
+        "calibration": calibration,
+    }
+
+
 if __name__ == "__main__":
     import sys
 
