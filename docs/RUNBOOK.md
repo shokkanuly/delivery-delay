@@ -35,6 +35,49 @@ docker compose logs -f api
 
 ---
 
+### Railway synthetic demo
+
+Use `shokkanuly/delivery-delay` for both services, with the repository-root Dockerfile.
+The API serves the product console at `/`; Streamlit is the separate analyst service.
+Railway hosts the synthetic demo only. Real customer data belongs in the Kazakhstan/on-premise
+deployment described in `docs/plans/mvp-reshape.md`.
+
+After deploying a revision containing the startup scripts, configure:
+
+| Service | Start command | Health path | Port |
+| :--- | :--- | :--- | :--- |
+| API | `sh scripts/start_api.sh` | `/health` | `PORT=8080` |
+| Analyst dashboard | `sh scripts/start_dashboard.sh` | `/_stcore/health` | `PORT=8080` |
+
+Use a 300-second health-check timeout for the API's first model load. Keep the API's existing
+`DATABASE_URL` connected to its persistent Postgres service. Generate an admin key once in the
+API variables; reference that same value from the dashboard as
+`SITEPULSE_ADMIN_KEY=${{logistics-api.SITEPULSE_ADMIN_KEY}}`. The dashboard also needs
+`API_URL=http://logistics-api.railway.internal:8080`. Set `PYTHONUNBUFFERED=1` on both services
+and `OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1` on the API.
+
+If the deployed revision predates these scripts, the equivalent API command is:
+
+```sh
+sh -c 'exec python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080}'
+```
+
+For the dashboard:
+
+```sh
+sh -c 'exec python -m streamlit run dashboard/app.py --server.port ${PORT:-8080} --server.address 0.0.0.0 --server.headless true'
+```
+
+Do not pass literal `$PORT` directly to a Dockerfile service's custom command: Railway uses
+exec form, which does not expand variables. See the [Railway start-command documentation](https://docs.railway.com/deployments/start-command).
+The scripts expand the value inside a shell and replace the shell with the server process.
+Do not run `db.seed` on each deployment; API startup already seeds an empty demo database.
+
+Review the production environment's staged changes and deploy them. Verify both Railway
+deployment states are successful, then request the public API's `/health`, the console `/`,
+and the dashboard's `/_stcore/health`. Health paths are service-specific; do not place the
+dashboard health path in the shared root `railway.json`.
+
 ## 2. Health Monitoring & Endpoints
 
 | Endpoint | Method | Expected Response | Description |
