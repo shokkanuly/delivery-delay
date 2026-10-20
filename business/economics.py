@@ -1,25 +1,14 @@
-"""Business economics -- the single source of truth for every pitch number.
+"""Archived founder economics scenarios, retained for numerical reproduction.
 
-Every figure a juror or customer sees (per-site ROI, unit economics, the
-3-year forecast, market size) is computed here from the assumptions below.
-The API serves it (`GET /economics`, workspace finance), both UIs render what
-the API returns, and tests/test_pitch_claims.py fails if README or the deck
-quote a figure this module does not produce.
+These dollar prices, site counts, ROI assumptions and forecasts are not the
+current offer, validated market size or measured customer results. See
+`docs/RESEARCH.md` and the one-site pilot proposal for the current hypothesis.
+No completed interview in `docs/CUSTDEV_LOG.md` supports these scenario levers.
 
-Every assumption carries its provenance, because the first jury question about
-any number is "where does that come from?":
-  founder_estimate -- the founder's judgement, not yet checked against data
-  interview        -- stated in customer interviews (docs/CUSTDEV_LOG.md)
-  demo_site        -- inputs of the fictional demo Site B
-Nothing here is measured on a real site yet. The pilot replaces these.
-
-Design choices:
-  * Per-site value is shown as three scenarios, never one number. The base
-    case is anchored to the founder's own interview figure (concrete loss
-    ~$28k per project) and Q&A answer (5 delay days avoided); the
-    conservative case shows whether the product still pays for itself.
-  * LTV is gross-margin-adjusted and bounded by the site's life: revenue per
-    site stops at handover, so there is no net-revenue-retention claim.
+Sources are founder_estimate (unvalidated judgement) or demo_site (fictional
+inputs). The API exposes this legacy calculator at GET /economics; the analyst
+view labels it archived. Current contract exposure uses business/exposure.py.
+LTV is gross-margin-adjusted and bounded by the assumed site lifetime.
 """
 from __future__ import annotations
 
@@ -31,7 +20,7 @@ from dataclasses import asdict, dataclass
 class Assumption:
     value: float
     unit: str
-    source: str          # founder_estimate | interview | demo_site
+    source: str          # founder_estimate | demo_site
     note: str = ""
 
 
@@ -70,7 +59,7 @@ ASSUMPTIONS: dict[str, Assumption] = {
         "Major multi-storey sites across Central Asia, Caucasus and CIS."),
 }
 
-# Paid active sites at the end of years 1-3. The ONE forecast.
+# Archived assumed paid sites at year-end; not observed revenue or a commitment.
 FORECAST_SITES: tuple[int, int, int] = (4, 17, 35)
 
 # Per-site value levers, by scenario.

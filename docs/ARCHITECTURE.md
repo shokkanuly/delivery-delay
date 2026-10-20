@@ -1,6 +1,6 @@
 # Architecture & Core Design — SitePulse Platform
 
-How the SitePulse construction logistics platform is architected, how data flows through it, and the reasoning behind the decisions that matter. For the quickstart and API, see the [README](../README.md); for the enterprise pilot roadmap, see [`PILOT_PROPOSAL.md`](PILOT_PROPOSAL.md).
+How the SitePulse construction logistics platform is architected, how data flows through it, and the reasoning behind the decisions that matter. For the quickstart and API, see the [README](../README.md); for the one-site pilot proposal, see [`PILOT_PROPOSAL.md`](PILOT_PROPOSAL.md).
 
 ---
 
@@ -8,13 +8,22 @@ How the SitePulse construction logistics platform is architected, how data flows
 
 | Dimension | Current Specification | Production & Calibration Seam |
 |---|---|---|
-| **Data Provenance** | **100% Synthetic Benchmark** ($n=2,200$ deliveries, $n=260$ machinery bookings). | Calibrated to Kazakhstan transit corridors; 0% live enterprise field data connected today. |
+| **Data Provenance** | **100% Synthetic Benchmark** ($n=2,200$ deliveries, $n=260$ machinery bookings). | Synthetic generator assumptions; no live enterprise field data connected today. |
 | **Correctness Invariants** | **No unit double-booked** (CP-SAT `AddNoOverlap`); **every delivery dated before its phase start is flagged** (date rule). | **Tested on every commit.** Properties of the code, not measures of business impact. |
 | **Statistical Estimates** | **PR-AUC 0.669** vs 0.619 supplier baseline (eval base rate: 40.9% late), **ROC-AUC 0.728** vs 0.689 — on synthetic data whose delay drivers the generator encodes. | **Pipeline benchmarks, not field accuracy.** Re-measured on real ERP logs via [`ml/ingest.py`](../ml/ingest.py). |
 | **Business Estimates** | Losses avoided per site-year and ROI scenarios. | **Founder assumptions** in [`business/economics.py`](../business/economics.py) (`GET /economics`). |
-| **Next Step** | **8-Week Dual-Site Pilot Integration** | Ingest 6–12 months of client 1C/SAP delivery receipts to tune prior distributions. |
+| **Next Step** | **One-site historical audit, then an agreed 30-day pilot** | Ingest 6–12 months of client 1C/SAP delivery receipts to tune prior distributions. |
 
 ---
+
+## Audit and demonstration boundary
+
+The product opens with a one-site audit. `ml.audit.build_audit_report` builds the report for both
+protected CSV uploads and the fixed public example. `scripts.build_demo_report` writes a synthetic
+JSON snapshot with the exact CSV SHA-256. Viewing it grants no upload, training or database access.
+Raw imports are processed through `/audit/history`; persistence still requires explicit opt-in
+and a configured customer audit directory. Tenge exposure is separate from legacy ROI scenarios.
+Role-based booking approval and outbound notifications remain planned.
 
 ## 1. System overview
 

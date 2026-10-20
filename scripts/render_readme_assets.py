@@ -61,14 +61,14 @@ def banner(c: dict[str, str]) -> str:
              f'<path d="M1176 158h48v48" fill="none" stroke="{c["accent"]}" stroke-width="5" '
              f'stroke-linecap="round" stroke-linejoin="round"/>'
              f'<circle cx="1058" cy="234" r="5" fill="{c["warn"]}"/><circle cx="1080" cy="298" r="5" fill="{c["risk"]}"/>')
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="SitePulse — delivery-risk prediction and clash-free equipment dispatch for construction sites">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="SitePulse — supplier scorecards from 1C history for one construction site">
 <rect width="{W}" height="{H}" rx="18" fill="{c["bg"]}"/>
 <g stroke="{c["border"]}" stroke-width="1" opacity="0.55">{grid}</g>
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="18" fill="none" stroke="{c["border-strong"]}"/>
 {mark(92, 62, 2.4, c)}
 {text(196, 122, "SitePulse", 68, c["text"], 650, SANS, spacing=-1.5)}
-{text(98, 184, "Know which deliveries will slip — and dispatch equipment without clashes.", 24, c["text-2"])}
-{text(98, 222, "Decision support for construction holdings · FastAPI · scikit-learn · OR-Tools", 15, c["text-3"], 500, MONO)}
+{text(98, 184, "One site. One export. A supplier scorecard you can inspect.", 24, c["text-2"])}
+{text(98, 222, "1C / CSV history · Supplier reliability · Honest model comparison", 15, c["text-3"], 500, MONO)}
 {"".join(chips)}
 {pulse}
 </svg>

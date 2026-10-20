@@ -541,7 +541,7 @@ with st.sidebar:
 
     view = st.radio(
         "Navigation",
-        ["Overview", "Delivery Signals", "Resource Plan", "Sequence Checks", "Site Network", "Company Workspace", "Pilot Engagement", "Pitch & Economics"],
+        ["Overview", "Delivery Signals", "Resource Plan", "Sequence Checks", "Site Network", "Company Workspace", "Pilot Engagement", "Archived Scenarios"],
         index=0,
         label_visibility="collapsed",
     )
@@ -589,7 +589,7 @@ with st.sidebar:
 
     health_info = api_get("/health")
     if health_info:
-        st.caption(f"Backend: OK · {health_info.get('trained_rows', 2200)} trained deliveries · 3 engines")
+        st.caption(f"Backend: OK · {health_info.get('trained_rows', '—')} trained deliveries · 3 engines")
     else:
         st.caption("Backend: Connecting to FastAPI (:8000)...")
 
@@ -617,8 +617,8 @@ flagged_seq_count = len(seq.get("flagged", []))
 st.markdown(
     f"""
     <div class="org-badge">
-        <div class="org-label-text">SitePulse · Regional Holding (Demo) · Site: {proj_name} ({selected_pid})</div>
-        <div class="org-date">Operational Schedule · Priority: <strong>{proj_prio}</strong> · Engine Status: Normal</div>
+        <div class="org-label-text">SitePulse · Synthetic Analyst View · Site: {proj_name} ({selected_pid})</div>
+        <div class="org-date">Synthetic Schedule · Priority: <strong>{proj_prio}</strong></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -683,7 +683,7 @@ if view == "Overview":
                 <strong>Current Reality:</strong> 0% live field data connected today. No-double-booking and phase-date checks are correctness invariants of the code, not measures of business impact. ML delay risk is benchmarked on synthetic data whose delay drivers the generator encodes; losses avoided and ROI are founder assumptions (GET /economics).
             </div>
             <div style="font-size:0.78rem; color:var(--sp-text-2); margin-top:6px;">
-                <strong>Next Calibration Step:</strong> Ingest 6–12 months of client 1C/SAP purchase orders and crane telematics via <code>ml/ingest.py</code> to calibrate empirical risk priors during the 8-week pilot engagement.
+                <strong>Next Calibration Step:</strong> Audit a permitted 1C/CSV history, compare against the supplier baseline, then agree one site’s 30-day pilot and arrival coverage targets.
             </div>
         </div>
         """,
@@ -700,7 +700,7 @@ if view == "Overview":
         </div>
         <h1 class="greeting">{_greeting}</h1>
         <p class="greeting-sub">
-            Live operational status for <strong>{proj_name}</strong>.
+            Synthetic operating example for <strong>{proj_name}</strong>.
             Three engines running side-by-side to protect crane utilization, pour windows, and laydown areas.
         </p>
         """,
@@ -879,31 +879,8 @@ if view == "Overview":
             st.info("No delivery records found for this site.")
 
     with net_col:
-        st.markdown(
-            """
-            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:12px; padding:20px; color:var(--sp-text); height:100%;">
-                <div style="font-size:0.62rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--sp-text-3); margin-bottom:4px;">
-                    Network Pulse
-                </div>
-                <div style="font-size:1.05rem; font-weight:600; color:var(--sp-text); margin-bottom:14px;">
-                    Protected Workfronts
-                </div>
-                <div style="font-size:2.8rem; font-weight:700; font-family:var(--sp-font-mono); line-height:1; color:var(--sp-text);">
-                    88.4%
-                </div>
-                <div style="font-size:0.78rem; font-weight:500; color:var(--sp-text-2); margin-top:6px;">
-                    <span style="color:var(--sp-ok);">↗ +4.2%</span> crane uptime vs unoptimized
-                </div>
-                <hr style="border-color:var(--sp-border); margin:16px 0;" />
-                <div style="font-size:0.75rem; color:var(--sp-text-2); line-height:1.6;">
-                    • 0 overlapping bookings<br/>
-                    • 19 machinery units scheduled<br/>
-                    • 4 freight corridors clear
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.markdown("### Operational effect: not yet measured")
+        st.info("Synthetic tests verify code invariants. Crane-idle reduction, savings and willingness to pay need a real pilot.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1013,7 +990,7 @@ elif view == "Resource Plan":
         </div>
         <h1 class="greeting">Machinery & Equipment Schedule</h1>
         <p class="greeting-sub">
-            Assigns each booking to a free crane, pump or hoist across the holding's sites — no unit double-booked —
+            Assigns each booking to a free crane, pump or hoist across the synthetic demo sites — no unit double-booked —
             and prefers local units for bookings whose deliveries are at risk of slipping.
         </p>
         """,
@@ -1079,15 +1056,18 @@ elif view == "Sequence Checks":
     )
 
     val_demo = api_get("/validate/demo")
-    counts = val_demo.get("counts", {}) if val_demo else {}
+    if not val_demo:
+        st.warning("API unavailable: sequence checks have not run.")
+        st.stop()
+    counts = val_demo.get("counts", {})
 
     v1, v2, v3, v4 = st.columns(4)
-    v1.metric("Deliveries Screened", counts.get("total", 219))
-    v2.metric("Premature Deliveries (R1)", counts.get("premature_delivery", 27), "Needs Hold")
-    v3.metric("Material Mismatches (R2)", counts.get("material_phase_mismatch", 0), "Clean")
+    v1.metric("Deliveries Screened", counts.get("total", "—"))
+    v2.metric("Premature Deliveries (R1)", counts.get("premature_delivery", "—"), "Needs Hold")
+    v3.metric("Material Mismatches (R2)", counts.get("material_phase_mismatch", "—"))
     v4.metric("Rule Check", "Date rule", help="Flags every delivery dated before its phase start. On synthetic labels made by the same rule, recall is 1.0 by definition.")
 
-    st.markdown("### Build Phase Physical Hierarchy")
+    st.markdown("### Synthetic Example: Build Phase Hierarchy")
     st.markdown(
         """
         * **Stage 1 (Earthworks & Piling)**: Completed
@@ -1116,7 +1096,7 @@ elif view == "Sequence Checks":
             })
         st.dataframe(pd.DataFrame(table_rows), width="stretch", hide_index=True)
     else:
-        st.success("All deliveries conform to current build phase readiness.")
+        st.success("No premature arrivals in this synthetic result. Check the material-mismatch count separately.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1289,7 +1269,7 @@ elif view == "Company Workspace":
 
         with col_spec:
             st.markdown("#### 1. Building Specifications")
-            comp_name = st.text_input("Company / Contractor", value=workspace_data.get("company_name", "Regional Construction Holding (Demo)"))
+            comp_name = st.text_input("Company / Contractor", value=workspace_data.get("company_name", "Fictional Contractor (Demo)"))
             p_name = st.text_input("Project Name", value=workspace_data.get("project_name", "Site B · High-Rise Commercial"))
             p_loc = st.text_input("Site Location", value=workspace_data.get("location", "Astana"))
             p_type = st.selectbox(
@@ -1479,147 +1459,22 @@ elif view == "Company Workspace":
 # VIEW 7: PILOT ENGAGEMENT & PROCUREMENT
 # ═══════════════════════════════════════════════════════════════════════════════
 elif view == "Pilot Engagement":
-    st.markdown(
-        """
-        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-            <span class="cmd-dot"></span>
-            <span class="cmd-label">Enterprise Deployment & Procurement Roadmap</span>
-        </div>
-        <h1 class="greeting">Pilot Engagement & Calibration Program</h1>
-        <p class="greeting-sub">
-            A structured <strong>6–8 week dual-site pilot engagement</strong> to calibrate SitePulse predictive models against
-            real ERP delivery receipts and machinery telematics before enterprise holding rollout.
-        </p>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.title("Один объект: аудит и предлагаемый пилот")
+    st.caption("Предложение для обсуждения. Нет подписанного клиента, согласованной цены или измеренной экономии.")
+    st.markdown("""
+    1. **Бесплатный аудит истории:** разрешённый CSV из 1С, согласованные допуски, карточка поставщиков и baseline.
+    2. **Предлагаемый пилот на 30 дней:** один объект, ответственный снабженец и теневой режим рядом с действующим процессом.
+    3. **Проверяемые цели:** покрытие фактов прибытия от 80%, использование отчёта от трёх дней в неделю; live accuracy только после 100 завершённых поставок.
+    4. **Совместный итог:** полезен ли результат и готов ли подрядчик платить? 150–300 тыс. ₸ за активный объект в месяц — гипотеза.
 
-    # Validation Status Banner inside Pilot Tab
-    st.markdown(
-        """
-        <div style="background:var(--sp-surface); border:1px solid var(--sp-surface-2); border-left:4px solid var(--sp-info); border-radius:8px; padding:14px 18px; margin-bottom:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-                <div style="font-size:0.78rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--sp-info);">
-                    Validation Status & Real-Data Calibration Gateway
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <span class="badge-guarantee">Correctness Invariant</span>
-                    <span class="badge-estimate">Statistical Estimate</span>
-                </div>
-            </div>
-            <div style="font-size:0.83rem; color:var(--sp-text-2); line-height:1.55;">
-                <strong>Baseline Today:</strong> 100% Synthetic Benchmark (n=2,200 deliveries). No-double-booking and phase-date checks are tested correctness invariants. ML delay risk weights and the ROI scenarios will be calibrated against client historical delivery logs during Phase 2.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    Реальные данные — в отдельном Казахстан/on-prem развёртывании. Railway — только синтетика.
+    Роли одобрения броней, ежедневный список рисков и уведомления остаются в плане.
+    """)
+    st.link_button("Открыть публичное синтетическое демо", "https://logistics-api-production-2e47.up.railway.app/#audit")
+    st.markdown("[Полный план пилота](https://github.com/shokkanuly/delivery-delay/blob/feat/railway-demo/docs/PILOT_PROPOSAL.md)")
 
-    # Pilot Roadmap Cards
-    st.markdown("### 1. Phased Pilot Engagement (8 Weeks to Sign-off)")
-    p1, p2, p3, p4 = st.columns(4)
-    with p1:
-        st.markdown(
-            """
-            <div class="kpi-card" style="border-top:3px solid var(--sp-info);">
-                <div style="font-size:0.75rem; font-weight:700; color:var(--sp-info); font-family:var(--sp-font-mono);">WEEKS 1–2</div>
-                <div style="font-size:1.05rem; font-weight:700; color:var(--sp-text); margin:6px 0;">Data Ingestion</div>
-                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">
-                    • Map 6–12 mo 1C / SAP PO & gate receipts via <code>ml/ingest.py</code>.<br/>
-                    • Register site crane inventories and milestone schedules.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with p2:
-        st.markdown(
-            """
-            <div class="kpi-card" style="border-top:3px solid var(--sp-info);">
-                <div style="font-size:0.75rem; font-weight:700; color:var(--sp-info); font-family:var(--sp-font-mono);">WEEKS 3–4</div>
-                <div style="font-size:1.05rem; font-weight:700; color:var(--sp-text); margin:6px 0;">Model Calibration</div>
-                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">
-                    • Calibrate supplier empirical-Bayes priors on real historical deliveries.<br/>
-                    • Tune material grace thresholds with site directors.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with p3:
-        st.markdown(
-            """
-            <div class="kpi-card" style="border-top:3px solid var(--sp-accent);">
-                <div style="font-size:0.75rem; font-weight:700; color:var(--sp-accent); font-family:var(--sp-font-mono);">WEEKS 5–6</div>
-                <div style="font-size:1.05rem; font-weight:700; color:var(--sp-text); margin:6px 0;">Live Shadow Pilot</div>
-                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">
-                    • Deploy shadow morning dispatch feeds on 2 active sites.<br/>
-                    • Verify CP-SAT conflict-free crane schedules with site dispatchers.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with p4:
-        st.markdown(
-            """
-            <div class="kpi-card" style="border-top:3px solid var(--sp-ok);">
-                <div style="font-size:0.75rem; font-weight:700; color:var(--sp-ok); font-family:var(--sp-font-mono);">WEEKS 7–8</div>
-                <div style="font-size:1.05rem; font-weight:700; color:var(--sp-text); margin:6px 0;">Financial Sign-off</div>
-                <div style="font-size:0.78rem; color:var(--sp-text-2); line-height:1.5;">
-                    • Audit measured crane standstill reduction & avoided delays.<br/>
-                    • Confirm >$50k/site monthly savings and sign production SaaS.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.write("")
-    st.markdown("### 2. Required Client Data & Technical Integration")
-    d_left, d_right = st.columns(2)
-    with d_left:
-        st.markdown(
-            """
-            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px;">
-                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-text); margin-bottom:10px;">Required Data Feeds (Read-Only)</div>
-                <div style="font-size:0.82rem; color:var(--sp-text-2); line-height:1.65;">
-                    1. <strong>Purchase Orders & Gate Logs:</strong> 6–12 months historical records (<code>supplier_id, material_type, quantity, order_date, promised_date, actual_date</code>).<br/>
-                    2. <strong>Machinery Registry:</strong> Active tower cranes, concrete pumps, hoists, operating rates, and capacities.<br/>
-                    3. <strong>Subcontractor Time Requests:</strong> Trade bookings for crane hook time and unload bays.<br/>
-                    4. <strong>Master Schedule:</strong> Construction phase milestones (Foundation, Structure, MEP, Finishing).
-                </div>
-                <div style="margin-top:12px; font-size:0.75rem; color:var(--sp-text-2); border-top:1px dashed var(--sp-border); padding-top:8px;">
-                    <strong>Data Sovereignty:</strong> No pricing contracts, worker PII, or confidential commercial agreements are ingested. All data stays in client sovereign cloud or private VPC.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with d_right:
-        h = (api_get("/economics") or {}).get("headline", {})
-        st.markdown(
-            f"""
-            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px;">
-                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-text); margin-bottom:10px;">Commercial Pricing & Licensing</div>
-                <div style="font-size:0.82rem; color:var(--sp-text-2); line-height:1.65;">
-                    • <strong>Pilot Fee:</strong> <span style="color:var(--sp-accent); font-weight:700;">$15,000 (flat)</span> for 8-week dual-site deployment, pipeline integration, and calibration. *(100% credited toward annual agreement)*.<br/>
-                    • <strong>Standard Site SaaS:</strong> <span style="color:var(--sp-info); font-weight:700;">$3,500 / site / month</span> (up to 4 cranes, 500 deliveries/month).<br/>
-                    • <strong>Flagship Mega-Site SaaS:</strong> <span style="color:var(--sp-ok); font-weight:700;">$4,800 / site / month</span> (unlimited machinery, IoT telematics, custom phase gates).<br/>
-                    • <strong>Portfolio License (10+ sites):</strong> Custom volume terms with cross-site supplier benchmarking.
-                </div>
-                <div style="margin-top:12px; font-size:0.75rem; color:var(--sp-ok); font-weight:600; border-top:1px dashed var(--sp-border); padding-top:8px;">
-                    <strong>Estimated losses avoided (demo site, per site-year):</strong> {h.get('value_base', '—')} base case = {h.get('multiple_base', '—')} the licence (conservative {h.get('value_conservative', '—')}, {h.get('multiple_conservative', '—')}). Founder assumptions; the pilot measures them.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# VIEW 8: PITCH & ECONOMICS (LaunchZone Competition Hub)
-# ═══════════════════════════════════════════════════════════════════════════════
-elif view == "Pitch & Economics":
+# Legacy financial scenarios are retained for reproducibility, not the current offer.
+elif view == "Archived Scenarios":
     st.markdown(
         """
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
@@ -1635,6 +1490,7 @@ elif view == "Pitch & Economics":
         unsafe_allow_html=True,
     )
 
+    st.warning("Archived founder scenarios: not current pricing, validated market size or measured customer savings. See docs/RESEARCH.md and the one-site pilot proposal.")
     econ = api_get("/economics")
     if not econ:
         st.warning("API offline — start the API to load the economics.")
@@ -1667,43 +1523,8 @@ elif view == "Pitch & Economics":
 
     st.write("")
 
-    # Section 1: Problem & customer evidence
-    st.markdown("### 1. Problem & Customer Evidence")
-    cd1, cd2 = st.columns(2)
-    with cd1:
-        st.markdown(
-            """
-            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px; height:100%;">
-                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-info); margin-bottom:8px;">What 10 interviewees reported (7 logistics managers, 3 CPOs)</div>
-                <div style="font-size:0.82rem; color:var(--sp-text-2); line-height:1.65;">
-                    • Equipment is coordinated on paper logbooks or WhatsApp groups.<br/>
-                    • Booking clashes happen <strong>3–5 times per week</strong> per site.<br/>
-                    • Concrete lost to queueing trucks: about <strong>$28,000 per high-rise project</strong> (interviewee estimate; anchors the base case).<br/>
-                    • Sites learn of a supplier slip only when the truck fails to arrive.
-                </div>
-                <div class="metric-provenance" style="margin-top:10px;">Evidence log: docs/CUSTDEV_LOG.md</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with cd2:
-        st.markdown(
-            """
-            <div style="background:var(--sp-surface); border:1px solid var(--sp-border); border-radius:10px; padding:18px 20px; height:100%;">
-                <div style="font-size:0.85rem; font-weight:700; color:var(--sp-accent); margin-bottom:8px;">Interview Quotes (Astana & Almaty)</div>
-                <div style="font-size:0.82rem; color:var(--sp-text-2); font-style:italic; line-height:1.65;">
-                    "When rebar slips by 4 days, my formwork carpenters and concrete pour team sit doing nothing. We pay daily standby wages while the crane stands idle."<br/>
-                    <span style="font-style:normal; font-size:0.75rem; color:var(--sp-text-2);">— Site Superintendent, 22-Story Residential Project, Almaty</span>
-                    <br/><br/>
-                    "The city municipality fines us if concrete trucks queue on the street. We need a system that stops equipment bookings from overlapping."<br/>
-                    <span style="font-style:normal; font-size:0.75rem; color:var(--sp-text-2);">— Logistics Dispatcher, Commercial Tower, Astana</span>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.write("")
+    st.markdown("### 1. Customer evidence: not yet collected")
+    st.info("No completed interviews, customer audit or signed pilot are documented in docs/CUSTDEV_LOG.md. The archived calculations below are founder assumptions, not customer findings.")
 
     # Section 2: Market (bottom-up: sites x list price)
     st.markdown("### 2. Market Sizing · bottom-up (sites × list price)")
@@ -1798,15 +1619,10 @@ elif view == "Pitch & Economics":
     st.write("")
 
     # Section 4: Competition
-    st.markdown("### 4. Competition & Positioning")
+    st.markdown("### 4. Alternatives to investigate")
     comp_rows = [
-        ("Focus", "Delivery risk + equipment dispatch", "Site delivery & gate/crane booking",
-         "AI-generated schedules", "ML schedule delay risk", "Project & field management", "ERP & accounting"),
-        ("Predicts late deliveries", "Yes (unvalidated on real data)", "No", "No",
-         "Schedule-level, not per delivery", "No", "No"),
-        ("Clash-free equipment plan", "Yes, across sites", "Booking calendar per site",
-         "Schedule optimization", "No", "Manual", "No"),
-        ("Local deployment / 1C exports", "Yes", "No", "No", "No", "No", "Native"),
+        ("Focus", "One-site history audit prototype", "Established delivery/resource booking", "Not compared", "Not compared", "Not compared", "Existing accounting workflow"),
+        ("Evidence", "Synthetic tests; no field pilot", "Official vendor product descriptions", "Not verified", "Not verified", "Not verified", "Customer-specific export mapping required"),
     ]
     head = "".join(f'<th style="padding:8px 10px; text-align:left;">{c}</th>' for c in
                    ["", "SitePulse", "Voyage Control", "ALICE Technologies", "nPlan", "Procore / Fieldwire", "1C / SAP"])
@@ -1878,10 +1694,10 @@ st.markdown(
     """
     <div style="margin-top:40px; padding:16px 20px; border-top:1px solid var(--sp-border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:0.75rem; color:var(--sp-text-3);">
         <div>
-            <strong style="color:var(--sp-text-2);">Validation Status:</strong> 100% Synthetic Benchmark (n=2,200 deliveries, 260 crane bookings) · Real-world calibration pending 8-week pilot ERP ingestion.
+            <strong style="color:var(--sp-text-2);">Validation Status:</strong> 100% Synthetic Benchmark (n=2,200 deliveries, 260 crane bookings) · Next: a permitted history audit, then a proposed one-site 30-day pilot.
         </div>
         <div>
-            SitePulse Enterprise © 2026 · Regional Holding Pilot · <span style="color:var(--sp-accent); font-weight:600;">docs/PILOT_PROPOSAL.md</span>
+            SitePulse © 2026 · Synthetic Analyst View · <span style="color:var(--sp-accent); font-weight:600;">docs/PILOT_PROPOSAL.md</span>
         </div>
     </div>
     """,

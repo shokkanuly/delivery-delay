@@ -1,72 +1,34 @@
-# Contributing to Construction Logistics Platform (SitePulse)
+# Contributing to SitePulse
 
-Thank you for contributing to the SitePulse Construction Logistics Platform (designed for regional construction holdings). This guide outlines our engineering workflows, testing requirements, and code standards.
+Use Python 3.11 or 3.12. Create/activate `.venv`, install `requirements.txt`, then run `./start.sh`.
+The product is at port 8000; Streamlit at 8501 is the internal analyst view.
 
----
-
-## 1. Development Setup
-
-### Prerequisites
-* Python 3.11 or 3.12
-* Docker & Docker Compose (optional for local full-stack run)
-* Virtual environment (`venv`)
-
-### Installation
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt pytest
-```
-
-### Running Locally
-```bash
-./start.sh
-```
-* Interactive Web Console: `http://localhost:8000/`
-* API & Interactive Docs: `http://localhost:8000/docs`
-* Streamlit Analytics: `http://localhost:8501/`
-
----
-
-## 2. Architecture Invariants & Critical Rules
-
-Every contributor must preserve the following architectural boundaries (see [ARCHITECTURE.md](docs/ARCHITECTURE.md) and [PRD.md](docs/PRD.md)):
-
-1. **Strictly Causal Feature Engineering:**
-   - Features used for delay prediction must never leak future information.
-   - Any historical supplier statistics must only aggregate records with `completed_at < order_date`.
-   - Running `pytest tests/test_features_leakage.py` validates that the causal-vs-leaky guard passes.
-2. **Stateless Online Prediction:**
-   - Online scoring (`ml.predict:score`) reads from the frozen `feature_snapshot` in the trained artifact (`ml/artifacts/model.joblib`), never from a live database query.
-3. **Cold-Start Resilience:**
-   - Brand new suppliers or routes must never produce `NaN` or 500 errors. They must shrink smoothly onto material × route priors via Empirical Bayes shrinkage.
-4. **Guaranteed 0 Double-Bookings:**
-   - The OR-Tools scheduler in `engines/scheduler/solver.py` must maintain the `AddNoOverlap` invariant for physical machinery.
-
----
-
-## 3. Testing & Validation Checklist
-
-Before submitting a Pull Request, verify that all test suites pass:
+## Checks before a PR
 
 ```bash
-# 1. Run all unit and integration tests
-pytest
-
-# 2. Run the end-to-end ML correctness demo
-python3 run.py
-
-# 3. Validate Docker Compose configuration
-cp .env.example .env
-docker compose config -q
+python -m pytest
+python -m scripts.build_demo_report --check
+python run.py
 ```
 
----
+If Docker is installed, copy `.env.example` to `.env`, set a private key and run
+`docker compose config -q` and `docker build -t sitepulse:check .`.
+Never commit `.env`, databases, uploaded customer files or model artifacts.
 
-## 4. Pull Request Checklist
+## Invariants
 
-- [ ] All 70+ tests in `tests/` pass with 0 errors.
-- [ ] No future leakage introduced into `ml/features.py`.
-- [ ] Code follows PEP 8 styling with type hints on public functions.
-- [ ] Updated documentation or ADRs in `docs/adr/` if modifying core data flows or solver constraints.
-- [ ] Added or updated test coverage for new endpoints or logic.
+- `ml/`, `engines/` and `business/` import no web frameworks; calls go down through the layers.
+- Supplier features use completed history strictly before the order. Online scoring uses the
+  artifact's frozen snapshot, not database queries.
+- Every scheduling path checks equipment overlap. Solver output is a proposal, not human approval.
+- Keep one router per domain; typed API contracts live in `api/schemas.py`.
+- All sample data and results are labelled synthetic. Missing evidence stays missing.
+- Do not invent interviews, partners, customers, market size or measured savings in a demo.
+
+Change shared audit rules in `ml/audit.py`, then regenerate the public sample with
+`python -m scripts.build_demo_report`. The public JSON must describe the exact downloadable CSV.
+Existing private-upload authentication must remain intact. Add meaningful known-answer or
+integration coverage for new logic; documentation-only changes do not need mirrored tests.
+
+Read [CLAUDE.md](CLAUDE.md), the [architecture](docs/ARCHITECTURE.md) and
+[current plan](docs/plans/mvp-reshape.md). New dependencies require founder approval.

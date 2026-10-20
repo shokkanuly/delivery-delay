@@ -1,14 +1,19 @@
 """An isolated chronological audit; never loads or writes a serving artifact."""
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score
 
 from ml.baseline import SupplierAverageBaseline
 from ml.features import build_features, build_snapshot
+from ml.ingest import QualityReport
 from ml.labeling import add_labels
 from ml.predict import RISK_BINS, RISK_LABELS, build_matrix
+from ml.scorecard import material_breakdown, supplier_scorecard
 from ml.train import make_model
 
 
@@ -84,3 +89,28 @@ def history_backtest(df: pd.DataFrame) -> dict:
                   beats_baseline=beats,
                   risk_bands=band_outcomes(actual, probabilities) if beats else {})
     return report
+
+
+def build_audit_report(df: pd.DataFrame, quality: QualityReport, synthetic: bool = False) -> dict:
+    """Build the same report for an authenticated upload and a public sample.
+
+    This function neither archives files nor touches business tables or the
+    serving artifact. Persistence and access control belong to the API.
+    """
+    return {
+        "data_source": "synthetic_upload" if synthetic else "uploaded_unverified",
+        "quality": {**asdict(quality), "rows_dropped": quality.rows_dropped},
+        "scorecard": json.loads(supplier_scorecard(df).to_json(orient="records", double_precision=15)),
+        "material_breakdown": json.loads(material_breakdown(df).to_json(orient="records", double_precision=15)),
+        "backtest": history_backtest(df),
+        "notes": [
+            "Это описание загруженной истории, а не подтверждение точности на будущих поставках.",
+            "Опоздание определяется общими допусками по материалу; дни опоздания считаются от обещанной даты только для опоздавших поставок.",
+            "Точные названия Бетон, Цемент, Арматура, Утеплитель, Кирпич и Плитка используют правила соответствующего материала. У неизвестной номенклатуры допуск по умолчанию — 1 день; такие строки посчитаны в качестве данных.",
+            "Тренд сравнивает последние 90 календарных дней до последнего поступления с более ранней историей; плюс означает улучшение.",
+            "Маршруты из 1С не сопоставляются: используется unknown. При отсутствии расстояний модель использует стандартную подстановку, а не измеренный маршрут.",
+            "Модель проверяется на последних 30% заказов; незавершённые к границе обучения поставки исключены. Результат одного разделения не гарантирует будущую точность.",
+        ],
+        "saved": False,
+        "audit_id": None,
+    }
