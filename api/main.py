@@ -27,6 +27,7 @@ import time
 
 
 from api.routers import business as business_router
+from api.routers import audit as audit_router
 from api.routers import predict as predict_router
 from api.routers import projects as projects_router
 from api.routers import integrations as integrations_router
@@ -104,6 +105,7 @@ def console_view():
 app.include_router(predict_router.router)
 app.include_router(projects_router.router)
 app.include_router(business_router.router)
+app.include_router(audit_router.router)
 app.include_router(schedule_router.router)
 app.include_router(validate_router.router)
 app.include_router(monitoring_router.router)

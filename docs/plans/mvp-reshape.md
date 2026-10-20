@@ -176,7 +176,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Depends on:** Stage 1.
 - **Done when:** known-answer tests pass; `tests/test_layering.py` still passes.
 
-### Stage 3 — History audit endpoint and console view (D4) `[ ]` · *final*
+### Stage 3 — History audit endpoint and console view (D4) `[x]` · *final*
 - **Goal:** upload a 1C export → audit report in the console, printable to PDF from the browser.
 - **Steps:** `api/routers/audit.py` with `POST /audit/history` (multipart, size limit, admin or approver key) returning
   quality report + scorecard + time-split backtest (`ml/train` helpers on the uploaded frame, temp artifact, never the
@@ -275,3 +275,23 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
   check pass; the full suite passes (182 = 169 + 12 scorecard tests + 1 discovered layering case).
   Next: Stage 3, the history audit endpoint and console upload view; the scorecard is currently a
   domain function and is not yet exposed in the console.
+- 2026-10-20: Stage 3 done. `POST /audit/history` returns quality, supplier/material scorecards and
+  an in-memory backtest, with admin authentication, 5 MB / 10,000-row limits and one audit per process.
+  The console's Russian «Аудит выгрузки» view renders the cp1251 fixture (12 input, 8 kept, 4 dropped,
+  5 suppliers), clears the entered key after the request and prints the report without navigation or
+  upload controls. Safari print preview was checked in A4 landscape; disabling the view animation
+  during printing fixes blank pages. A synthetic CSV is downloadable from the view.
+  The 70/30 order-date split keeps equal dates together, purges training deliveries unresolved at the
+  cutoff, and excludes impossible chronology from the backtest. Training vocabulary and snapshot
+  come only from the training period. At least 50 training / 20 test rows and both outcome classes
+  are required; missing evidence returns no accuracy. Risk bands appear only when model average
+  precision beats the supplier baseline. Neither the serving artifact nor business tables are changed.
+  Uploads are not archived by default; `?save=true` requires a configured customer audit directory
+  and writes only canonical CSV and report JSON under a server-generated ID. Fixed mixed ISO/1C
+  date parsing, non-finite/non-positive quantities and duplicate column aliases. Exact Russian
+  material aliases now reuse the shared grace rules; unknown-material defaults are counted.
+  Full suite: 203 passed, including leakage, baseline, malformed-file, auth, storage and layering
+  checks. The bundled 2,200-row synthetic export also completes through the running HTTP endpoint;
+  its historical results are demonstration evidence only. Railway deployment remains pending its
+  action confirmation; this local feature has not been pushed or deployed. Next: Stage 4, exposure
+  in tenge using the customer's own inputs.

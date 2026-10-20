@@ -1395,6 +1395,38 @@
       .btn-accent, .btn-outline, .modal-close, input, select { min-height: 44px; }
       .modal-card { padding: 18px; }
     }
+    /* History audit: uses the same console panels and semantic tokens. */
+    .audit-panel { background: var(--sp-surface); border: 1px solid var(--sp-border); border-radius: var(--sp-radius); padding: 24px; margin: 20px 0; }
+    .audit-panel h2, .audit-panel h3 { margin-bottom: 14px; }
+    .audit-copy { color: var(--sp-text-2); line-height: 1.65; max-width: 80ch; }
+    .audit-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 18px; }
+    .audit-table { overflow-x: auto; margin: 16px 0 28px; }
+    .audit-table th, .audit-table td { padding: 12px 10px; white-space: normal; overflow-wrap: anywhere; }
+    .audit-table th { font-size: 0.7rem; }
+    .audit-table td { font-size: 0.8rem; }
+    .audit-table table { min-width: 760px; }
+    .audit-notes { padding-left: 20px; line-height: 1.7; color: var(--sp-text-2); }
+    #audit-status { margin-top: 16px; }
+    #audit-verdict { font-weight: 600; margin: 14px 0; line-height: 1.6; }
+    body.audit-active #validation-footer { display: none !important; }
+    @media print {
+      @page { size: A4 landscape; margin: 12mm; }
+      body.audit-active { display: block; background: white; color: black; font-size: 10pt; }
+      body.audit-active .sidebar, body.audit-active .top-bar, body.audit-active .modal-backdrop,
+      body.audit-active .audit-no-print, body.audit-active .content > :not(#view-audit) { display: none !important; }
+      body.audit-active .main, body.audit-active .content { margin: 0; padding: 0; width: 100%; max-width: none; overflow: visible; }
+      body.audit-active #audit-report { display: block; }
+      body.audit-active #view-audit { animation: none !important; opacity: 1 !important; transform: none !important; }
+      body.audit-active .audit-panel { padding: 12px 0; border: 0; margin: 8px 0; }
+      body.audit-active .audit-table { overflow: visible; }
+      body.audit-active .audit-table table { display: table; width: 100%; min-width: 0; }
+      body.audit-active .audit-table th, body.audit-active .audit-table td { font-size: 8pt; padding: 6px; color: black; }
+      body.audit-active .audit-table thead { display: table-header-group; }
+      body.audit-active tr, body.audit-active .kpi-card { break-inside: avoid; }
+      body.audit-active h2, body.audit-active h3 { break-after: avoid; }
+      body.audit-active .kpi-row { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; }
+      body.audit-active .audit-copy, body.audit-active .audit-notes { color: black; }
+    }
   </style>
 </head>
 <body>
@@ -1418,6 +1450,10 @@
       <a href="#" class="nav-item active" data-view="overview">
         <span class="nav-icon">◉</span>
         Overview
+      </a>
+      <a href="#audit" class="nav-item" data-view="audit">
+        <span class="nav-icon">▤</span>
+        Аудит выгрузки
       </a>
       <a href="#" class="nav-item" data-view="signals">
         <span class="nav-icon">↯</span>
@@ -1503,6 +1539,69 @@
 
     <!-- Content -->
     <div class="content">
+      <section id="view-audit" class="page-view" lang="ru" style="display:none;">
+        <div class="audit-no-print">
+          <div class="eyebrow">История поставок · 1С / CSV</div>
+          <h1 class="greeting">Аудит выгрузки</h1>
+          <p class="audit-copy">Проверьте качество истории и надёжность поставщиков. Затем сравните модель с простым прогнозом по истории поставщика на более поздних заказах.</p>
+          <form class="audit-panel" id="audit-form" onsubmit="handleAuditSubmit(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="audit-file">Выгрузка CSV</label>
+                <input class="form-input" id="audit-file" type="file" accept=".csv,text/csv" required aria-describedby="audit-file-help">
+                <p id="audit-file-help" class="audit-copy">До 5 МБ и 10 000 строк. UTF-8 или Windows-1251, разделитель — запятая, «;» или табуляция.</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="audit-key">Ключ администратора</label>
+                <input class="form-input" id="audit-key" type="password" required autocomplete="off" aria-describedby="audit-key-help">
+                <p id="audit-key-help" class="audit-copy">Ключ очищается после запроса и не сохраняется в браузере.</p>
+              </div>
+            </div>
+            <p class="audit-copy">Обязательные поля: поставщик, материал, количество, дата заказа, плановая и фактическая дата поставки. Файл и отчёт не сохраняются на сервере.</p>
+            <div class="audit-controls">
+              <label><input id="audit-synthetic" type="checkbox" checked> Это синтетические данные</label>
+              <a href="/static/samples/1c_export_synthetic.csv" download>Скачать синтетический пример</a>
+              <button class="btn-accent" type="submit" id="audit-submit">Проверить выгрузку</button>
+            </div>
+            <p class="audit-copy" style="margin-top:14px;">Публичное демо в Railway предназначено для синтетики. Реальную историю загружайте только в развёртывание в Казахстане или на сервере клиента.</p>
+            <p id="audit-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <div id="audit-report" hidden>
+          <header>
+            <h2>SitePulse · Аудит поставок</h2>
+            <p id="audit-source" class="audit-copy"></p>
+            <p id="audit-file-name" class="audit-copy"></p>
+            <div class="audit-controls audit-no-print">
+              <button type="button" class="btn-outline" onclick="window.print()">Печать / сохранить PDF</button>
+            </div>
+          </header>
+          <section class="audit-panel" aria-labelledby="audit-quality-title">
+            <h2 id="audit-quality-title">1. Качество данных</h2>
+            <div class="kpi-row" id="audit-quality-kpis"></div>
+            <ul id="audit-quality-notes" class="audit-notes"></ul>
+          </section>
+          <section class="audit-panel" aria-labelledby="audit-suppliers-title">
+            <h2 id="audit-suppliers-title">2. Надёжность поставщиков</h2>
+            <p class="audit-copy">«Вовремя» учитывает допуск по материалу. Дни опоздания — только по опоздавшим поставкам, от плановой даты. Тренд: последние 90 дней истории против более раннего периода; плюс означает улучшение. «—» означает отсутствие наблюдений.</p>
+            <div id="audit-suppliers" class="audit-table"></div>
+            <h3>Поставщик × материал</h3>
+            <div id="audit-materials" class="audit-table"></div>
+          </section>
+          <section class="audit-panel" aria-labelledby="audit-backtest-title">
+            <h2 id="audit-backtest-title">3. Проверка на более поздних заказах</h2>
+            <p id="audit-split" class="audit-copy"></p>
+            <p id="audit-verdict" role="status"></p>
+            <div id="audit-metrics" class="audit-table"></div>
+            <div id="audit-bands" class="audit-table"></div>
+            <p class="audit-copy">PR-AUC (average precision) показывает качество ранжирования опозданий; больше — лучше. Это одно историческое разделение, без гарантии будущей точности.</p>
+          </section>
+          <section class="audit-panel">
+            <h2>Как читать отчёт</h2>
+            <ul id="audit-notes" class="audit-notes"></ul>
+          </section>
+        </div>
+      </section>
 
       <!-- ─── VIEW 1: OVERVIEW ─── -->
       <div id="view-overview" class="page-view active">
@@ -2587,7 +2686,7 @@
       </div>
 
       <!-- ─── VALIDATION STATUS FOOTER ─── -->
-      <div style="margin-top:40px; padding:16px 20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; font-size:0.8rem;">
+      <div id="validation-footer" style="margin-top:40px; padding:16px 20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; font-size:0.8rem;">
         <div style="display:flex; align-items:center; gap:10px;">
           <span class="badge-guarantee">Correctness Invariant</span>
           <span class="badge-estimate">Statistical Estimate</span>
@@ -2695,6 +2794,7 @@
 
     // Navigation state & View switching
     function switchView(viewName) {
+      document.body.classList.toggle('audit-active', viewName === 'audit');
       document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.toggle('active', item.dataset.view === viewName);
       });
@@ -2726,6 +2826,111 @@
     function navTo(view) {
       switchView(view);
     }
+
+    // User-controlled names and headers are rendered as text, never HTML.
+    function renderAuditTable(id, headers, rows) {
+      const target = document.getElementById(id);
+      target.replaceChildren();
+      if (!rows.length) return;
+      const table = document.createElement('table');
+      const thead = table.createTHead();
+      const head = thead.insertRow();
+      headers.forEach(label => {
+        const th = document.createElement('th');
+        th.scope = 'col'; th.textContent = label; head.appendChild(th);
+      });
+      const body = table.createTBody();
+      rows.forEach(values => {
+        const tr = body.insertRow();
+        values.forEach(value => { tr.insertCell().textContent = value ?? '—'; });
+      });
+      target.appendChild(table);
+    }
+
+    function renderAudit(report, filename) {
+      const number = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 1});
+      const pct = value => value == null ? '—' : number.format(value * 100) + ' %';
+      const days = value => value == null ? '—' : number.format(value);
+      const list = (id, items) => {
+        const target = document.getElementById(id); target.replaceChildren();
+        items.forEach(text => { const li = document.createElement('li'); li.textContent = text; target.appendChild(li); });
+      };
+      document.getElementById('audit-source').textContent = report.data_source === 'synthetic_upload'
+        ? 'СИНТЕТИЧЕСКИЕ ДАННЫЕ · результаты демонстрации'
+        : 'Загруженная история · происхождение данных не проверено';
+      document.getElementById('audit-file-name').textContent = 'Файл: ' + filename + ' · ' + new Date().toLocaleString('ru-RU');
+      const q = report.quality;
+      const kpis = document.getElementById('audit-quality-kpis'); kpis.replaceChildren();
+      [['Строк в файле', q.rows_total], ['Принято', q.rows_kept], ['Исключено', q.rows_dropped], ['Поставщиков', report.scorecard.length]].forEach(([label, value]) => {
+        const card = document.createElement('div'); card.className = 'kpi-card';
+        const title = document.createElement('div'); title.textContent = label;
+        const count = document.createElement('strong'); count.textContent = number.format(value); count.style.fontSize = '1.8rem';
+        card.append(title, count); kpis.appendChild(card);
+      });
+      list('audit-quality-notes', [
+        `Некорректных значений дат: ${q.bad_dates}. Некорректных количеств: ${q.bad_quantity}. Удалено дублей: ${q.duplicates}.`,
+        `Плановая дата раньше заказа: ${q.promised_before_order} (оставлены в карточке, исключены из проверки модели).`,
+        `Маршрут заменён на unknown: ${q.route_type_defaulted} строк.`,
+        `Неизвестный материал: ${q.material_grace_defaulted} принятых строк (допуск по умолчанию — 1 день).`,
+        q.unmapped_columns.length ? 'Неиспользованные столбцы: ' + q.unmapped_columns.join(', ') : 'Все столбцы распознаны.',
+        'Причины исключения могут пересекаться; их сумма не обязана совпадать с числом исключённых строк.'
+      ]);
+      const headers = ['Поставщик', 'Всего', 'Вовремя', 'Опоздали', 'Вовремя, %', '95% интервал', 'Медиана, дни', 'p90, дни', 'Тренд, п.п.'];
+      const values = row => [row.supplier_id, row.deliveries, row.on_time, row.late, pct(row.on_time_share),
+        `${pct(row.on_time_ci_low)} – ${pct(row.on_time_ci_high)}`, days(row.median_late_days), days(row.p90_late_days),
+        row.trend_pp == null ? '—' : (row.trend_pp > 0 ? '+' : '') + number.format(row.trend_pp)];
+      renderAuditTable('audit-suppliers', headers, report.scorecard.map(values));
+      renderAuditTable('audit-materials', [headers[0], 'Материал', ...headers.slice(1)], report.material_breakdown.map(row => {
+        const result = values(row); result.splice(1, 0, row.material_type); return result;
+      }));
+      const b = report.backtest;
+      document.getElementById('audit-split').textContent = `Обучение: ${b.train_rows} поставок. Проверка: ${b.test_rows}. Граница: ${b.cutoff ? b.cutoff.slice(0, 10) : 'не определена'}. Исключено незавершённых к границе: ${b.purged_train_rows}; с нарушением хронологии: ${b.excluded_chronology}.`;
+      document.getElementById('audit-verdict').textContent = b.status !== 'evaluated'
+        ? 'Недостаточно истории для проверки модели. ' + b.reason
+        : b.beats_baseline ? 'Модель превзошла прогноз по истории поставщика на проверочном периоде.'
+        : 'Модель не превзошла прогноз по истории поставщика. Используйте карточку поставщиков; сигналы модели не показаны.';
+      renderAuditTable('audit-metrics', ['PR-AUC модели', 'PR-AUC по истории поставщика', 'Разница'], b.status === 'evaluated'
+        ? [[b.model_average_precision.toFixed(3), b.baseline_average_precision.toFixed(3), (b.lift > 0 ? '+' : '') + b.lift.toFixed(3)]] : []);
+      const bandNames = {green: 'Зелёная', yellow: 'Жёлтая', red: 'Красная'};
+      renderAuditTable('audit-bands', ['Группа риска', 'Поставок в проверке', 'Доля опозданий'], b.beats_baseline
+        ? Object.entries(b.risk_bands).map(([band, row]) => [bandNames[band], row.deliveries, pct(row.late_rate)]) : []);
+      list('audit-notes', report.notes);
+      document.getElementById('audit-report').hidden = false;
+    }
+
+    async function handleAuditSubmit(event) {
+      event.preventDefault();
+      const fileInput = document.getElementById('audit-file');
+      const keyInput = document.getElementById('audit-key');
+      const button = document.getElementById('audit-submit');
+      const status = document.getElementById('audit-status');
+      const file = fileInput.files[0];
+      document.getElementById('audit-report').hidden = true;
+      if (!file || file.size > 5 * 1024 * 1024) { status.textContent = 'Выберите CSV размером до 5 МБ.'; return; }
+      const body = new FormData(); body.append('file', file);
+      body.append('synthetic', String(document.getElementById('audit-synthetic').checked));
+      const key = keyInput.value;
+      button.disabled = true; keyInput.disabled = true; fileInput.disabled = true;
+      button.textContent = 'Проверяем…'; status.textContent = 'Обрабатываем историю. Большая выгрузка может занять несколько минут.';
+      try {
+        const response = await fetch(`${API_BASE}/audit/history`, {method: 'POST', headers: {'X-API-Key': key}, body});
+        const data = await response.json();
+        if (!response.ok) {
+          const detail = Array.isArray(data.detail) ? data.detail.map(item => item.msg).join('; ') : data.detail;
+          throw new Error(detail || `Ошибка ${response.status}`);
+        }
+        renderAudit(data, file.name);
+        status.textContent = 'Аудит готов. Файл и отчёт не сохранены на сервере.';
+        document.getElementById('audit-report').scrollIntoView({behavior: 'smooth', block: 'start'});
+      } catch (error) {
+        status.textContent = 'Не удалось выполнить аудит: ' + error.message;
+      } finally {
+        keyInput.value = ''; button.disabled = false; keyInput.disabled = false; fileInput.disabled = false;
+        button.textContent = 'Проверить выгрузку';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => { if (location.hash === '#audit') switchView('audit'); });
 
     function selectSiteAndGo(projectId) {
       const sel = document.getElementById('project-selector');
