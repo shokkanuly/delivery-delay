@@ -1404,7 +1404,7 @@
       .page-view { display: none !important; }
       #view-audit { display: block !important; }
       #view-audit #audit-results { display: block !important; }
-      .kpi-card, .queue-table, #audit-backtest-block { break-inside: avoid; }
+      .kpi-card, .queue-table, #audit-backtest-block, #exposure-result { break-inside: avoid; }
     }
   </style>
 </head>
@@ -2677,6 +2677,47 @@
           <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Проверка модели на историческом срезе</div>
           <div id="audit-backtest-block" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:22px;"></div>
         </div>
+
+        <!-- Exposure calculator stands on its own -- it needs no uploaded export. -->
+        <div style="font-size:1.1rem; font-weight:700; margin-bottom:14px;">Экспозиция в тенге</div>
+        <div class="audit-no-print" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:20px 22px; margin-bottom:16px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-contract-value" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Сумма контракта, ₸</label>
+            <input type="number" id="exp-contract-value" placeholder="50000000" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:150px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-penalty-rate" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Ставка пени, % в день</label>
+            <input type="number" id="exp-penalty-rate" placeholder="0.1" step="0.01" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:130px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-days-late" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Дней опоздания</label>
+            <input type="number" id="exp-days-late" placeholder="4" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:110px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-downtime-hours" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Простой, часов</label>
+            <input type="number" id="exp-downtime-hours" placeholder="6" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:110px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="exp-downtime-cost" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Стоимость простоя, ₸/час</label>
+            <input type="number" id="exp-downtime-cost" placeholder="25000" style="padding:9px 12px; border:1px solid var(--card-border); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); width:150px;">
+          </div>
+          <button class="btn-accent" onclick="runExposure()">Рассчитать</button>
+        </div>
+        <div id="exposure-banner" class="audit-no-print" style="display:none; margin-bottom:16px; padding:14px 18px; border-radius:10px; font-size:0.85rem;"></div>
+        <div id="exposure-result" style="display:none; grid-template-columns:repeat(3, 1fr); gap:16px;">
+          <div class="kpi-card">
+            <div class="kpi-label-text">Пени по контракту</div>
+            <div class="kpi-value"><span id="exp-kpi-penalty">—</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label-text">Простой</div>
+            <div class="kpi-value"><span id="exp-kpi-downtime">—</span></div>
+          </div>
+          <div class="kpi-card" style="border:2px solid var(--sp-accent);">
+            <div class="kpi-label-text">Итоговая экспозиция</div>
+            <div class="kpi-value"><span id="exp-kpi-total">—</span></div>
+          </div>
+        </div>
       </div>
 
       <!-- ─── VALIDATION STATUS FOOTER ─── -->
@@ -2931,6 +2972,49 @@
       }
 
       document.getElementById('audit-results').style.display = 'block';
+    }
+
+    // ─── Экспозиция в тенге (Stage 4, docs/plans/mvp-reshape.md D8) ───
+    async function runExposure() {
+      const banner = document.getElementById('exposure-banner');
+      const result = document.getElementById('exposure-result');
+      result.style.display = 'none';
+      banner.style.display = 'none';
+
+      const payload = {
+        contract_value_kzt: Number(document.getElementById('exp-contract-value').value),
+        late_penalty_rate: Number(document.getElementById('exp-penalty-rate').value) / 100,
+        days_late: Number(document.getElementById('exp-days-late').value),
+        downtime_hours: Number(document.getElementById('exp-downtime-hours').value),
+        downtime_cost_per_hour_kzt: Number(document.getElementById('exp-downtime-cost').value),
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/economics/exposure`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          const detail = Array.isArray(body.detail)
+            ? body.detail.map(d => `${(d.loc || []).slice(-1)[0]}: ${d.msg}`).join('; ')
+            : (body.detail || `HTTP ${res.status}`);
+          throw new Error(detail);
+        }
+        const data = await res.json();
+        const fmt = n => `${Math.round(n).toLocaleString('ru-RU')} ₸`;
+        document.getElementById('exp-kpi-penalty').textContent = fmt(data.penalty_exposure_kzt);
+        document.getElementById('exp-kpi-downtime').textContent = fmt(data.downtime_exposure_kzt);
+        document.getElementById('exp-kpi-total').textContent = fmt(data.total_exposure_kzt);
+        result.style.display = 'grid';
+      } catch (err) {
+        banner.textContent = `Заполните все поля корректно: ${err.message}`;
+        banner.style.background = 'var(--sp-accent-soft)';
+        banner.style.color = 'var(--sp-accent)';
+        banner.style.border = '1px solid var(--sp-accent)';
+        banner.style.display = 'block';
+      }
     }
 
     document.querySelectorAll('.nav-item').forEach(item => {

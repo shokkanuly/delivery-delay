@@ -187,7 +187,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Done when:** `curl -F file=@tests/fixtures/1c_export_cp1251.csv -H "X-API-Key: …" localhost:8000/audit/history`
   returns the three blocks; an API test covers it; the console view renders the fixture and Ctrl+P gives a clean page.
 
-### Stage 4 — Exposure in tenge (D8) `[ ]`
+### Stage 4 — Exposure in tenge (D8) `[x]`
 - **Goal:** value expressed with the customer's numbers only.
 - **Steps:** `business/exposure.py` (pure) + `POST /economics/exposure` in `api/routers/business.py`; console form on
   the audit view.
@@ -309,3 +309,23 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
   caught a raw `#DC2626` and a non-vocabulary badge label in the first draft of the view; fixed by
   using `var(--sp-accent)`/`--sp-accent-soft` for the error state and the existing "Estimate" badge
   text. Next: Stage 4 (exposure in tenge, depends on Stage 3).
+
+- **2026-10-20 — Stage 4 done.** `business/exposure.py::exposure()`: two independent, additive
+  exposures computed only from the customer's own figures -- a contract's late-penalty clause
+  (`contract_value_kzt x late_penalty_rate x days_late`) and idle-crew/equipment cost during the delay
+  (`downtime_hours x downtime_cost_per_hour_kzt`) -- no USD, no scenario, no founder assumption
+  (contrast with `business/economics.py`, the pitch-deck model). Known-answer pinned exactly as the
+  plan states it: 50,000,000 (tenge) x 0.1% x 4 days + 6h x 25,000 (tenge/h) = 350,000 (tenge) (200,000
+  penalty + 150,000 downtime). `api/schemas.ExposureIn` has no defaults on any of its five fields, so a
+  missing one is a 422 naming it (Pydantic's own `loc`) -- verified with `downtime_hours` omitted.
+  `POST /economics/exposure` in `api/routers/business.py` is a thin, stateless pass-through (no DB, no
+  admin key -- it is pure arithmetic on numbers the caller already typed in, same trust level as
+  `POST /economics/site`). `tests/test_exposure.py`, 4 tests (known-answer, zero-contribution edge
+  case, endpoint-matches-module, 422-names-the-field). Console: a standalone "Экспозиция в тенге"
+  calculator on the «Аудит выгрузки» view (five inputs, a "Рассчитать" button, three result tiles) --
+  deliberately placed *outside* `#audit-results` so it works without uploading an export first (an
+  earlier draft nested it inside the upload-gated block; moved out after a live-browser check showed
+  the inputs were unreachable until a file was processed). Verified live in a real browser
+  (Playwright): typing the known-answer inputs and clicking "Рассчитать" renders exactly "200 000 ₸" /
+  "150 000 ₸" / "350 000 ₸". Full suite 200 (195 + 4 new tests + 1 layering parametrization for
+  `business/exposure.py`). Next: Stage 5 (migrations -- confirm Alembic with the founder first).

@@ -2,6 +2,7 @@
 
   GET  /economics                    every pitch number and its assumptions
   POST /economics/site               stateless per-site finance for live what-ifs
+  POST /economics/exposure           tenge exposure from the customer's own numbers (business/exposure.py)
   POST /projects/workspace           create (blank key -> server issues one) or update
   GET  /projects/workspace/{key}     read; finance is derived on every read
 
@@ -13,9 +14,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from api.schemas import CompanyWorkspaceIn, SiteInputsIn
+from api.schemas import CompanyWorkspaceIn, ExposureIn, SiteInputsIn
 from api.security import new_workspace_key
 from business import economics
+from business import exposure as exposure_mod
 from db.database import get_session
 from db.models import Workspace
 
@@ -33,6 +35,13 @@ def get_economics() -> dict:
 def site_economics(site: SiteInputsIn) -> dict:
     """Stateless per-site finance for live what-if editing in the UIs."""
     return economics.site_finance(site.model_dump())
+
+
+@router.post("/economics/exposure")
+def economics_exposure(inp: ExposureIn) -> dict:
+    """Stateless tenge exposure computed only from the customer's own
+    contract/downtime figures -- no scenario, no founder assumption."""
+    return exposure_mod.exposure(**inp.model_dump())
 
 
 def _out(ws: Workspace) -> dict:
