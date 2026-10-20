@@ -156,7 +156,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Steps:** `CLAUDE.md` at the repo root; this file.
 - **Done when:** `python -m pytest -q` passes (155).
 
-### Stage 1 — 1C column profile and data-quality report (D3) `[ ]`  · *needed by the final, 28 Oct*
+### Stage 1 — 1C column profile and data-quality report (D3) `[x]`  · *needed by the final, 28 Oct*
 - **Goal:** a real-looking 1C export becomes the canonical delivery frame, with a report of what was dropped.
 - **Steps:** in `ml/ingest.py` add `COLUMN_PROFILE` (alias table, e.g. «Поставщик», «Контрагент» → `supplier_id`;
   «Номенклатура»/«Материал» → `material_type`; «Дата заказа» → `order_date`; «Плановая дата поставки»/«Срок» →
@@ -168,7 +168,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Done when:** the fixture loads to the canonical columns; a file missing a required column fails with the Russian
   names of the missing columns; the quality report counts bad dates and duplicates; all tests pass.
 
-### Stage 2 — Supplier scorecard (D4) `[ ]` · *final*
+### Stage 2 — Supplier scorecard (D4) `[x]` · *final*
 - **Goal:** the first sellable output.
 - **Steps:** `ml/scorecard.py` with `supplier_scorecard(df) -> DataFrame` and `material_breakdown(df)`; Wilson interval
   helper; lateness via `ml.labeling` grace. `tests/test_scorecard.py` with a hand-computed known answer (e.g. 7 of 10 on
@@ -176,7 +176,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Depends on:** Stage 1.
 - **Done when:** known-answer tests pass; `tests/test_layering.py` still passes.
 
-### Stage 3 — History audit endpoint and console view (D4) `[ ]` · *final*
+### Stage 3 — History audit endpoint and console view (D4) `[x]` · *final*
 - **Goal:** upload a 1C export → audit report in the console, printable to PDF from the browser.
 - **Steps:** `api/routers/audit.py` with `POST /audit/history` (multipart, size limit, admin or approver key) returning
   quality report + scorecard + time-split backtest (`ml/train` helpers on the uploaded frame, temp artifact, never the
@@ -187,7 +187,7 @@ header set (`X-Key-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature`) ↔ the sender 
 - **Done when:** `curl -F file=@tests/fixtures/1c_export_cp1251.csv -H "X-API-Key: …" localhost:8000/audit/history`
   returns the three blocks; an API test covers it; the console view renders the fixture and Ctrl+P gives a clean page.
 
-### Stage 4 — Exposure in tenge (D8) `[ ]`
+### Stage 4 — Exposure in tenge (D8) `[x]`
 - **Goal:** value expressed with the customer's numbers only.
 - **Steps:** `business/exposure.py` (pure) + `POST /economics/exposure` in `api/routers/business.py`; console form on
   the audit view.
@@ -251,3 +251,81 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
 ## 7. Mid-build notes
 - 2026-10-19: Stage 0 done. Signed ingest, review queue and audit log were added the same day (branch
   `feat/posttech-ports`, 155 tests).
+- 2026-10-19: Stage 1 done. `ml/ingest.py` gained `COLUMN_PROFILE`, `sniff_csv()`, `QualityReport` and
+  `load_export()`, appended after the existing `load_deliveries_csv()` (untouched — `ml.train`/`db.seed`
+  keep using it on canonical headers). `route_type` is deliberately not in `COLUMN_PROFILE`: it always
+  defaults to `"unknown"` and the default is counted in `QualityReport.route_type_defaulted`
+  (CLAUDE.md rule 6 — a 1C export has no route data; reporting the default is honest, inventing a
+  route would not be). Duplicate detection is on the mapped business columns (supplier, material,
+  quantity, the three dates), not on `route_type`/`project_site` since those are constant placeholders
+  pre-dedup. `tests/fixtures/1c_export_cp1251.csv` is genuinely cp1251-only (verified it does not also
+  decode as utf-8, so the fixture exercises the encoding fallback instead of passing by luck) — 12 rows:
+  1 exact duplicate, 1 unparseable `actual_date` ("не прибыло"), 1 invalid `promised_date`
+  ("32.13.2026"), 1 blank `actual_date` (a missing-field drop, deliberately not counted as a "bad date"
+  so the two failure modes stay distinguishable), 1 `promised_date` before `order_date` (kept, flagged),
+  quantities with 1C's space thousand-separator. `tests/test_ingest_profile.py`, 14 tests, all green.
+  Full suite 169 (155 + 14). Next: Stage 2 (supplier scorecard, depends on Stage 1).
+- 2026-10-19: Stage 2 done. `ml/scorecard.py`: `wilson_interval()` (own implementation, no new
+  dependency), `supplier_scorecard()` and `material_breakdown()` share one `_rollup()` so the two
+  never compute a metric two different ways. Lateness comes from `ml.labeling.add_labels()`, not
+  reimplemented. Per-row metrics: deliveries, on-time share + Wilson 95% CI, median/p90 days late
+  computed only over the late deliveries (None, not 0, when a supplier has none — "never late" and
+  "typically 0 days late" are different claims), and a 90-day trend split on `promised_date` vs an
+  `as_of` cutoff (defaults to the latest `promised_date` in the data; None in a bucket with no rows).
+  Sorted worst-on-time-share-first, matching the risk-descending convention already used in
+  `api/routers/predict.py`. Known-answer check: 7/10 on time -> 0.70, Wilson interval verified against
+  an independent from-scratch re-derivation of the same published formula (0.396773, 0.892211), not
+  just checked against the module's own code. `tests/test_scorecard.py`, 12 tests; every number in it
+  (CI bounds, median/p90, trend split) was computed by hand/dry-run and checked against the function's
+  actual output before being hardcoded into an assertion. Full suite 182 (169 + 1 new layering
+  parametrization for ml/scorecard.py + 12). Next: Stage 3 (history audit endpoint + console view,
+  depends on Stages 1-2).
+
+- **2026-10-20 — Stage 3 done.** `ml/train.time_split_backtest()`: sorts by `order_date`, trains on the
+  oldest 70% into a `tempfile` artifact (never `ml.train.ARTIFACT_PATH`, the one `/predict` serves),
+  scores the newest 30% with `ml.predict.score()`, compares model PR-AUC against
+  `SupplierAverageBaseline` PR-AUC, and reports red/yellow/green calibration (actual late-share per
+  risk band). Honest-skip (`{"skipped": True, "reason": ...}`, no fabricated number) below 50 train /
+  20 test rows — verified it fires on the 8-row Stage 1 fixture and does not fire on a 600-row
+  synthetic set, where it also showed monotonic calibration (green 19.4% < yellow 48.9% < red 77.3%)
+  and `beats_baseline: true` (0.773 vs 0.758). `api/routers/audit.py`: `POST /audit/history`
+  (`require_admin`, 10 MB cap -> 413, multipart -> `ml.ingest.load_export` -> 400 with the Russian
+  column name on a `DeliveryCSVError`) returns `{quality, scorecard, backtest, model_beats_baseline}`;
+  nothing is written to disk unless `?save=true`, and even then only to the gitignored
+  `data/customer_uploads/` (never the `deliveries` table — its schema is shared with the synthetic
+  demo data and isn't customer-upload-shaped yet, so real intake stays out of scope). Wired into
+  `api/main.py`. `tests/test_audit.py`, 13 tests (the three-blocks Done-when, the honest-skip path,
+  Cyrillic round-trip, 401/400/413, `?save=true`); added one assertion to
+  `tests/test_security.py::test_admin_endpoints_reject_missing_or_wrong_key` for `/audit/history`.
+  Console: new «Аудит выгрузки» view in `static/index.html` (API-key field, file input, pilot-mode
+  checkbox, `runAudit()`/`renderAuditResults()` following `loadSequenceValidator()`'s fetch/render
+  style) plus an `@media print` block (hides sidebar/top-bar/controls, forces `#view-audit` and
+  `#audit-results` to `display:block`). Verified live in a real browser (Playwright against a running
+  `uvicorn` instance): uploading `tests/fixtures/1c_export_cp1251.csv` renders the quality KPIs (12/8
+  rows, 2 bad dates), a 5-row supplier scorecard, and the honest backtest skip message in Russian;
+  switching to print media keeps the sidebar hidden and the results visible. Full suite 195 (182 + 13
+  new). Two pre-existing design-system guard tests
+  (`test_design_system.py::test_ui_uses_shared_tokens_not_raw_colours` and `::test_only_the_badge_vocabulary`)
+  caught a raw `#DC2626` and a non-vocabulary badge label in the first draft of the view; fixed by
+  using `var(--sp-accent)`/`--sp-accent-soft` for the error state and the existing "Estimate" badge
+  text. Next: Stage 4 (exposure in tenge, depends on Stage 3).
+
+- **2026-10-20 — Stage 4 done.** `business/exposure.py::exposure()`: two independent, additive
+  exposures computed only from the customer's own figures -- a contract's late-penalty clause
+  (`contract_value_kzt x late_penalty_rate x days_late`) and idle-crew/equipment cost during the delay
+  (`downtime_hours x downtime_cost_per_hour_kzt`) -- no USD, no scenario, no founder assumption
+  (contrast with `business/economics.py`, the pitch-deck model). Known-answer pinned exactly as the
+  plan states it: 50,000,000 (tenge) x 0.1% x 4 days + 6h x 25,000 (tenge/h) = 350,000 (tenge) (200,000
+  penalty + 150,000 downtime). `api/schemas.ExposureIn` has no defaults on any of its five fields, so a
+  missing one is a 422 naming it (Pydantic's own `loc`) -- verified with `downtime_hours` omitted.
+  `POST /economics/exposure` in `api/routers/business.py` is a thin, stateless pass-through (no DB, no
+  admin key -- it is pure arithmetic on numbers the caller already typed in, same trust level as
+  `POST /economics/site`). `tests/test_exposure.py`, 4 tests (known-answer, zero-contribution edge
+  case, endpoint-matches-module, 422-names-the-field). Console: a standalone "Экспозиция в тенге"
+  calculator on the «Аудит выгрузки» view (five inputs, a "Рассчитать" button, three result tiles) --
+  deliberately placed *outside* `#audit-results` so it works without uploading an export first (an
+  earlier draft nested it inside the upload-gated block; moved out after a live-browser check showed
+  the inputs were unreachable until a file was processed). Verified live in a real browser
+  (Playwright): typing the known-answer inputs and clicking "Рассчитать" renders exactly "200 000 ₸" /
+  "150 000 ₸" / "350 000 ₸". Full suite 200 (195 + 4 new tests + 1 layering parametrization for
+  `business/exposure.py`). Next: Stage 5 (migrations -- confirm Alembic with the founder first).

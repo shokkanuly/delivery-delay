@@ -10,6 +10,7 @@ def test_admin_endpoints_reject_missing_or_wrong_key(temp_db, monkeypatch):
     c = TestClient(main.app)
     assert c.post("/train").status_code == 401
     assert c.post("/outcomes", json=[], headers={"X-API-Key": "wrong"}).status_code == 401
+    assert c.post("/audit/history", files={"file": ("x.csv", b"a;b\n1;2\n")}).status_code == 401
 
 
 def test_admin_endpoints_closed_when_unconfigured(temp_db, monkeypatch):
