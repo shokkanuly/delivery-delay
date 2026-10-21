@@ -9,3 +9,9 @@ data/customer_uploads/
 venv/
 .DS_Store
 var/audits/
+
+# Local verification and editor caches
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*

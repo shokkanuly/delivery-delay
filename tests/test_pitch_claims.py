@@ -1,7 +1,7 @@
 """Pitch-claim drift guard.
 
-Every figure a juror sees must come from business/economics.py, and claims
-the repo cannot back must not come back. CHANGELOG/ROADMAP are history logs
+Current product claims must match the evidence. Legacy financial scenarios
+stay reproducible, without forcing retired prices into the current pitch. CHANGELOG/ROADMAP are history logs
 and ADRs are engineering records, so they are not scanned.
 """
 from __future__ import annotations
@@ -17,12 +17,21 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PITCH_FILES = [
     "README.md", "CONTRIBUTING.md",
     "docs/INVESTOR_DECK.md", "docs/PILOT_PROPOSAL.md", "docs/PRD.md",
+    "docs/JUDGES.md", "docs/RESEARCH.md",
     "docs/ARCHITECTURE.md", "docs/RUNBOOK.md",
     "dashboard/app.py", "static/index.html",
 ]
 
 # Retired claims: contradicted by the code or by each other.
 BANNED = [
+    r"10 interviews: 7",
+    r"What 10 interviewees reported",
+    r"Interview Quotes \(Astana",
+    r"Site Superintendent, 22-Story",
+    r"Interviewees reported booking clashes",
+    r"crane uptime vs unoptimized",
+    r"4\.2% vs yesterday",
+    r"Confirm >\$50k/site monthly savings",
     r"piloting with BI Group",          # no signed pilot exists
     r"BI[ -]?(GROUP )?SITE-PULSE",      # partner brand in the product name
     r"\$621", r"621,000", r"221\.8",    # old ROI, from a formula that no longer exists
@@ -58,18 +67,18 @@ def test_lightgbm_only_named_as_the_optional_swap(rel):
             assert re.search(r"optional|drop-in|swap", line, re.IGNORECASE), line.strip()
 
 
-def test_deck_quotes_every_headline_figure():
-    deck = _text("docs/INVESTOR_DECK.md")
-    missing = {k: v for k, v in economics.headline().items() if v not in deck}
-    assert not missing, f"deck does not quote economics.headline(): {missing}"
+def test_archived_scenarios_remain_numerically_reproducible():
+    archive = _text("docs/archive/economics-scenarios.md")
+    missing = {k: v for k, v in economics.headline().items() if v not in archive}
+    assert not missing, f"archived scenarios drifted: {missing}"
+    assert "not the current offer" in archive
 
 
-def test_readme_quotes_the_core_figures():
-    readme = _text("README.md")
-    h = economics.headline()
-    for key in ("price_range", "pilot_fee", "value_base", "multiple_base",
-                "value_conservative", "multiple_conservative"):
-        assert h[key] in readme, f"README missing {key}={h[key]!r}"
+def test_current_pitch_does_not_reintroduce_retired_dollar_pricing():
+    for rel in ("README.md", "docs/INVESTOR_DECK.md", "docs/PILOT_PROPOSAL.md", "static/index.html"):
+        text = _text(rel)
+        for price in ("$15,000", "$3,500", "$4,800"):
+            assert price not in text, f"{rel}: legacy scenario price shown as current offer"
 
 
 def test_no_static_content_posing_as_live():

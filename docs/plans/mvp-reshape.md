@@ -323,3 +323,11 @@ pricing, any new ML model family. Do not remove Streamlit; do not merge the two 
   of saving raw uploads automatically to a repository folder. Console names are text-only;
   unknown/defaulted material rules and insufficient backtest evidence are visible. The shared
   audit router is registered once. Final combined validation is recorded in the deployment PR.
+
+- 2026-10-20: Founder-requested research/presentation pass (separate from Stage 5). Public
+  synthetic sample uses the same pure report builder as the protected audit. Added a three-minute
+  judge guide, source/evidence register and one-site pilot proposal; removed unsupported interview,
+  uptime and current dollar-price claims. Historical scenarios remain archived for reproduction.
+  Full suite 228 passed, plus sample check and browser verification. No dependencies or schema
+  changes; Stage 5 remains pending its explicit Alembic decision. PR #5 is merged; this pass is
+  published as a separate reviewable PR.

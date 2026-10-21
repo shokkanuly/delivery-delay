@@ -22,12 +22,15 @@ company size instead, and keep the contact details offline.
 | 9 | | | | | | | | |
 | 10 | | | | | | | | |
 
-## Claims → evidence
+## Current evidence status
 
-| Deck claim | Rows that support it | Count |
+No completed interview is recorded above. Earlier pitch drafts described interviews that this
+log does not substantiate; those claims have been removed. Fill a row only after a real interview,
+with permission to quote and a specific observed workflow. Keep personal contact details offline.
+
+| Hypothesis to test | Supporting interview IDs | Current status |
 |---|---|---|
-| Logistics managers coordinate equipment on paper or WhatsApp | | _ of 7 |
-| Booking clashes 3–5 times per week | | |
-| Late deliveries discovered only at the gate | | |
-| Concrete loss ≈ $28,000 per high-rise project | | |
-| Would trial on one site | | |
+| Staff coordinate slots through spreadsheets/phone/messages | None recorded | Unvalidated |
+| Late-arrival history can change a supplier decision | None recorded | Unvalidated |
+| A site owner will provide an authorised export and review the audit | None recorded | Unvalidated |
+| The contractor will pay the proposed tenge subscription | None recorded | Unvalidated |

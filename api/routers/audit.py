@@ -1,8 +1,6 @@
 """History audit, isolated from the serving model and database."""
 from __future__ import annotations
 
-from dataclasses import asdict
-import json
 import os
 from pathlib import Path
 import threading
@@ -12,9 +10,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from api.schemas import HistoryAuditOut
 from api.security import require_admin
-from ml.audit import history_backtest
+from ml.audit import build_audit_report
 from ml.ingest import load_export
-from ml.scorecard import material_breakdown, supplier_scorecard
 
 router = APIRouter(tags=["audit"])
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -49,21 +46,7 @@ def audit_history(file: UploadFile = File(...), synthetic: bool = Form(False),
             frame, quality = load_export(raw)
             if quality.rows_total > MAX_AUDIT_ROWS:
                 raise HTTPException(413, "В выгрузке больше 10 000 строк. Разделите файл по периоду.")
-            report = HistoryAuditOut(
-                data_source="synthetic_upload" if synthetic else "uploaded_unverified",
-                quality={**asdict(quality), "rows_dropped": quality.rows_dropped},
-                scorecard=json.loads(supplier_scorecard(frame).to_json(orient="records", double_precision=15)),
-                material_breakdown=json.loads(material_breakdown(frame).to_json(orient="records", double_precision=15)),
-                backtest=history_backtest(frame),
-                notes=[
-                    "Это описание загруженной истории, а не подтверждение точности на будущих поставках.",
-                    "Опоздание определяется общими допусками по материалу; дни опоздания считаются от обещанной даты только для опоздавших поставок.",
-                    "Точные названия Бетон, Цемент, Арматура, Утеплитель, Кирпич и Плитка используют правила соответствующего материала. У неизвестной номенклатуры допуск по умолчанию — 1 день; такие строки посчитаны в качестве данных.",
-                    "Тренд сравнивает последние 90 календарных дней до последнего поступления с более ранней историей; плюс означает улучшение.",
-                    "Маршруты из 1С не сопоставляются: используется unknown. При отсутствии расстояний модель использует стандартную подстановку, а не измеренный маршрут.",
-                    "Модель проверяется на последних 30% заказов; незавершённые к границе обучения поставки исключены. Результат одного разделения не гарантирует будущую точность.",
-                ],
-            )
+            report = HistoryAuditOut(**build_audit_report(frame, quality, synthetic))
         except (ValueError, TypeError) as exc:
             raise HTTPException(422, f"Не удалось обработать CSV: {exc}") from exc
 
