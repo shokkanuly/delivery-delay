@@ -1,0 +1,29 @@
+id,domain,problem,confidence,solution,beneficiaries,hardware_option,first_metric
+L01,logistics,Paper TTN with no arrival proof,likely,Gate event with QR photo time GPS and sign-off,"Developers; suppliers; banks",Phone first; optional scale gateway,Share of deliveries with a verified event
+L02,logistics,Gate queues and idle cranes,likely,Arrival slots plus crane and bay scheduler,"Developers; carriers",Optional BLE or RFID gate reader,Queue minutes per truck
+L03,logistics,Late or out-of-sequence loads,likely,Delay-risk bands and planned versus actual,Developers,Optional GPS tracker,Late loads flagged 24 h ahead
+L04,logistics,ЕСУТД registration due 1 June 2027,confirmed,ЕСУТД-ready mode from gate scan,Carriers,None,Carriers onboarded before deadline
+L05,logistics,Short loads and quality disputes,likely,Scale ticket and photo capture with certificate link,"Developers; suppliers",Scale gateway; mixer sensors,Disputes per 100 deliveries
+L06,logistics,No warehouse or yard space,confirmed,Just-in-time delivery windows,"Developers; suppliers",None,Out-of-sequence arrivals per week
+L07,logistics,Weak foreign trade and rising freight prices,confirmed,Serve domestic construction freight first,Carriers,None,Share of carriers using the driver app
+L08,logistics,Empty return trips and fragmented carriers,likely,Back-haul matching (later),Carriers,None,Empty-run share
+L09,logistics,Fuel use and unverified mileage,likely,GPS trace and optional fuel sensor,"Carriers; developers",Fuel sensor; GPS tracker,Litres per delivery
+L10,logistics,No shared reliability data,likely,Supplier and carrier score with confidence,"Developers; banks",None,Suppliers with a usable score
+F01,fintech,Fake or backdated delivery documents behind financing requests,likely,Verified Delivery Certificate tied to gate event,"Banks; MFOs; factors",None,Mismatches caught per 100 invoices
+F02,fintech,Costly working capital,confirmed,Faster verified invoices so a partner funds against delivery,Suppliers,None,Days from delivery to payment
+F03,fintech,No supplier track record for SMEs,likely,Empirical Bayes score and bank API,"Banks; suppliers",None,Suppliers with a usable score
+F04,fintech,Manual 1C and ЭСФ and bank reconciliation,likely,Auto-match event to ЭСФ/СНТ and payment,"Developers; suppliers",None,Reconciliation hours saved
+F05,fintech,Factoring anchored to contracts not site delivery,confirmed product / likely gap,Data partnership with banks,Banks,None,Banks piloting the certificate
+F06,fintech,Milestone and payment-release disputes,likely,Delivery evidence for supervisors and funders,"Developers; state funders",None,Disputes closed per week
+F07,fintech,Consumer fraud and dropper schemes,confirmed,Out of scope; lean identity and consent flows,Everyone,None,n/a
+F08,fintech,Late interbank QR adoption (now connected),confirmed,Enables pay-on-delivery later,Suppliers,None,Pilot payment triggers
+F09,fintech,Licensing and AML burden for lenders,likely,Partner with licensed institutions; AIFC sandbox,The company,None,Partner agreements
+E01,energy,Electricity deficit,confirmed,Site and plant energy visibility,"Plants; developers",Clamp-on current sensor,kWh per site per week
+E02,energy,Worn grid and outages,confirmed,Power-quality logger at gate or plant,"Developers; plants",ESP32 with voltage sensor,Outage and sag events logged
+E03,energy,Heat-network wear and winter heating cost,confirmed / likely,Per-pour curing and heating energy tracking,Developers,Temperature loggers in curing concrete,kWh per cubic metre cured
+E04,energy,Thin metering,confirmed,Low-cost sub-metering,"Plants; developers",Clamp-on current sensor plus ESP32,Assets metered
+E05,energy,No digital expenditure accounting in tariff approval,confirmed,Per-asset energy ledger (later; B2G),"Utilities; ministry",None,Pilot with a data standard
+E06,energy,No energy or CO2 per delivery,likely,kWh fuel and CO2 per delivery,"Developers; banks","Current sensor; fuel sensor",Assets reporting CO2 per delivery
+E07,energy,Pump and equipment waste or wear anomalies,likely,Anomaly detection and pump controller,Plants,Current sensor; vibration sensor,kWh saved per pump
+E08,energy,ESG and green-finance evidence,likely,Append-only ledger with FEED and SIM tags,"Developers; banks",None,Reports produced from real data
+E09,energy,Sector cybersecurity and air-gapped sites,confirmed,On-prem zero-external-call deployment,"Plants; banks",None,Security reviews passed

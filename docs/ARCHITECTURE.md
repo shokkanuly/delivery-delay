@@ -1,5 +1,9 @@
 # Architecture & Core Design — SitePulse Platform
 
+> This document describes the existing prototype and earlier design rationale. The proposed
+> next product and its code gaps are in the [delivery-evidence plan](plans/delivery-evidence-reshape.md).
+> That planning pass changes no runtime architecture. Future-priority statements below are historical.
+
 How the SitePulse construction logistics platform is architected, how data flows through it, and the reasoning behind the decisions that matter. For the quickstart and API, see the [README](../README.md); for the one-site pilot proposal, see [`PILOT_PROPOSAL.md`](PILOT_PROPOSAL.md).
 
 ---

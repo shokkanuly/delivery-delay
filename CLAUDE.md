@@ -1,11 +1,15 @@
 # CLAUDE.md — SitePulse (repo: shokkanuly/delivery-delay)
 
-SitePulse gives a construction contractor a closed delivery-risk loop for one site: 1C export in → supplier scorecard
-and at-risk list out → crane/gate slots without double-booking → actual arrivals back in → accuracy measured.
-No customers yet; all bundled data is synthetic and must be labelled so.
+SitePulse's proposed next product is delivery evidence for one construction site: plan → record arrival and
+quantity → named receiver confirmation/dispute → review and export. The current application remains the
+historical-audit prototype with signed arrival/ML and scheduling primitives. No new receiving flow has been
+implemented by the November planning pass. No customers are established in the repository; bundled data is synthetic.
 
-**Current work:** `docs/plans/mvp-reshape.md`. Do one stage per session, in order. Read the whole plan first, mark the
-stage `[~]`, build it, run its *Done when*, mark it `[x]`, and add a dated note to §7 of the plan.
+**Current product plan:** `docs/plans/delivery-evidence-reshape.md`, `docs/PRD.md` and `ROADMAP.md`.
+The user requested product planning and an implementation roadmap first; this revision does not start engineering.
+For future authorised implementation, follow the new backlog's dependencies, verify one bounded slice at a time,
+and record checks and remaining limitations. `docs/plans/mvp-reshape.md` retains completed October work and history;
+its unfinished stage order is superseded. Existing architecture and claim-integrity rules below still apply.
 
 ## Commands
 ```bash
@@ -23,14 +27,14 @@ docker compose up --build                  # Postgres + seed/train + API + dashb
    `requests`, `api` or `dashboard` imports (`tests/test_layering.py` fails otherwise).
 2. **One router per domain** in `api/routers/<domain>.py`; `api/main.py` only wires routers. Pydantic models live in
    `api/schemas.py`.
-3. **One schema of record:** `db/models.py`. SQLite locally, Postgres via `DATABASE_URL`. After Stage 5 every schema
-   change needs an Alembic migration.
+3. **One schema of record:** `db/models.py`. SQLite locally, Postgres via `DATABASE_URL`. New backlog E1 must
+   establish migrations before schema changes; the earlier Stage 5 was not completed by this planning pass.
 4. **Features are causal** (supplier stats only from deliveries completed before the order) and **prediction is
    stateless** from the frozen snapshot in the artifact (ADR 0001). Never query the DB from `ml.predict`.
 5. **No double-booking** is an invariant of the scheduler; any new booking path re-checks overlap.
 6. **Honest numbers.** Never show a sample or fallback number as real; a missing input is an error, not a default.
    Synthetic results always say "synthetic". `tests/test_pitch_claims.py` guards README/deck claims.
-7. **Security:** mutating endpoints need `require_admin` (or `require_role` after Stage 6); machine ingest is HMAC
+7. **Security:** mutating endpoints need `require_admin` (or scoped actor permissions after E2); machine ingest is HMAC
    signed (`api/signing.py`); secrets only via env (`.env.example` lists them); never commit `.env`, `*.db`,
    `ml/artifacts/*.joblib` from a customer.
 8. **Customer data stays in Kazakhstan** (or on the customer's server). Render is for the synthetic demo only.

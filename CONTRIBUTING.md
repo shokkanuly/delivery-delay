@@ -31,4 +31,5 @@ Existing private-upload authentication must remain intact. Add meaningful known-
 integration coverage for new logic; documentation-only changes do not need mirrored tests.
 
 Read [CLAUDE.md](CLAUDE.md), the [architecture](docs/ARCHITECTURE.md) and
-[current plan](docs/plans/mvp-reshape.md). New dependencies require founder approval.
+[current plan](docs/plans/delivery-evidence-reshape.md). The November revision is planning-only;
+the October plan retains completed work/history. New dependencies require founder approval.

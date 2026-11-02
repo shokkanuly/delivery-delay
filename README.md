@@ -11,6 +11,19 @@
 **[Try the demo](https://logistics-api-production-2e47.up.railway.app/#audit) · [3-minute judge guide](docs/JUDGES.md) · [Research → decisions](docs/RESEARCH.md)**
 </div>
 
+## Proposed next product: delivery evidence at the site
+
+The **2 November 2026 product plan** centres on one construction site's receiving workflow:
+planned delivery → arrival and quantity evidence → named receiver confirmation or dispute →
+traceable receipt packet. Historical audits remain useful; document reconciliation, bank data
+sharing and energy measurement follow validation gates.
+
+**This is the next product plan, not functionality shipped in this revision.** The current
+prototype and synthetic demo are described below. Start with the [new product scope](docs/PRD.md),
+[90-day roadmap](ROADMAP.md), [implementation backlog](docs/plans/delivery-evidence-reshape.md)
+and [30-day pilot protocol](docs/PILOT_PROPOSAL.md). The supplied
+[research packet](docs/research/README.md) is retained with its verification limits.
+
 ## One export. One site. A supplier scorecard you can inspect.
 
 SitePulse helps a construction contractor review delivery reliability from a 1C/CSV history:
@@ -50,7 +63,7 @@ real customer data requires the Kazakhstan/on-prem deployment described in the p
 | Exposure in tenge | Required contract/rental inputs; no assumed customer rates. Exposure is not proven savings. |
 | Equipment scheduling and phase checks | CP-SAT no-overlap invariant and deterministic phase-date rules, covered by tests. Fixed-time assignment is implemented; human booking approval is planned. |
 | Arrival evidence loop | Signed, idempotent gate-event intake, review queue, prediction/outcome logs and accuracy endpoints. No connected live gate is claimed. |
-| Operator workflow | Migrations, role-based approval, daily at-risk view/outbound notifications and customer hosting remain [planned](ROADMAP.md). |
+| Next receiving workflow | Migrations, named site access, richer receipt evidence, offline capture and customer hosting remain [planned](ROADMAP.md). Booking approval and outbound notifications follow demonstrated need. |
 
 ## Evidence, without inflated claims
 
@@ -94,9 +107,10 @@ Docker alternative: copy `.env.example` to `.env`, set your own admin key, then 
 
 ## Product and commercial hypothesis
 
-First candidate: a contractor in the Karaganda region with 1–3 active sites and an exportable
-1C history. Start with a free historical audit, then agree a one-site, 30-day pilot and its
-success criteria. The founder's **150,000–300,000 ₸ per active site/month** subscription range
+First candidate: a contractor with one accessible pilot site and an accountable receiving team.
+The earlier Karaganda/1C-history entry route remains an option; select the site by actual access
+and need. Offer a historical audit when useful, then agree a one-site, 30-day receiving pilot
+after field readiness. The founder's **150,000–300,000 ₸ per active site/month** subscription range
 is a hypothesis to test, not a validated price or a binding offer. Suppliers are not the payer.
 
 Voyage Control is an established delivery/equipment-booking alternative; spreadsheets, phone
