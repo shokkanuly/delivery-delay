@@ -1,8 +1,13 @@
 """Pydantic request/response contracts for the API."""
 from __future__ import annotations
 
-from datetime import date
+from decimal import Decimal
+from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Literal
+from pydantic import AwareDatetime, ConfigDict, field_serializer, model_validator
+
+from datetime import date
 
 from pydantic import BaseModel, Field
 
@@ -155,3 +160,196 @@ class HistoryAuditOut(BaseModel):
     notes: list[str]
     saved: bool = False
     audit_id: str | None = None
+
+
+class ReceivingInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
+
+
+class ReceivingSiteIn(ReceivingInput):
+    name: str = Field(min_length=1, max_length=160)
+    timezone: str = "Asia/Almaty"
+
+    @model_validator(mode="after")
+    def valid_timezone(self):
+        try:
+            ZoneInfo(self.timezone)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError("Unknown IANA timezone")
+        return self
+
+
+class ReceivingActorIn(ReceivingInput):
+    name: str = Field(min_length=1, max_length=120)
+    role: Literal["coordinator", "receiver", "viewer"]
+
+
+class ReceivingLine(ReceivingInput):
+    line_id: str = Field(min_length=1, max_length=64)
+    material: str = Field(min_length=1, max_length=160)
+    quantity: Decimal = Field(gt=0, max_digits=18, decimal_places=6)
+    unit: str = Field(min_length=1, max_length=20)
+
+    @field_serializer("quantity")
+    def quantity_string(self, value):
+        return format(value.normalize(), "f")
+
+
+class ReceivingPlanIn(ReceivingInput):
+    reference: str = Field(min_length=1, max_length=80)
+    supplier: str = Field(min_length=1, max_length=160)
+    promised_date: date | None = None
+    window_start: AwareDatetime | None = None
+    window_end: AwareDatetime | None = None
+    lines: list[ReceivingLine] = Field(min_length=1, max_length=100)
+    provenance: Literal["REAL", "SIM"]
+
+    @model_validator(mode="after")
+    def valid_plan(self):
+        if len({x.line_id for x in self.lines}) != len(self.lines):
+            raise ValueError("Duplicate line IDs")
+        if bool(self.window_start) != bool(self.window_end):
+            raise ValueError("Both window boundaries are required")
+        if self.window_start and self.window_end <= self.window_start:
+            raise ValueError("Window end must follow start")
+        if bool(self.promised_date) == bool(self.window_start):
+            raise ValueError("Provide a date OR a precise window")
+        return self
+
+
+class ReceivingLocation(ReceivingInput):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_m: float = Field(ge=0, le=100000)
+
+
+class ReceiptPayload(ReceivingInput):
+    plan_id: UUID | None = None
+    reference: str = Field(min_length=1, max_length=80)
+    observed_at: AwareDatetime
+    time_source: Literal["device", "manual", "gate"]
+    location: ReceivingLocation | None = None
+    provenance: Literal["REAL", "SIM"]
+    lines: list[ReceivingLine] = Field(min_length=1, max_length=100)
+    condition: Literal["ok", "damaged", "uncertain"]
+    note: str = Field(default="", max_length=2000)
+    document_references: list[str] = Field(default_factory=list, max_length=20)
+    unloading_at: AwareDatetime | None = None
+    departed_at: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def valid_receipt(self):
+        if len({x.line_id for x in self.lines}) != len(self.lines):
+            raise ValueError("Duplicate line IDs")
+        if any(len(x) > 120 for x in self.document_references):
+            raise ValueError("Document reference too long")
+        if self.unloading_at and self.unloading_at < self.observed_at:
+            raise ValueError("Unloading cannot precede arrival")
+        if self.departed_at and self.departed_at < (self.unloading_at or self.observed_at):
+            raise ValueError("Departure cannot precede arrival/unloading")
+        return self
+
+
+class ReceiptIn(ReceivingInput):
+    receipt_id: UUID
+    operation_id: UUID
+    payload: ReceiptPayload
+
+
+class ReceiptCorrectionIn(ReceivingInput):
+    operation_id: UUID
+    expected_revision: int = Field(ge=1)
+    reason: str = Field(min_length=3, max_length=1000)
+    payload: ReceiptPayload
+
+
+class AcceptedLine(ReceivingInput):
+    line_id: str = Field(min_length=1, max_length=64)
+    quantity: Decimal = Field(ge=0, max_digits=18, decimal_places=6)
+
+    @field_serializer("quantity")
+    def quantity_string(self, value):
+        return format(value.normalize(), "f")
+
+
+class ReceiptDecisionIn(ReceivingInput):
+    decision_id: UUID
+    expected_revision: int = Field(ge=1)
+    decision: Literal["confirmed", "disputed"]
+    accepted: list[AcceptedLine] = Field(default_factory=list, max_length=100)
+    reason: str = Field(default="", max_length=1000)
+
+    @model_validator(mode="after")
+    def valid_decision(self):
+        if len({x.line_id for x in self.accepted}) != len(self.accepted):
+            raise ValueError("Duplicate accepted lines")
+        if self.decision == "disputed" and len(self.reason) < 3:
+            raise ValueError("A dispute needs a reason")
+        return self
+
+
+class PlanStatusIn(ReceivingInput):
+    status: Literal["completed", "cancelled"]
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+class ReceivingDocumentIn(ReceivingInput):
+    document_id: UUID
+    plan_id: UUID
+    kind: Literal["invoice", "ESF", "SNT", "TTN", "other"]
+    number: str = Field(min_length=1, max_length=120)
+    issuer: str = Field(min_length=1, max_length=160)
+    issued_on: date
+    confirmed_on: date | None = None
+    lines: list[ReceivingLine] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def unique_lines(self):
+        if len({x.line_id for x in self.lines}) != len(self.lines):
+            raise ValueError("Duplicate document lines")
+        return self
+
+
+class EvidenceGrantIn(ReceivingInput):
+    receipt_id: UUID
+    expected_revision: int = Field(ge=1)
+    recipient: str = Field(min_length=1, max_length=160)
+    purpose: str = Field(min_length=3, max_length=500)
+    consent_reference: str = Field(min_length=3, max_length=200)
+    expires_at: AwareDatetime
+
+
+class ReceivingResourceIn(ReceivingInput):
+    name: str = Field(min_length=1, max_length=100)
+    kind: Literal["gate", "bay", "crane"]
+
+
+class ReceivingSlotIn(ReceivingInput):
+    slot_id: UUID
+    resource_id: UUID
+    plan_id: UUID | None = None
+    start_at: AwareDatetime
+    end_at: AwareDatetime
+
+    @model_validator(mode="after")
+    def valid_window(self):
+        if self.end_at <= self.start_at or (self.end_at - self.start_at).total_seconds() > 86400:
+            raise ValueError("Slot must be positive and no longer than 24 hours")
+        return self
+
+
+class ReceivingSlotDecisionIn(ReceivingInput):
+    expected_version: int = Field(ge=1)
+    action: Literal["approve", "reject", "cancel", "move"]
+    reason: str = Field(min_length=3, max_length=500)
+    start_at: AwareDatetime | None = None
+    end_at: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def valid_window(self):
+        if self.action == "move":
+            if not self.start_at or not self.end_at or not 0 < (self.end_at - self.start_at).total_seconds() <= 86400:
+                raise ValueError("Move requires a positive window up to 24 hours")
+        elif self.start_at is not None or self.end_at is not None:
+            raise ValueError("Only move changes the time window")
+        return self

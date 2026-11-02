@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#18181b">
+  <title>SitePulse · Приёмка поставок</title>
+  <link rel="icon" href="/static/design/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/design/tokens.css">
+  <link rel="stylesheet" href="/static/receiving.css">
+  <script src="/static/receiving.js" defer></script>
+</head>
+<body>
+  <aside class="rail">
+    <a class="brand" href="/receive"><img src="/static/design/mark.svg" alt="" width="32" height="32">SitePulse<span>ПРИЁМКА</span></a>
+    <div class="site-label" id="site-name">Один объект. Общая история.</div>
+    <nav aria-label="Основная навигация">
+      <button class="nav active" data-view="today">Сегодня <span>01</span></button>
+      <button class="nav" data-view="capture">Приёмка <span>02</span></button>
+      <button class="nav" data-view="receipts">Поставки <span>03</span></button>
+      <button class="nav" data-view="exceptions">Расхождения <span>04</span></button>
+      <button class="nav" data-view="queue">На устройстве <span id="queue-count">0</span></button>
+      <button class="nav" data-view="documents" id="documents-nav" hidden>Документы <span>05</span></button>
+      <button class="nav" data-view="slots" id="slots-nav" hidden>Окна и ресурсы <span>06</span></button>
+    </nav>
+    <div class="rail-footer"><span class="live-dot" id="connection-dot"></span><span id="connection">Проверяем соединение</span><p id="actor-label">Войдите по личному ключу</p><button id="sign-out" class="text-button" hidden>Выйти</button></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>Журнал поставок</span><div><span class="badge" id="mode-badge">Загрузка</span><span id="today-date"></span></div></header>
+    <div id="message" role="status" aria-live="polite" hidden></div>
+    <section id="login-panel" class="card login">
+      <div><p class="eyebrow">ДОСТУП К ОБЪЕКТУ</p><h1>Каждая поставка.<br>С понятной историей.</h1><p class="muted">Фиксируйте прибытие, количество и состояние груза. Подтверждайте приёмку или оставляйте расхождение для проверки.</p></div>
+      <form id="login-form"><label for="credential">Ваш личный ключ</label><input id="credential" type="password" autocomplete="off" required placeholder="Ключ от координатора объекта"><button class="primary" type="submit">Открыть объект</button><p class="hint">Ключ используется только в текущем сеансе. После перезагрузки войдите снова. Сохранённые записи останутся на устройстве.</p></form>
+    </section>
+    <section id="view-today" class="view" hidden>
+      <div class="page-heading"><div><p class="eyebrow">ОБЪЕКТ / ПРИЁМКА</p><h1>Поставки под контролем.</h1><p class="muted">Что ожидается, что принято и где нужна ваша проверка.</p></div><button class="primary" data-go="capture">＋ Зафиксировать прибытие</button></div>
+      <div class="stats" id="stats"></div>
+      <div class="section-heading"><h2>Ожидаемые поставки</h2><button id="refresh" class="secondary">Обновить</button></div>
+      <div id="plan-list" class="card"></div>
+      <details class="card" id="notifications-panel" hidden><summary>Уведомления и история поставщиков</summary><div id="notification-list"></div><div id="supplier-history"></div></details>
+      <details id="plan-editor" class="card"><summary>Добавить план поставки</summary>
+        <form id="plan-form" class="form-grid">
+          <label>Номер поставки<input name="reference" required maxlength="80" placeholder="ТТН-1042"></label>
+          <label>Поставщик<input name="supplier" required maxlength="160" placeholder="Название поставщика"></label>
+          <label>Плановая дата<input name="promised_date" type="date" required></label>
+          <label>Источник<select name="provenance"><option value="SIM">SIM · учебная запись</option><option value="REAL">REAL · рабочая поставка</option></select></label>
+          <div class="wide"><div id="plan-lines" class="line-editor"></div><button type="button" id="add-plan-line" class="secondary">＋ Материал</button></div>
+          <button class="primary" type="submit">Создать план</button>
+        </form>
+      </details>
+    </section>
+    <section id="view-capture" class="view" hidden>
+      <div class="page-heading"><div><p class="eyebrow">НА ВОРОТАХ</p><h1 id="capture-title">Зафиксировать прибытие</h1><p class="muted">Сначала сохраните факты. Подтверждение приёмки — отдельное действие.</p></div></div>
+      <form id="capture-form" class="card form-grid">
+        <label class="wide">План поставки<select id="capture-plan"><option value="">Не найден / вне плана</option></select></label>
+        <div class="wide scan-row"><label>Номер или код QR<input id="capture-ref" required maxlength="80" placeholder="Номер ТТН или поставки"></label><button type="button" id="scan-qr" class="secondary">Сканировать QR</button><button type="button" id="stop-qr" class="secondary" hidden>Остановить камеру</button></div>
+        <video id="qr-video" playsinline muted hidden aria-label="Камера для QR"></video>
+        <label>Время прибытия на устройстве<input id="observed-at" type="datetime-local" required></label>
+        <label>Как получено время<select id="time-source"><option value="device">Часы устройства</option><option value="manual">Введено со слов / вручную</option><option value="gate">Показание ворот</option></select></label>
+        <label>Источник<select id="capture-provenance"><option value="SIM">SIM · учебная запись</option><option value="REAL">REAL · рабочая поставка</option></select></label>
+        <label>Состояние<select id="condition"><option value="ok">Без замечаний</option><option value="damaged">Есть повреждение</option><option value="uncertain">Нужна проверка</option></select></label>
+        <div class="wide"><h3>Фактически прибыло</h3><div id="capture-lines" class="line-editor"></div><button type="button" id="add-capture-line" class="secondary">＋ Материал</button></div>
+        <label class="wide">Фото груза или весовой талон<input id="evidence-files" type="file" accept="image/jpeg,image/png,application/pdf" multiple><span class="hint">JPEG, PNG или PDF · до 5 МБ каждый · до 6 файлов. При отсутствии камеры выберите готовый файл. Без файла запись сохранится с отметкой о неполноте.</span></label>
+        <div class="wide location-row"><button type="button" id="get-location" class="secondary">Добавить геопозицию</button><span id="location-status" class="muted">Не получена — запись всё равно можно сохранить</span></div>
+        <label class="wide">Номера документов<input id="document-refs" maxlength="1000" placeholder="ТТН, СНТ, ЭСФ — через запятую"></label>
+        <label class="wide">Примечание<textarea id="capture-note" rows="3" maxlength="2000" placeholder="Недостача, повреждение или другие наблюдения"></textarea></label>
+        <label class="wide" id="correction-reason-label" hidden>Причина исправления<input id="correction-reason" maxlength="1000"></label>
+        <div class="wide form-actions"><button class="primary" type="submit">Сохранить на устройстве</button><span class="hint">Затем отправьте запись и подтвердите приёмку. Интернет для локального сохранения не нужен.</span></div>
+      </form>
+    </section>
+    <section id="view-receipts" class="view" hidden><div class="page-heading"><div><p class="eyebrow">ИСТОРИЯ</p><h1>Поставки</h1><p class="muted">Подтверждения, документы и изменения в одной записи.</p></div></div><div id="receipt-list" class="card"></div><button id="load-more" class="secondary" hidden>Показать ещё</button></section>
+    <section id="view-exceptions" class="view" hidden><div class="page-heading"><div><p class="eyebrow">ТРЕБУЕТ ВНИМАНИЯ</p><h1>Расхождения</h1><p class="muted">Неполные и спорные записи. Причина и ответственность требуют проверки.</p></div></div><div id="exception-list" class="card"></div></section>
+    <section id="view-queue" class="view" hidden><div class="page-heading"><div><p class="eyebrow">ЛОКАЛЬНЫЕ ЗАПИСИ</p><h1>На этом устройстве</h1><p class="muted">Не закрывайте доступ к устройству, пока записи не отправлены. Хранилище браузера не заменяет резервную копию.</p></div><button id="sync-all" class="primary">Отправить записи</button></div><div id="queue-list" class="card"></div><div class="form-actions"><button id="export-drafts" class="secondary">Скачать резервную копию черновиков</button><label class="secondary import-label">Восстановить черновики<input id="import-drafts" type="file" accept="application/json" hidden></label></div></section>
+    <section id="view-detail" class="view" hidden><button class="text-button" data-go="receipts">← Все поставки</button><div id="receipt-detail"></div></section>
+    <section id="view-slots" class="view" hidden>
+      <div class="page-heading"><div><p class="eyebrow">ПЛАНИРОВАНИЕ НА ОБЪЕКТЕ</p><h1>Окна и ресурсы</h1><p class="muted">Заявка становится бронью после решения координатора. Пересекающиеся брони одного ресурса отклоняются.</p></div></div>
+      <div id="slot-list" class="card"></div>
+      <details class="card" id="slot-editor"><summary>Запросить окно</summary><form id="slot-form" class="form-grid"><label>Физический ресурс<select name="resource_id" id="slot-resource" required></select></label><label>Поставка<select name="plan_id" id="slot-plan"><option value="">Без привязки</option></select></label><label>Начало на устройстве<input name="start_at" type="datetime-local" required></label><label>Конец на устройстве<input name="end_at" type="datetime-local" required></label><button class="primary">Отправить заявку</button></form></details>
+      <details class="card" id="resource-editor"><summary>Зарегистрировать физический ресурс</summary><form id="resource-form" class="form-grid"><label>Название / инвентарный номер<input name="name" required maxlength="100" placeholder="Кран К-01"></label><label>Тип<select name="kind"><option value="crane">Кран</option><option value="gate">Ворота</option><option value="bay">Зона разгрузки</option></select></label><button class="primary">Добавить ресурс</button></form></details>
+    </section>
+    <section id="view-documents" class="view" hidden><div class="page-heading"><div><p class="eyebrow">СВЕРКА ПО СОГЛАСОВАННОМУ ПИЛОТУ</p><h1>Документы</h1><p class="muted">Сопоставление с принятым количеством. Подтверждение в учётной системе остаётся отдельным действием.</p></div></div><div id="document-list" class="card"></div><details class="card"><summary>Добавить документ для сверки</summary><form id="document-form" class="form-grid"><label>Поставка<select name="plan_id" id="document-plan" required></select></label><label>Тип<select name="kind"><option>TTN</option><option>SNT</option><option>ESF</option><option value="invoice">Счёт</option><option value="other">Другой</option></select></label><label>Номер<input name="number" required maxlength="120"></label><label>Отправитель<input name="issuer" required maxlength="160"></label><label>Дата документа<input name="issued_on" type="date" required></label><div class="wide"><div id="document-lines" class="line-editor"></div><button id="add-document-line" class="secondary" type="button">＋ Строка</button></div><button class="primary" type="submit">Сохранить документ</button></form></details></section>
+    <footer class="page-footer">SitePulse · Подтверждение получателя фиксирует его решение. Оно не является независимой или юридической сертификацией поставки.</footer>
+  </main>
+</body>
+</html>

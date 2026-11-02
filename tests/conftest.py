@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import pathlib
 import tempfile
+import os
+from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -54,15 +56,25 @@ def temp_db(tmp_path, monkeypatch):
     reloading them: re-importing the SQLAlchemy models would re-register every
     table on the same MetaData and blow up with "table already defined".
     """
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
 
     import db.database as database
     import db.models as models  # noqa: F401  (registers mappers)
     import db.seed as seed_mod
 
-    engine = create_engine(f"sqlite:///{tmp_path}/test.db", future=True,
-                           connect_args={"check_same_thread": False})
+    postgres_url = os.getenv("SITEPULSE_TEST_RECEIVING_POSTGRES_URL")
+    owner = None
+    if postgres_url:
+        # Explicit opt-in rehearsal database; each test owns only its random schema.
+        owner = create_engine(postgres_url)
+        schema = "receiving_test_" + uuid4().hex
+        with owner.begin() as conn:
+            conn.execute(text(f'CREATE SCHEMA "{schema}"'))
+        engine = create_engine(postgres_url, connect_args={"options": f"-csearch_path={schema}"})
+    else:
+        engine = create_engine(f"sqlite:///{tmp_path}/test.db", future=True,
+                               connect_args={"check_same_thread": False})
     Session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
     # get_session() reads these module globals at call time, so patching them
@@ -72,9 +84,16 @@ def temp_db(tmp_path, monkeypatch):
     monkeypatch.setattr(seed_mod, "engine", engine)
     monkeypatch.setattr(seed_mod, "SessionLocal", Session)
 
-    database.Base.metadata.create_all(bind=engine)
-    return {"database": database, "models": models, "seed": seed_mod,
-            "engine": engine, "Session": Session}
+    database.init_db()
+    try:
+        yield {"database": database, "models": models, "seed": seed_mod,
+               "engine": engine, "Session": Session}
+    finally:
+        engine.dispose()
+        if owner:
+            with owner.begin() as conn:
+                conn.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+            owner.dispose()
 
 
 @pytest.fixture()
