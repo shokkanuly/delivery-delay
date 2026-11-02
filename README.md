@@ -14,7 +14,7 @@
 ## Delivery evidence at the site
 
 The receiving workflow is implemented locally at **`/receive`**: plan a delivery, record arrival
-and quantity, attach evidence, confirm or dispute the exact revision, and review/export its history.
+and quantity, attach evidence, confirm or dispute the exact revision, and review/export its history, including a ZIP with every revision and its files.
 Offline drafts and media survive reload, interrupted uploads retry without duplicates, and corrections
 preserve earlier confirmations. Named access is scoped to a site. Coordinators can review totals across
 partial receipts and export coverage reports against an independent arrivals register. Optional document matching,

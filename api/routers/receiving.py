@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import secrets
+import tempfile
+import zipfile
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -11,6 +14,8 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Response, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
+from starlette.responses import StreamingResponse
 
 from api.receiving_service import (audit, check_payload, current_revision, decision_for, iso, notify_coordinators,
                                    lock_receipt, make_revision, now, receipt_packet, scoped, validate_acceptance)
@@ -26,6 +31,7 @@ from engines.receiving import digest, reconciliation, plan_progress
 router = APIRouter(prefix="/receiving", tags=["receiving"])
 MAX_MEDIA = 5 * 1024 * 1024
 MAX_ATTACHMENTS = 6
+MAX_BUNDLE_BYTES = 100 * 1024 * 1024
 
 
 def feature(name):
@@ -291,6 +297,67 @@ def export_receipt(receipt_id: UUID, actor=Depends(receiving_actor), db: Session
     audit(db, actor, "receipt.exported", receipt_id, {"revision": packet["current_revision"]})
     db.commit()
     return packet
+
+
+@router.get("/receipts/{receipt_id}/bundle")
+def export_bundle(receipt_id: UUID, actor=Depends(receiving_actor), db: Session = Depends(get_session)):
+    # All evidence writes take the same lock: metadata and included bytes describe one snapshot.
+    receipt = lock_receipt(db, receipt_id, actor)
+    packet = receipt_packet(db, receipt)
+    packet_bytes = json.dumps(packet, ensure_ascii=False, indent=2).encode("utf-8")
+    files = [(revision["number"], file) for revision in packet["revisions"] for file in revision["attachments"]]
+    if len(packet_bytes) + sum(file["size"] for _, file in files) > MAX_BUNDLE_BYTES or len(files) > 1000:
+        raise HTTPException(413, "Evidence bundle exceeds 100 MiB or 1000 files; export JSON and download revision files separately")
+    archive = tempfile.TemporaryFile()
+    try:
+        manifest = {"format": "sitepulse-receipt-bundle-v1", "receipt_id": receipt.id,
+                    "site_id": actor.site_id, "current_revision": packet["current_revision"],
+                    "exported_at": now().isoformat(), "files": [],
+                    "notice": "All recorded revisions and their attachments. Internal integrity only; not independent or legal certification."}
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as bundle:
+            bundle.writestr("receipt.json", packet_bytes)
+            manifest["files"].append({"path": "receipt.json", "bytes": len(packet_bytes),
+                                      "sha256": hashlib.sha256(packet_bytes).hexdigest()})
+            for number, metadata in files:
+                item = scoped(db, ReceiptAttachment, metadata["id"], actor)
+                if len(item.content) != metadata["size"] or hashlib.sha256(item.content).hexdigest() != metadata["sha256"]:
+                    raise HTTPException(409, "Stored attachment integrity mismatch; bundle was not exported")
+                extension = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}[item.content_type]
+                path = f"attachments/revision-{number}/{item.id}.{extension}"
+                bundle.writestr(path, item.content)
+                manifest["files"].append({"path": path, "revision": number, "attachment_id": item.id,
+                                          "bytes": item.size, "sha256": item.digest})
+            instructions = ("SitePulse receipt evidence\n\n"
+                            "receipt.json contains the current state and revision/attestation history.\n"
+                            "attachments/ includes files for every recorded revision, including superseded ones.\n"
+                            "manifest.json records the exact byte lengths and SHA-256 hashes.\n"
+                            "Verify with: python -m scripts.verify_receipt_bundle PATH_TO_ZIP\n"
+                            "SIM is demonstration data. Receiver confirmation is not independent physical proof.\n"
+                            "Hashes show internal consistency; they are not a digital signature or a trusted timestamp.\n"
+                            "This archive contains private evidence. Transfer and retain it only as agreed.\n").encode()
+            bundle.writestr("README.txt", instructions)
+            manifest["files"].append({"path": "README.txt", "bytes": len(instructions),
+                                      "sha256": hashlib.sha256(instructions).hexdigest()})
+            bundle.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"))
+        size = archive.tell()
+        archive.seek(0)
+        audit(db, actor, "receipt.bundle_exported", receipt.id,
+              {"revision": receipt.revision, "attachments": len(files), "bytes": size})
+        db.commit()
+    except Exception:
+        archive.close()
+        raise
+
+    def chunks():
+        try:
+            while chunk := archive.read(64 * 1024):
+                yield chunk
+        finally:
+            archive.close()
+
+    return StreamingResponse(chunks(), media_type="application/zip", background=BackgroundTask(archive.close),
+                             headers={"Content-Disposition": f'attachment; filename="receipt-{receipt_id}-v{packet["current_revision"]}.zip"',
+                                      "Content-Length": str(size)})
 
 
 @router.get("/audit")

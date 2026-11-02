@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+from copy import deepcopy
+from uuid import uuid4
 import json
 import os
 from pathlib import Path
@@ -19,6 +21,7 @@ import time
 
 import httpx
 from playwright.sync_api import sync_playwright, expect
+from scripts.verify_receipt_bundle import verify as verify_bundle
 
 ROOT = Path(__file__).resolve().parents[1]
 PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB9kAAAAASUVORK5CYII=')
@@ -143,7 +146,7 @@ def main():
                     expect(page.locator('#queue-list')).to_contain_text('SIM-1042')
                     assert page.evaluate("new Promise(resolve=>{const r=indexedDB.open('sitepulse-receiving-v1');r.onsuccess=()=>{const q=r.result.transaction('drafts').objectStore('drafts').getAll();q.onsuccess=()=>resolve(q.result[0].files[0].bytes instanceof ArrayBuffer);}})")
                     if args.browser=='chromium':
-                        page.evaluate("new Promise((resolve,reject)=>{const r=indexedDB.open('sitepulse-receiving-v1');r.onsuccess=()=>{const tx=r.result.transaction('drafts','readwrite'),store=tx.objectStore('drafts'),q=store.getAll();q.onsuccess=()=>{const d=q.result[0];d.files=d.files.map(f=>({name:f.name,type:f.type,blob:new Blob([f.bytes],{type:f.type})}));store.put(d);};tx.oncomplete=resolve;tx.onerror=reject;}})")
+                        page.evaluate("new Promise((resolve,reject)=>{const r=indexedDB.open('sitepulse-receiving-v1');r.onsuccess=()=>{const tx=r.result.transaction('drafts','readwrite'),store=tx.objectStore('drafts'),q=store.getAll();q.onsuccess=()=>{const d=q.result[0];d.files=d.files.map(f=>({name:f.name,type:'application/octet-stream',blob:new Blob([f.bytes],{type:'application/octet-stream'})}));store.put(d);};tx.oncomplete=resolve;tx.onerror=reject;}})")
                         checks.append('Existing Blob-based v1 drafts remain compatible with byte-based new drafts')
                     page.reload()
                     expect(page.locator('#queue-list')).to_contain_text('SIM-1042')
@@ -208,6 +211,16 @@ def main():
                     assert packet['current']['payload']['plan_id']==plan['id']
                     assert packet['revisions'][0]['attestations'][0]['accepted'][0]['quantity'] == '9'
                     checks.append('Plan totals show partial acceptance; correcting a closed plan retains its association and invalidates old acceptance')
+                    page.locator('[data-open-draft]').first.click()
+                    with page.expect_download() as evidence_download:
+                        page.locator('#export-bundle').click()
+                    evidence_path=out/'synthetic-receipt.zip'
+                    evidence_download.value.save_as(evidence_path)
+                    verified=verify_bundle(evidence_path)
+                    assert verified['valid'] and verified['revisions']==2 and verified['attachments']==2
+                    page.locator('[data-view="queue"]').click()
+                    checks.append('One downloadable evidence ZIP includes and verifies both revisions and their exact files')
+
                     with page.expect_download() as download:
                         page.locator('#export-drafts').click()
                     downloaded = download.value
@@ -220,8 +233,33 @@ def main():
                     assert page.evaluate('Object.keys(localStorage).length') == 0
                     checks.append('Draft backup contains media but no credentials; service worker caches no private API responses')
                     page.evaluate("new Promise((resolve,reject)=>{const r=indexedDB.open('sitepulse-receiving-v1');r.onsuccess=()=>{const tx=r.result.transaction('drafts','readwrite');tx.objectStore('drafts').clear();tx.oncomplete=resolve;tx.onerror=reject;}})")
+                    invalid=deepcopy(json.loads(contents));invalid['records'][1]['files'][0]['data']='broken'
+                    page.locator('#import-drafts').set_input_files({'name':'invalid.json','mimeType':'application/json','buffer':json.dumps(invalid).encode()})
+                    expect(page.locator('#message')).to_contain_text('Неподдерживаемый файл')
+                    count_drafts="new Promise(resolve=>{const r=indexedDB.open('sitepulse-receiving-v1');r.onsuccess=()=>{const q=r.result.transaction('drafts').objectStore('drafts').count();q.onsuccess=()=>resolve(q.result);}})"
+                    assert page.evaluate(count_drafts)==0
+                    page.evaluate("() => {window.originalAdd=IDBObjectStore.prototype.add;window.restoreAdds=0;IDBObjectStore.prototype.add=function(...args){if(this.name==='drafts'&&++window.restoreAdds===2)throw new DOMException('Injected restore quota','QuotaExceededError');return window.originalAdd.apply(this,args);};}")
                     page.locator('#import-drafts').set_input_files(str(backup_path))
+                    expect(page.locator('#message')).to_contain_text('Хранилище устройства заполнено')
+                    assert page.evaluate(count_drafts)==0
+                    page.evaluate('() => {IDBObjectStore.prototype.add=window.originalAdd;}')
+                    page.locator('#import-drafts').set_input_files(str(backup_path))
+                    expect(page.locator('#message')).to_contain_text('Восстановлено: 2')
                     expect(page.locator('#queue-list')).to_contain_text('SIM-1042')
+                    page.locator('#import-drafts').set_input_files(str(backup_path))
+                    expect(page.locator('#message')).to_contain_text('Совпадающих записей без изменений: 2')
+                    conflict=deepcopy(json.loads(contents))
+                    new_id=str(uuid4());conflict['records'][0]['id']=new_id;conflict['records'][0]['body']['operation_id']=new_id
+                    conflict['records'][1]['body']['payload']['note']='Changed content under the same operation ID'
+                    page.locator('#import-drafts').set_input_files({'name':'conflict.json','mimeType':'application/json','buffer':json.dumps(conflict).encode()})
+                    expect(page.locator('#message')).to_contain_text('Конфликт:')
+                    assert page.evaluate(count_drafts)==2
+                    changed_file=deepcopy(json.loads(contents))
+                    changed_file['records'][0]['files'][0]['data']='data:image/png;base64,'+base64.b64encode(PNG+b'changed').decode()
+                    page.locator('#import-drafts').set_input_files({'name':'changed-file.json','mimeType':'application/json','buffer':json.dumps(changed_file).encode()})
+                    expect(page.locator('#message')).to_contain_text('Конфликт:')
+                    assert page.evaluate(count_drafts)==2
+                    checks.append('Invalid, quota-failed and conflicting backup restores add nothing; identical imports preserve existing drafts')
                     page.locator('#sync-all').click()
                     expect(page.locator('[data-open-draft]')).to_have_count(2)
                     assert client.get('/receiving/receipts', headers=auth).json()['total'] == 1

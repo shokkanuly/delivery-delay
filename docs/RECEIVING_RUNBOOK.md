@@ -98,9 +98,19 @@ Prefer forward fixes. Never downgrade receiving migrations on a live database: r
 4. Send drafts after reconnecting and signing in. Interrupted file uploads retry with stable IDs/hashes. A conflict remains visible; inspect the current server revision, then make a reasoned correction. Never clear browser storage to “fix” an unsent record.
 5. Open the receipt, inspect files and confirm accepted quantities or dispute. A correction preserves the previous record and needs current files and a new confirmation. Partial acceptance remains a discrepancy. Closing a plan is a separate coordinator decision.
 6. Open «План / факт» to inspect totals across partial loads. Only accepted quantities on currently confirmed revisions count toward the plan. Different units/materials remain separate. Use the coordinator decision form to complete or cancel the plan with a reason; quantity equality does not close it automatically. Closed plans remain in the Today archive, and later corrections preserve the plan association.
-7. Export the packet/print view and download attachments when needed. The JSON includes hashes and attachment metadata, not embedded photo bytes. Export is access-controlled and audited. Keep downloaded files private.
+7. Choose «Пакет с файлами ZIP» to download the current receipt, every recorded revision, and all their attachment bytes together. `manifest.json` lists SHA-256 hashes and byte lengths; `receipt.json` contains the status/attestation history. Superseded versions stay clearly identified. ZIP export checks stored bytes against their recorded digests and is scoped/audited just like individual downloads. The current and historical files together are limited to 100 MiB / 1000 attachments; larger records must use the JSON export and individual revision-file downloads. «Данные JSON» still exports metadata without photo bytes. Keep every downloaded file private.
 
-Browsers may evict local storage. The app does not promise survival after device loss, user deletion or browser eviction. A backup file is limited to 100 records/100 MiB; use «Скачать копию» on individual rows for a larger queue. Draft backup import preserves operation IDs and media, and only imports into the same actor/site profile. Revocation blocks upload while leaving drafts locally recoverable. Device timezone/clock and weak connectivity can affect observed time; server receipt time and clock warnings remain separate.
+Verify a ZIP using a trusted copy of the repository's standard-library-only tool:
+
+```bash
+python -m scripts.verify_receipt_bundle path/to/receipt.zip
+# The same script can also run standalone without installing project dependencies:
+python scripts/verify_receipt_bundle.py path/to/receipt.zip
+```
+
+The verifier reads the ZIP without extracting it, checks file lists/digests and the receipt-to-attachment mapping, and rejects unsafe paths. It verifies internal consistency; it does not establish who created the archive or prove physical delivery. It is not a digital-signature verifier.
+
+Browsers may evict local storage. The app does not promise survival after device loss, user deletion or browser eviction. A backup file is limited to 100 records/100 MiB; use «Скачать копию» on individual rows for a larger queue. Draft backup import preserves operation IDs and media, and only imports into the same actor/site profile. Every record and file is checked before one atomic IndexedDB transaction. A malformed record, storage error or same-ID/different-content conflict adds nothing. Identical existing records are skipped without resetting their upload progress; restore results report added and skipped counts. Revocation blocks upload while leaving drafts locally recoverable. Device timezone/clock and weak connectivity can affect observed time; server receipt time and clock warnings remain separate.
 
 ## Coverage and optional sharing
 

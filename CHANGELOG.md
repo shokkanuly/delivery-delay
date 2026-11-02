@@ -4,6 +4,14 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## 2026-11-03 · Evidence handoff and restore integrity
+
+- Added complete receipt ZIP export with all revisions/files, a manifest, access checks, integrity checks and an audited snapshot. Added a standalone archive verifier that does not extract files.
+- Made local backup restoration atomic: malformed content, conflicting IDs and storage failures leave the queue unchanged; matching records retain upload progress.
+- Validation: 263 Python tests passed (one PostgreSQL opt-in test skipped in the default run); all 28 receiving tests passed on PostgreSQL. Chromium, Firefox and WebKit passed ZIP download/verification and atomic restore fault injection. No external deployment or pilot is claimed.
+
+---
+
 ## 2026-11-02 · Receiving workflow continuation
 
 - Added exact plan/actual totals for partial receipts, closed-plan review and a coordinator pilot coverage report/export.

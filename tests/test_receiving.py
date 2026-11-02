@@ -405,3 +405,75 @@ def test_coverage_report_excludes_sim_and_preserves_denominator_context(receivin
     assert client.get('/receiving/metrics',headers=auth('receiver'),params=params).status_code==403
     params['end']='2026-11-03T00:00:00'
     assert client.get('/receiving/metrics',headers=auth(),params=params).status_code==422
+
+
+def test_bundle_contains_all_revisions_and_verified_attachment_bytes(receiving, tmp_path):
+    import hashlib
+    import json
+    import zipfile
+    from scripts.verify_receipt_bundle import verify
+    client,auth,*_=receiving
+    body,packet=record(receiving)
+    old_media=attach(receiving,packet);confirm(receiving,packet)
+    correction={'operation_id':str(uuid4()),'expected_revision':1,'reason':'Reweighed delivery','payload':body['payload']}
+    revised=client.post(f"/receiving/receipts/{packet['receipt_id']}/corrections",headers=auth('receiver'),json=correction).json()['receipt']
+    new_media=attach(receiving,revised)
+    response=client.get(f"/receiving/receipts/{packet['receipt_id']}/bundle",headers=auth('viewer'))
+    assert response.status_code==200 and response.headers['content-type']=='application/zip'
+    assert response.headers['cache-control']=='no-store'
+    path=tmp_path/'receipt.zip';path.write_bytes(response.content)
+    assert verify(path)['attachments']==2 and verify(path)['revisions']==2
+    with zipfile.ZipFile(path) as archive:
+        manifest=json.loads(archive.read('manifest.json'))
+        exported=json.loads(archive.read('receipt.json'))
+        assert exported['revisions'][0]['superseded'] and exported['revisions'][0]['attestations']
+        assert not exported['current']['attestations']
+        for number,media in [(1,old_media),(2,new_media)]:
+            name=f"attachments/revision-{number}/{media['id']}.png"
+            assert archive.read(name)==PNG
+            entry=next(f for f in manifest['files'] if f['path']==name)
+            assert entry['sha256']==hashlib.sha256(PNG).hexdigest()
+    audit=client.get('/receiving/audit',headers=auth()).json()['events']
+    event=next(e for e in audit if e['action']=='receipt.bundle_exported')
+    assert event['details']['attachments']==2 and event['details']['revision']==2
+
+
+def test_bundle_checks_access_corruption_and_size_before_export(receiving, temp_db, monkeypatch):
+    import api.routers.receiving as receiving_router
+    client,auth,actors,*_=receiving
+    _,packet=record(receiving);media=attach(receiving,packet)
+    route=f"/receiving/receipts/{packet['receipt_id']}/bundle"
+    other=client.post('/receiving/sites',json={'name':'Other site'}).json()
+    viewer=client.post(f"/receiving/sites/{other['id']}/actors",json={'name':'Other viewer','role':'viewer'}).json()
+    assert client.get(route,headers={'Authorization':'Bearer '+viewer['credential']}).status_code==404
+    assert client.get(route,headers={'Authorization':'Bearer invalid'}).status_code==401
+    monkeypatch.setattr(receiving_router,'MAX_BUNDLE_BYTES',1)
+    assert client.get(route,headers=auth()).status_code==413
+    monkeypatch.setattr(receiving_router,'MAX_BUNDLE_BYTES',100*1024*1024)
+    with temp_db['Session']() as db:
+        item=db.get(temp_db['models'].ReceiptAttachment,media['id']);item.content=PNG+b'tampered';db.commit()
+    assert client.get(route,headers=auth()).status_code==409
+    assert not any(e['action']=='receipt.bundle_exported' for e in client.get('/receiving/audit',headers=auth()).json()['events'])
+
+
+def test_bundle_verifier_rejects_tampering_and_unsafe_paths(receiving, tmp_path):
+    import io
+    import zipfile
+    from scripts.verify_receipt_bundle import verify
+    client,auth,*_=receiving
+    _,packet=record(receiving);attach(receiving,packet)
+    response=client.get(f"/receiving/receipts/{packet['receipt_id']}/bundle",headers=auth())
+    assert response.status_code==200
+    with zipfile.ZipFile(io.BytesIO(response.content)) as original:
+        entries={name:original.read(name) for name in original.namelist()}
+    changed=tmp_path/'changed.zip'
+    with zipfile.ZipFile(changed,'w') as archive:
+        for name,content in entries.items():
+            archive.writestr(name,b'changed bytes' if name.startswith('attachments/') else content)
+    with pytest.raises(ValueError,match='digest mismatch'):
+        verify(changed)
+    unsafe=tmp_path/'unsafe.zip'
+    with zipfile.ZipFile(unsafe,'w') as archive:
+        archive.writestr('../outside.txt','never extract')
+    with pytest.raises(ValueError,match='Unsafe'):
+        verify(unsafe)
