@@ -5,6 +5,7 @@ __pycache__/
 ml/artifacts/
 data/customer_uploads/
 .env
+.env.customer
 .venv/
 venv/
 .DS_Store

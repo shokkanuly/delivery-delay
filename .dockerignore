@@ -4,6 +4,9 @@ __pycache__/
 *.sqlite3
 ml/artifacts/
 .env
+.env.customer
+var/
+test-results/
 .venv/
 venv/
 .git/

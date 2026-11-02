@@ -45,5 +45,62 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config -q
+          docker compose --env-file .env.customer.example -f docker-compose.customer.yml config -q
       - name: Build the image
         run: docker build -t delivery-delay:ci .
+
+  receiving-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m scripts.verify_receiving_browser
+        env:
+          OMP_NUM_THREADS: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: receiving-browser-evidence
+          path: test-results/receiving/
+
+  receiving-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sitepulse_test
+          POSTGRES_PASSWORD: ci-only-test-password
+          POSTGRES_DB: sitepulse_tests
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sitepulse_test -d sitepulse_tests"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      OMP_NUM_THREADS: "1"
+      SITEPULSE_TEST_RECEIVING_POSTGRES_URL: postgresql+psycopg://sitepulse_test:ci-only-test-password@localhost:5432/sitepulse_tests
+      SITEPULSE_TEST_POSTGRES_URL: postgresql+psycopg://sitepulse_test:ci-only-test-password@localhost:5432/sitepulse_migrations
+      SITEPULSE_TEST_RESTORE_URL: postgresql+psycopg://sitepulse_test:ci-only-test-password@localhost:5432/sitepulse_restore
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Install backup clients and create empty rehearsal targets
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python - <<'PY'
+          import psycopg
+          with psycopg.connect('postgresql://sitepulse_test:ci-only-test-password@localhost:5432/sitepulse_tests', autocommit=True) as conn:
+              conn.execute('CREATE DATABASE sitepulse_migrations')
+              conn.execute('CREATE DATABASE sitepulse_restore')
+          PY
+      - run: python -m pytest tests/test_receiving.py tests/test_receiving_operations.py -q
