@@ -9,6 +9,9 @@ data/customer_uploads/
 venv/
 .DS_Store
 var/audits/
+var/receiving/
+var/backups/
+test-results/
 
 # Local verification and editor caches
 .pytest_cache/

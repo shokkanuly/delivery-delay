@@ -46,6 +46,6 @@ def get_session():
 
 
 def init_db() -> None:
-    """Create tables. Imports models so the mappers are registered first."""
-    import db.models  # noqa: F401
-    Base.metadata.create_all(bind=engine)
+    """Upgrade the schema without silently losing existing customer records."""
+    from db.migrate import upgrade
+    upgrade(engine)
