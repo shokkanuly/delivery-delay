@@ -1,15 +1,16 @@
 # CLAUDE.md — SitePulse (repo: shokkanuly/delivery-delay)
 
-SitePulse's proposed next product is delivery evidence for one construction site: plan → record arrival and
-quantity → named receiver confirmation/dispute → review and export. The current application remains the
-historical-audit prototype with signed arrival/ML and scheduling primitives. No new receiving flow has been
-implemented by the November planning pass. No customers are established in the repository; bundled data is synthetic.
+SitePulse now includes delivery receiving at `/receive`: plan → record arrival and quantity →
+named confirmation/dispute → review and export. The historical-audit prototype and signed arrival/ML
+contracts remain. Customer mode serves only the receiving surface and disables demo seeding.
+Bundled data and implementation rehearsals are synthetic; no completed customer pilot is established.
 
-**Current product plan:** `docs/plans/delivery-evidence-reshape.md`, `docs/PRD.md` and `ROADMAP.md`.
-The user requested product planning and an implementation roadmap first; this revision does not start engineering.
-For future authorised implementation, follow the new backlog's dependencies, verify one bounded slice at a time,
-and record checks and remaining limitations. `docs/plans/mvp-reshape.md` retains completed October work and history;
-its unfinished stage order is superseded. Existing architecture and claim-integrity rules below still apply.
+**Current implementation:** `docs/IMPLEMENTATION_STATUS.md`, `docs/RECEIVING_RUNBOOK.md`.
+**Product scope and remaining gates:** `docs/plans/delivery-evidence-reshape.md`, `docs/PRD.md`, `ROADMAP.md`.
+The user authorised full implementation after the planning pass. Alembic, the offline IndexedDB/service-worker
+pattern, Playwright verification and Caddy customer-stack configuration were selected within that scope.
+E7–E9 remain disabled by default pending their real-world gates. Read the status before assuming deployment
+or field validation is complete. October's `docs/plans/mvp-reshape.md` remains historical.
 
 ## Commands
 ```bash
@@ -27,8 +28,7 @@ docker compose up --build                  # Postgres + seed/train + API + dashb
    `requests`, `api` or `dashboard` imports (`tests/test_layering.py` fails otherwise).
 2. **One router per domain** in `api/routers/<domain>.py`; `api/main.py` only wires routers. Pydantic models live in
    `api/schemas.py`.
-3. **One schema of record:** `db/models.py`. SQLite locally, Postgres via `DATABASE_URL`. New backlog E1 must
-   establish migrations before schema changes; the earlier Stage 5 was not completed by this planning pass.
+3. **One schema of record:** `db/models.py`. SQLite locally, Postgres via `DATABASE_URL`. Alembic migrations now own schema changes; never rely on `create_all` for evolving customer schemas.
 4. **Features are causal** (supplier stats only from deliveries completed before the order) and **prediction is
    stateless** from the frozen snapshot in the artifact (ADR 0001). Never query the DB from `ml.predict`.
 5. **No double-booking** is an invariant of the scheduler; any new booking path re-checks overlap.
@@ -38,13 +38,11 @@ docker compose up --build                  # Postgres + seed/train + API + dashb
    signed (`api/signing.py`); secrets only via env (`.env.example` lists them); never commit `.env`, `*.db`,
    `ml/artifacts/*.joblib` from a customer.
 8. **Customer data stays in Kazakhstan** (or on the customer's server). Render is for the synthetic demo only.
-9. **The HTML console (`static/index.html`) is the product UI**; Streamlit is an internal analyst view. Add product
-   views to the console following its existing view pattern; Russian UI text.
+9. **The HTML console (`static/index.html`) is the product UI**; Streamlit is an internal analyst view. The receiving surface is `static/receiving.html`, linked from the legacy console and served as customer root; Russian UI text. Keep its offline shell separate from public demo APIs.
 
 ## Working rules for Claude Code
 - Run `git status` before editing; another session may be working here.
-- Match existing naming and structure; no new library, framework or pattern without asking (the plan marks the ones
-  that need a yes: Alembic, openpyxl, Caddy).
+- Match existing naming and structure; reuse the selected stack. Alembic/Caddy/Playwright were selected for the authorised receiving implementation; unrequested expansions still need a concrete use case.
 - Every new pure function gets a known-answer test; every new endpoint gets an API test using the fixtures in
   `tests/conftest.py` (`api_client`, `seeded_client`, `temp_db`).
 - Do not call a task done until its tests ran; report "untested" otherwise.

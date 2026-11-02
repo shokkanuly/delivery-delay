@@ -11,18 +11,19 @@
 **[Try the demo](https://logistics-api-production-2e47.up.railway.app/#audit) · [3-minute judge guide](docs/JUDGES.md) · [Research → decisions](docs/RESEARCH.md)**
 </div>
 
-## Proposed next product: delivery evidence at the site
+## Delivery evidence at the site
 
-The **2 November 2026 product plan** centres on one construction site's receiving workflow:
-planned delivery → arrival and quantity evidence → named receiver confirmation or dispute →
-traceable receipt packet. Historical audits remain useful; document reconciliation, bank data
-sharing and energy measurement follow validation gates.
+The receiving workflow is implemented locally at **`/receive`**: plan a delivery, record arrival
+and quantity, attach evidence, confirm or dispute the exact revision, and review/export its history.
+Offline drafts and media survive reload, interrupted uploads retry without duplicates, and corrections
+preserve earlier confirmations. Named access is scoped to a site. Optional document matching,
+read-only evidence grants and human-approved resource slots are disabled by default.
 
-**This is the next product plan, not functionality shipped in this revision.** The current
-prototype and synthetic demo are described below. Start with the [new product scope](docs/PRD.md),
-[90-day roadmap](ROADMAP.md), [implementation backlog](docs/plans/delivery-evidence-reshape.md)
-and [30-day pilot protocol](docs/PILOT_PROPOSAL.md). The supplied
-[research packet](docs/research/README.md) is retained with its verification limits.
+**Software rehearsed with synthetic data; no customer deployment or completed field pilot is claimed.**
+Start with the [implementation status](docs/IMPLEMENTATION_STATUS.md), [receiving runbook](docs/RECEIVING_RUNBOOK.md),
+[product scope](docs/PRD.md), [roadmap](ROADMAP.md) and [30-day pilot protocol](docs/PILOT_PROPOSAL.md).
+The supplied [research packet](docs/research/README.md) is retained with its verification limits.
+The public demo links below refer to the historical audit prototype; these local changes have not been pushed or deployed.
 
 ## One export. One site. A supplier scorecard you can inspect.
 
@@ -61,9 +62,9 @@ real customer data requires the Kazakhstan/on-prem deployment described in the p
 | Supplier and supplier × material scorecards | Delivery counts, on-time share, Wilson 95% interval, late-day median/p90 and a shared 90-day trend. |
 | Historical model comparison | Chronological 70/30 split; date ties stay together; unresolved training outcomes are purged. Risk bands appear only if the model beats the supplier-average baseline. |
 | Exposure in tenge | Required contract/rental inputs; no assumed customer rates. Exposure is not proven savings. |
-| Equipment scheduling and phase checks | CP-SAT no-overlap invariant and deterministic phase-date rules, covered by tests. Fixed-time assignment is implemented; human booking approval is planned. |
+| Equipment scheduling and phase checks | CP-SAT no-overlap invariant and deterministic phase-date rules, covered by tests. Legacy fixed-time assignment remains available; optional receiving slots add human approval and overlap checks. |
 | Arrival evidence loop | Signed, idempotent gate-event intake, review queue, prediction/outcome logs and accuracy endpoints. No connected live gate is claimed. |
-| Next receiving workflow | Migrations, named site access, richer receipt evidence, offline capture and customer hosting remain [planned](ROADMAP.md). Booking approval and outbound notifications follow demonstrated need. |
+| Receiving workflow | Migrations, named access, evidence/revisions, offline capture, confirmation, export and optional extensions implemented; [verification and remaining field gates](docs/IMPLEMENTATION_STATUS.md). Customer stack configuration prepared, not deployed. |
 
 ## Evidence, without inflated claims
 
@@ -104,6 +105,22 @@ generates an ephemeral key for its processes.
 
 Docker alternative: copy `.env.example` to `.env`, set your own admin key, then run
 `docker compose up --build`. Keep `.env`, databases and trained artifacts out of Git.
+
+### Run the receiving rehearsal
+
+With the virtual environment active and dependencies installed:
+
+```bash
+mkdir -p var/receiving
+export DATABASE_URL=sqlite:///./var/receiving/preview.db
+export SITEPULSE_MODE=customer
+python -m scripts.receiving_demo
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8765
+```
+
+Open `http://127.0.0.1:8765/receive`. Enter the private local credential from
+`var/receiving/preview-access.json`. The plans are SIM; no model training is needed.
+See the [runbook](docs/RECEIVING_RUNBOOK.md) for provisioning, customer hosting, flags and recovery.
 
 ## Product and commercial hypothesis
 

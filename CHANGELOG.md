@@ -4,6 +4,16 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## 2026-11-02 · Delivery evidence implementation
+
+- Added a separate site-scoped receiving workflow: named access, plans, arrival/quantity/media, confirmation/dispute, immutable revisions, audit/export, offline draft/media sync and recovery.
+- Added additive migrations, private customer mode, backup/restore tooling and an isolated deployment configuration. Optional document reconciliation, restricted evidence grants and coordinator-approved slots remain disabled by default.
+- Preserved the historical audit, signed gate intake and ML contracts. Updated product scope, roadmap, pilot templates and operator handoff to distinguish software verification from field acceptance.
+- Validation: 257 Python tests passed (one PostgreSQL opt-in test skipped in the default run); 25 PostgreSQL checks plus the additional document-retry regression passed. Chromium offline/recovery and phone-layout rehearsal, Caddy configuration validation, synthetic-report consistency and the ML correctness demo passed.
+- Local implementation only: no push, customer deployment, interviews, physical-phone acceptance or completed 30-day pilot is claimed. See `docs/IMPLEMENTATION_STATUS.md`.
+
+---
+
 ## 2026-10-20 · Research-backed evaluation readiness
 
 - Refocused the README, product scope, pitch and pilot proposal on a one-site supplier audit, with a three-minute judge guide and a research/evidence register.

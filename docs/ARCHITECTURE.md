@@ -1,5 +1,8 @@
 # Architecture & Core Design — SitePulse Platform
 
+Receiving update: see [implementation status](IMPLEMENTATION_STATUS.md) and the
+[receiving operator runbook](RECEIVING_RUNBOOK.md). The sections below retain the legacy audit/ML context.
+
 > This document describes the existing prototype and earlier design rationale. The proposed
 > next product and its code gaps are in the [delivery-evidence plan](plans/delivery-evidence-reshape.md).
 > That planning pass changes no runtime architecture. Future-priority statements below are historical.

@@ -1,12 +1,18 @@
 # SitePulse — delivery-evidence roadmap
 
-Updated 2 November 2026. **Proposed work, not implemented features.**
+Updated 2 November 2026. **Software implemented and locally rehearsed; field/deployment gates remain open.**
+[Current implementation status](docs/IMPLEMENTATION_STATUS.md) · [Operator runbook](docs/RECEIVING_RUNBOOK.md).
 [Product scope](docs/PRD.md) · [Source-backed backlog](docs/plans/delivery-evidence-reshape.md) ·
 [Pilot protocol](docs/PILOT_PROPOSAL.md).
 
 The existing CSV audit, supplier scorecards, historical backtest and exposure calculator remain.
 Signed arrival intake and scheduling are reusable primitives. The new priority is a complete
 receiving workflow that works without a model: **plan → record → confirm/dispute → review → export**.
+
+E1–E6 software foundations are present. E7–E9 have optional implementations behind disabled flags.
+The tables below retain the validation sequence: writing software does not complete V0/V1 or
+justify enabling extensions for a customer. Customer hosting, physical-phone checks and partner
+acceptance remain outstanding.
 
 ## First 90 days, conditional on a pilot host
 
@@ -51,10 +57,10 @@ is preferable to claiming offline readiness or evidence integrity before verific
 
 ## Execution rules
 
-Start engineering with **E1**, then follow dependencies in the detailed backlog. Keep the current
-stack and domain boundaries. The migration, authentication and offline implementation choices
-need concrete review at their slice; this planning pass adds no dependencies and changes no
-runtime behavior. Preserve the legacy ingest contract while introducing richer evidence.
+E1 migrations, scoped named access and a separate offline receiving shell now implement the
+engineering sequence. Keep the current stack/domain boundaries and preserve the legacy ingest
+contract. Finish the host/device/recovery validation before customer intake; extensions remain
+conditional on the detailed backlog's field gates.
 
 The [October plan](docs/plans/mvp-reshape.md) is retained for completed stages/history; its
 uncompleted stage order is superseded. Regulatory dates, program deadlines and rates in the

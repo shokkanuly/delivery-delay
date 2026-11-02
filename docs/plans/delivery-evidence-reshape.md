@@ -1,10 +1,15 @@
 # SitePulse: delivery evidence first
 
-2 November 2026 · Product proposal and implementation backlog · **No application changes implemented by this plan.**
+2 November 2026 · Product proposal and implementation backlog · **Original planning baseline; implementation update below.**
 
 Start with the [product requirements](../PRD.md), [roadmap](../../ROADMAP.md) and
 [pilot protocol](../PILOT_PROPOSAL.md). This plan supersedes the **future work order** in
 [the October plan](mvp-reshape.md); its completed work and historical notes remain valid records.
+
+> Implementation update, 2 November 2026: the user subsequently authorised full software implementation.
+> See [current status](../IMPLEMENTATION_STATUS.md) and [runbook](../RECEIVING_RUNBOOK.md).
+> The code baseline/gaps below describe the original planning snapshot, not the current checkout.
+> Optional E7–E9 software is disabled by default; field and partner gates are not claimed complete.
 
 ## 1. The product decision
 
@@ -169,13 +174,14 @@ has delivered one. Streamlit remains an internal analyst tool.
 
 ## 7. Sequenced implementation backlog
 
-All work below is **not started in this planning pass**. Ownership is a responsibility, not a
+The table below is the original acceptance backlog. Current delivery evidence is recorded in
+[implementation status](../IMPLEMENTATION_STATUS.md); V0/V1 and customer release gates remain open. Ownership is a responsibility, not a
 claim that a team member has been assigned. Finish and verify one bounded slice at a time.
 
 | ID | Owner / dependency | Change boundary | Done when |
 |---|---|---|---|
 | V0 | Founder; first | Discovery and [pilot protocol](../PILOT_PROPOSAL.md) | Observe receiving, complete ≥6 relevant interviews, identify one named host and backup candidate, agree a material family, receiver and denominator. No host: narrow/revise before building field features. |
-| E1 | Backend; V0 | `db/database.py`, models and proposed migration directory | Baseline migration upgrades both a new DB and a populated copy; row counts/references preserved; backup restores; rollback/recovery documented. Alembic is a candidate dependency, not installed here. |
+| E1 | Backend; V0 | `db/database.py`, models and proposed migration directory | Baseline migration upgrades both a new DB and a populated copy; row counts/references preserved; backup restores; rollback/recovery documented. Alembic was subsequently selected and installed; see implementation status. |
 | E2 | Backend + product; E1 | Site/actor access and stable delivery register; `api/security.py`, schemas/models, proposed delivery router | An authorised receiver sees only assigned site data; rejected roles/cross-site IDs cannot read media or export; references can be created without a prediction. Revocation works. |
 | E3 | Backend; E2 | Receipt contract, revisions and attachments; integrations/monitoring seam | Capture a receipt without `PredictionLog`; same-ID retry is idempotent under concurrency; changed-content retry conflicts; partial receipts and unknown refs persist; corrections retain originals; legacy signed intake still passes. |
 | E4 | Frontend + backend; E3 | `static/` phone flow and delivery/exception views; minimal receipt export | Phone user records, confirms/disputes, reviews and exports the current revision; names/units/missing evidence are clear; camera denied and QR unavailable have fallbacks; no secrets appear in URLs or media links. |
@@ -192,8 +198,8 @@ independent of the model. This online slice is a controlled rehearsal; the poor-
 field pilot still requires E5 and E6.
 
 Preserve existing stack/layer boundaries and legacy contracts. Select dependencies when the
-relevant slice has a concrete design; this document authorises no dependency installation or
-production deployment. Do not use a shared role key as a substitute for a named attestation.
+relevant slice has a concrete design; the later implementation instruction authorised the selected software dependencies, but no
+production deployment has been performed. Do not use a shared role key as a substitute for a named attestation.
 
 ## 8. Validation and release evidence
 

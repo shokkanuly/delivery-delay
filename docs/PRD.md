@@ -1,7 +1,6 @@
-# SitePulse — proposed delivery-evidence product
+# SitePulse — delivery-evidence product
 
-Updated 2 November 2026. **Planning only: the running application remains the historical-audit
-prototype.** [Implementation plan](plans/delivery-evidence-reshape.md) ·
+Updated 2 November 2026. **Receiving software implemented and locally rehearsed; customer deployment and field validation remain open.** [Implementation status](IMPLEMENTATION_STATUS.md). [Implementation plan](plans/delivery-evidence-reshape.md) ·
 [Roadmap](../ROADMAP.md) · [Pilot](PILOT_PROPOSAL.md).
 
 ## Product promise
@@ -27,7 +26,7 @@ so the site and office can decide what to accept and what to investigate.
 |---|---|
 | Delivery register | Stable site/delivery IDs; supplier/material lines; quantity and unit; promised date or time window with honest precision. Works without a prediction or 1C integration. |
 | Phone receiving | QR/reference lookup, unexpected-load fallback, arrival claim, observed quantity/condition, photo/ticket and visible location availability. |
-| Named confirmation | Authorised receiver confirms an exact revision/quantity or disputes it. An optional driver acknowledgement is recorded separately. |
+| Named confirmation | Authorised receiver confirms an exact revision/quantity or disputes it. Driver acknowledgement remains a future, separately attributed extension. |
 | Partial receipts | Multiple arrivals per order, accepted vs expected quantities and explicit completion; no automatic conversion of a partial load into full delivery. |
 | Offline capture | After initial online setup, local draft/media survive reload; retries do not duplicate receipts; unsent, failed and conflicting records remain visible. |
 | Today and exceptions | Expected arrivals, missing confirmations, unmatched references and discrepancies. Unknown responsibility remains unknown. |
@@ -49,9 +48,9 @@ limitations. Do not infer fault or fraud from lateness, a mismatch or a missing 
 - Fixed-time equipment scheduling and phase checks as supporting tools, outside the first capture flow.
 - Public synthetic example; the static console is the product and Streamlit the internal analyst surface.
 
-The current gate payload has a date, not the proposed full evidence record, and applies arrivals
-to predictions. Named field confirmation, offline media, evidence packets and migrations are
-planned. See the [source-backed gap table](plans/delivery-evidence-reshape.md#3-code-baseline-and-the-actual-gaps).
+The legacy gate payload remains date-only and applies arrivals to predictions. The new receiving
+contract separately implements named confirmation, offline media, evidence packets and migrations.
+See the historical [source-backed gap table](plans/delivery-evidence-reshape.md#3-code-baseline-and-the-actual-gaps).
 
 ## Not in the first release
 

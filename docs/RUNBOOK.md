@@ -1,4 +1,7 @@
 # Operations & SRE Runbook
+
+Receiving update: see [implementation status](IMPLEMENTATION_STATUS.md) and the
+[receiving operator runbook](RECEIVING_RUNBOOK.md). The sections below retain the legacy audit/ML context.
 ## Construction Logistics Platform (SitePulse)
 
 This runbook outlines operational procedures, health monitoring, deployment commands, and incident response runbooks for operating the SitePulse Construction Logistics Platform.
