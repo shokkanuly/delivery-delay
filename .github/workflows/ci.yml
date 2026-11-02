@@ -51,6 +51,10 @@ jobs:
 
   receiving-browser:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -58,14 +62,14 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements-dev.txt
-      - run: python -m playwright install --with-deps chromium
-      - run: python -m scripts.verify_receiving_browser
+      - run: python -m playwright install --with-deps ${{ matrix.browser }}
+      - run: python -m scripts.verify_receiving_browser --browser ${{ matrix.browser }}
         env:
           OMP_NUM_THREADS: "1"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: receiving-browser-evidence
+          name: receiving-browser-evidence-${{ matrix.browser }}
           path: test-results/receiving/
 
   receiving-postgres:

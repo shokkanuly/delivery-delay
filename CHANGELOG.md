@@ -4,6 +4,15 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## 2026-11-02 · Receiving workflow continuation
+
+- Added exact plan/actual totals for partial receipts, closed-plan review and a coordinator pilot coverage report/export.
+- Fixed corrections losing their plan association after closure, optional persistence permission failures obscuring successful saves, and stale private views on account/site changes.
+- Replaced new IndexedDB photo Blob storage with bytes after a WebKit failure; retained compatibility with old drafts. Expanded browser rehearsals and CI to three engines.
+- Validation: 260 Python tests passed, one opt-in PostgreSQL test skipped in the default run; all 25 receiving tests passed on PostgreSQL. Chromium, Firefox and WebKit rehearsals passed, including pending/denied persistence prompts. Field/deployment gates are unchanged.
+
+---
+
 ## 2026-11-02 · Delivery evidence implementation
 
 - Added a separate site-scoped receiving workflow: named access, plans, arrival/quantity/media, confirmation/dispute, immutable revisions, audit/export, offline draft/media sync and recovery.

@@ -8,7 +8,7 @@ The authorised implementation follows the [product plan](plans/delivery-evidence
 | Backlog | Implementation | Remaining release evidence |
 |---|---|---|
 | E1 | Alembic baseline and additive receiving migrations; populated legacy upgrade; SQLite and PostgreSQL recovery tooling | Rehearse against the actual customer's backup before upgrading that installation |
-| E2 | Named coordinator/receiver/viewer credentials, site scope, revocation, plans independent of predictions | Named site owner, account handover and access review |
+| E2 | Named coordinator/receiver/viewer credentials, site scope, revocation, plans independent of predictions and exact totals across partial receipts | Named site owner, account handover and access review |
 | E3 | Arrival/quantity/condition, optional location, private media, partial acceptance, append-only revisions, concurrent idempotent retries, audit events | Validate actual receiver workflow and evidence policy |
 | E4 | Russian desktop/phone receiving UI at `/receive`; reference/QR fallback; confirmation/disputes, exceptions, export/print, explicit plan closure | Physical pilot-phone and user acceptance checks |
 | E5 | Offline shell, IndexedDB draft/media persistence, interrupted-sync retry, visible conflicts/storage errors, draft export/import | Browser storage eviction and actual device/network conditions remain field checks; local storage is not a backup guarantee |
@@ -16,7 +16,7 @@ The authorised implementation follows the [product plan](plans/delivery-evidence
 | E7 | Optional manual document entry and exact line matching against accepted current revisions, split receipts and multiple-document review | Accountant's permitted samples, allocation decisions and handling-time comparison |
 | E8 | Optional revision-specific read-only evidence grants, consent reference, expiry/revocation, redaction and access logs | Named recipient, approved fields/consent and evaluation of a real authorised packet |
 | E9 | Optional physical-resource requests and coordinator approval/move/cancel; overlap locking, in-app notifications, supplier arrival history with intervals | Repeated operational demand and field data; no outbound messaging or autonomous booking |
-| V0 / V1 | Pilot protocol and blank collection templates prepared | Interviews, host agreement, independent arrivals register, 30-day pilot and commercial decision are **not performed** |
+| V0 / V1 | Pilot protocol, blank collection templates and coordinator coverage-report UI/export prepared | Interviews, host agreement, independent arrivals register, 30-day pilot and commercial decision are **not performed** |
 
 E7–E9 are **disabled by default**. Their software can be rehearsed with synthetic data; customer use still depends on the roadmap gates. No bank integration, payment release, state-system submission, hardware pilot or customer traction is claimed.
 
@@ -24,17 +24,25 @@ E7–E9 are **disabled by default**. Their software can be rehearsed with synthe
 
 Local checks on Python 3.12 and PostgreSQL 16.15:
 
-- **257 passed, 1 skipped** in the complete Python suite (the opt-in PostgreSQL migration test runs separately); legacy signed ingest, scheduling, layering and claim guards remain included.
-- Receiving API suite on both SQLite and PostgreSQL: **22 receiving API tests passed on each database**, including simultaneous duplicate receipts/corrections, cross-site media denial, credential revocation, revision/decision conflicts and simultaneous overlapping slot approvals.
+- **260 passed, 1 skipped** in the complete Python suite (the opt-in PostgreSQL migration test runs separately); legacy signed ingest, scheduling, layering and claim guards remain included.
+- Receiving suite on both SQLite and PostgreSQL: **25 tests passed on each database**, including simultaneous duplicate receipts/corrections, cross-site media denial, credential revocation, revision/decision conflicts and simultaneous overlapping slot approvals.
 - **25 PostgreSQL receiving/operations checks passed in the combined run**, plus the added concurrent document-retry regression passed separately. This included a real dump/restore test for a receipt, its revision and exact attachment bytes. The legacy migration canary and metadata comparison also passed. SQLite restore/tamper/overwrite guards are covered in the suite.
-- Chromium browser → API → database rehearsal passed: login, resource approval, document entry, denied GPS, injected storage-quota failure without clearing the form, offline capture/reload, interrupted file upload, partial acceptance, corrections, draft backup/restore, credential-free caches and revoked access.
-- Browser screenshots and report are generated into ignored `test-results/receiving/`; run `python -m scripts.verify_receiving_browser` to reproduce. All rehearsal records are synthetic, including tests that exercise `REAL` eligibility branches.
+- Chromium, Firefox and WebKit browser → API → database rehearsals passed: login, resource approval, document entry, denied GPS, injected storage-quota failure without clearing the form, offline capture/reload, interrupted file upload, partial acceptance, corrections, draft backup/restore, credential-free caches and revoked access.
+- Browser screenshots and reports are generated into ignored `test-results/receiving/` (Firefox/WebKit have their own subdirectories); run `python -m scripts.verify_receiving_browser` to reproduce. All rehearsal records are synthetic, including tests that exercise `REAL` eligibility branches.
 - Caddy validated the customer TLS/proxy configuration locally; Compose and CI YAML parsed. Actual certificates, container startup and host networking remain deployment checks.
 - CI configuration adds browser artifacts and PostgreSQL migration/recovery checks. Remote CI has not been run by this local session.
 
 These checks do not establish legal validity, independent physical-delivery proof, a production SLA, measured savings or real-world model performance.
 
 Core implementation commit: `6ec046b`. Deployment/recovery tooling commit: `a77474a`.
+
+## Continuation: coordinator workflow and browser recovery
+
+- Added plan/actual cards with observed, accepted and remaining quantities across current revisions. Confirmed acceptance alone contributes to fulfilment. Units/materials stay separate; plan closure is an explicit coordinator decision.
+- Correcting a receipt retains its plan even when that plan is closed or outside the recent 200-plan list. Closed plans remain accessible from Today. Correcting a load removes superseded acceptance from plan totals.
+- Added the coordinator's pilot-report screen with an independent denominator/register reference, explicit period, SIM exclusion and a downloadable report containing the site and calculation time. This is a reporting tool, not evidence that the pilot happened.
+- WebKit rejected IndexedDB Blob/File persistence in the rehearsal. New drafts store ArrayBuffer photo bytes; old v1 Blob drafts remain supported and were exercised in Chromium. Optional browser persistence permission failure or an unanswered prompt no longer delays acknowledgement of a successfully saved draft.
+- Switching person/site clears prior reports, capture fields and visible drafts. Cross-browser verification is now configured in CI for Chromium, Firefox and WebKit; local status is stated above, remote CI remains unrun.
 
 ## Operating limits
 

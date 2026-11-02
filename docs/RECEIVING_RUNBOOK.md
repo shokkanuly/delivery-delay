@@ -18,7 +18,7 @@ Open `http://127.0.0.1:8765/receive`. The demo helper creates three clearly labe
 
 Before updating the application, sync or export local drafts, then close receiving tabs and reopen them so the new versioned offline shell can activate. Do not clear browser storage to update.
 
-The static legacy console links to `/receive`. In customer mode the root URL opens receiving. `/readyz` checks database connectivity without requiring a trained model. Credentials stay in memory and must be re-entered after a reload. Drafts and media remain in the browser's IndexedDB.
+The static legacy console links to `/receive`. In customer mode the root URL opens receiving. `/readyz` checks database connectivity without requiring a trained model. Credentials stay in memory and must be re-entered after a reload. Drafts and media remain in the browser's IndexedDB. New media are stored as binary bytes for browser compatibility; existing Blob-based drafts remain readable. Optional storage-persistence prompts do not block acknowledgement after a successful local save.
 
 For synthetic extension rehearsals, set the flags before starting:
 
@@ -97,11 +97,14 @@ Prefer forward fixes. Never downgrade receiving migrations on a live database: r
 3. Save on device. Keep the page/form open if storage reports failure. A saved local draft is not yet on the server. Export private draft backups during a prolonged outage.
 4. Send drafts after reconnecting and signing in. Interrupted file uploads retry with stable IDs/hashes. A conflict remains visible; inspect the current server revision, then make a reasoned correction. Never clear browser storage to “fix” an unsent record.
 5. Open the receipt, inspect files and confirm accepted quantities or dispute. A correction preserves the previous record and needs current files and a new confirmation. Partial acceptance remains a discrepancy. Closing a plan is a separate coordinator decision.
-6. Export the packet/print view and download attachments when needed. The JSON includes hashes and attachment metadata, not embedded photo bytes. Export is access-controlled and audited. Keep downloaded files private.
+6. Open «План / факт» to inspect totals across partial loads. Only accepted quantities on currently confirmed revisions count toward the plan. Different units/materials remain separate. Use the coordinator decision form to complete or cancel the plan with a reason; quantity equality does not close it automatically. Closed plans remain in the Today archive, and later corrections preserve the plan association.
+7. Export the packet/print view and download attachments when needed. The JSON includes hashes and attachment metadata, not embedded photo bytes. Export is access-controlled and audited. Keep downloaded files private.
 
 Browsers may evict local storage. The app does not promise survival after device loss, user deletion or browser eviction. A backup file is limited to 100 records/100 MiB; use «Скачать копию» on individual rows for a larger queue. Draft backup import preserves operation IDs and media, and only imports into the same actor/site profile. Revocation blocks upload while leaving drafts locally recoverable. Device timezone/clock and weak connectivity can affect observed time; server receipt time and clock warnings remain separate.
 
 ## Coverage and optional sharing
+
+The coordinator can open «Отчёт пилота», select a period, supply the independently observed arrival count/register reference, and download the report. Inputs use the device timezone; the request carries explicit offsets. The report includes the site ID and calculation time and describes the current revision/confirmation state. The same calculation is available via API.
 
 `GET /receiving/metrics` requires coordinator auth, timezone-aware `start`/`end` (exclusive end, at most 93 days), `eligible_arrivals` and `register_reference`. Supply the independent gate register, reconcile duplicate physical arrivals, and include unrecorded arrivals in the denominator. SIM records are excluded. The endpoint reports recorded and complete-confirmed coverage; it does not measure capture duration or savings. Record burden and discrepancy outcomes separately in the pilot register.
 
@@ -113,9 +116,13 @@ Document reconciliation compares exact line IDs/materials/units with accepted qu
 python -m pytest -q
 python -m scripts.build_demo_report --check
 pip install -r requirements-dev.txt
-python -m playwright install chromium
-python -m scripts.verify_receiving_browser
+python -m playwright install chromium firefox webkit
+python -m scripts.verify_receiving_browser --browser chromium
+python -m scripts.verify_receiving_browser --browser firefox
+python -m scripts.verify_receiving_browser --browser webkit
 ```
+
+Browser runs use disposable synthetic databases and isolated profiles. On macOS the Firefox test additionally uses a fresh app-data directory, separate from personal Firefox state ([upstream issue](https://github.com/microsoft/playwright/issues/42768)). It does not change system permissions or personal browser settings. Playwright WebKit is engine coverage, not physical iPhone/Safari acceptance.
 
 PostgreSQL test opt-ins: `SITEPULSE_TEST_RECEIVING_POSTGRES_URL` allows disposable random schemas; `SITEPULSE_TEST_POSTGRES_URL` must be an empty migration-rehearsal DB; `SITEPULSE_TEST_RESTORE_URL` must be an empty restore DB. Never point them at customer data. CI declares isolated services for these checks.
 

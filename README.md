@@ -16,7 +16,8 @@
 The receiving workflow is implemented locally at **`/receive`**: plan a delivery, record arrival
 and quantity, attach evidence, confirm or dispute the exact revision, and review/export its history.
 Offline drafts and media survive reload, interrupted uploads retry without duplicates, and corrections
-preserve earlier confirmations. Named access is scoped to a site. Optional document matching,
+preserve earlier confirmations. Named access is scoped to a site. Coordinators can review totals across
+partial receipts and export coverage reports against an independent arrivals register. Optional document matching,
 read-only evidence grants and human-approved resource slots are disabled by default.
 
 **Software rehearsed with synthetic data; no customer deployment or completed field pilot is claimed.**

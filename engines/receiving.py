@@ -56,3 +56,33 @@ def reconciliation(lines: list[dict], received: list[dict]) -> list[dict]:
             result.append({"line_id": line["line_id"], "status": "missing_document_line",
                            "declared_quantity": None, "received_quantity": line["quantity"]})
     return result
+
+
+def plan_progress(planned_lines: list[dict], receipts: list[dict]) -> dict:
+    """Sum current receipts by exact line/material/unit; confirmed quantities alone fulfil a plan."""
+    expected = {(x['line_id'], x['material'], x['unit']): x for x in planned_lines}
+    totals = {key: [Decimal(0), Decimal(0)] for key in expected}
+    pending = 0
+    for receipt in receipts:
+        decision = receipt.get('decision')
+        confirmed = decision is not None and decision['decision'] == 'confirmed'
+        pending += int(not confirmed)
+        accepted = {x['line_id']: Decimal(x['quantity']) for x in decision['accepted']} if confirmed else {}
+        for line in receipt['payload']['lines']:
+            key = (line['line_id'], line['material'], line['unit'])
+            values = totals.setdefault(key, [Decimal(0), Decimal(0)])
+            values[0] += Decimal(line['quantity'])
+            values[1] += accepted.get(line['line_id'], Decimal(0))
+    rows = []
+    for key, (observed, accepted) in totals.items():
+        planned = Decimal(expected[key]['quantity']) if key in expected else None
+        status = ('unexpected_material_or_unit' if planned is None else 'matched' if accepted == planned
+                  else 'over_accepted' if accepted > planned else 'partial' if accepted > 0 else 'not_accepted')
+        rows.append({'line_id': key[0], 'material': key[1], 'unit': key[2],
+                     'planned_quantity': str(planned) if planned is not None else None,
+                     'observed_quantity': str(observed), 'accepted_quantity': str(accepted),
+                     'remaining_quantity': str(max(planned - accepted, Decimal(0))) if planned is not None else None,
+                     'status': status})
+    return {'lines': rows, 'receipt_count': len(receipts), 'pending_receipts': pending,
+            'quantities_match': all(row['status'] == 'matched' for row in rows),
+            'notice': 'Current revisions only. Acceptance requires a confirmed decision. Units/materials are never converted; matching totals do not automatically close a plan.'}

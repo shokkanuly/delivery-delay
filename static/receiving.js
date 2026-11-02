@@ -79,19 +79,18 @@
   }
   function renderPlanSelect() {
     const selected=$('capture-plan').value;
-    $('capture-plan').innerHTML='<option value="">Не найден / вне плана</option>'+state.plans.filter(p=>p.status==='expected').map(p=>`<option value="${esc(p.id)}">${esc(p.reference)} · ${esc(p.supplier)} · ${esc(p.provenance)}</option>`).join('');
+    $('capture-plan').innerHTML='<option value="">Не найден / вне плана</option>'+state.plans.filter(p=>p.status==='expected'||p.id===state.correction?.payload.plan_id).map(p=>`<option value="${esc(p.id)}">${esc(p.reference)} · ${esc(p.supplier)} · ${esc(p.provenance)}</option>`).join('');
     if([...$('capture-plan').options].some(o=>o.value===selected))$('capture-plan').value=selected;
     $('document-plan').innerHTML=state.plans.map(p=>`<option value="${esc(p.id)}">${esc(p.reference)} · ${esc(p.supplier)}</option>`).join('');
   }
   function planDate(p) {return p.promised_date || `${dateText(p.window_start)} – ${dateText(p.window_end)}`;}
   function renderPlans() {
     const active=state.plans.filter(p=>p.status==='expected');
-    $('plan-list').innerHTML=active.length ? `<div class="table-wrap"><table><thead><tr><th>ПОСТАВКА / ПОСТАВЩИК</th><th>МАТЕРИАЛ</th><th>ОЖИДАЕТСЯ</th><th>ИСТОЧНИК</th><th></th></tr></thead><tbody>${active.map(p=>`<tr><td><strong>${esc(p.reference)}</strong><small>${esc(p.supplier)}</small></td><td>${p.lines.map(l=>`${esc(l.material)} · ${esc(l.quantity)} ${esc(l.unit)}`).join('<br>')}</td><td>${esc(planDate(p))}</td><td>${badge(p.provenance,p.provenance==='SIM'?'sim':'')}</td><td><button class="row-button" data-capture-plan="${esc(p.id)}">Принять →</button>${state.actor?.role==='coordinator'?`<button class="row-button" data-close-plan="${esc(p.id)}">Закрыть план</button>`:''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><strong>Нет ожидаемых поставок</strong>Координатор может добавить план. Прибытие вне плана тоже можно записать.</div>';
+    $('plan-list').innerHTML=active.length ? `<div class="table-wrap"><table><thead><tr><th>ПОСТАВКА / ПОСТАВЩИК</th><th>МАТЕРИАЛ</th><th>ОЖИДАЕТСЯ</th><th>ИСТОЧНИК</th><th></th></tr></thead><tbody>${active.map(p=>`<tr><td><strong>${esc(p.reference)}</strong><small>${esc(p.supplier)}</small></td><td>${p.lines.map(l=>`${esc(l.material)} · ${esc(l.quantity)} ${esc(l.unit)}`).join('<br>')}</td><td>${esc(planDate(p))}</td><td>${badge(p.provenance,p.provenance==='SIM'?'sim':'')}</td><td><button class="row-button" data-capture-plan="${esc(p.id)}">Принять →</button><button class="row-button" data-open-plan="${esc(p.id)}">План / факт</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><strong>Нет ожидаемых поставок</strong>Координатор может добавить план. Прибытие вне плана тоже можно записать.</div>';
     $('plan-list').querySelectorAll('[data-capture-plan]').forEach(b=>b.addEventListener('click',()=>{resetCapture();$('capture-plan').value=b.dataset.capturePlan;fillFromPlan();show('capture');}));
-    $('plan-list').querySelectorAll('[data-close-plan]').forEach(b=>b.addEventListener('click',async()=>{
-      const reason=prompt('Причина закрытия плана (не менее 3 символов). Частичные приёмки не означают выполнение всего плана.');if(!reason)return;
-      try{await api(`/plans/${b.dataset.closePlan}/status`,{method:'POST',body:{status:'completed',reason}});await refresh();message('План закрыт координатором. Исходные приёмки сохранены.');}catch(e){message(errorText(e),true);}
-    }));
+    const closed=state.plans.filter(p=>p.status!=='expected');
+    $('closed-plan-list').innerHTML=closed.length?closed.map(p=>`<div class="file-row"><span>${esc(p.reference)} · ${esc(p.supplier)} · ${esc(labels[p.status])}</span><button class="row-button" data-open-plan="${p.id}">План / факт</button></div>`).join(''):'<p class="muted">Закрытых планов нет.</p>';
+    for(const container of ['plan-list','closed-plan-list'])$(container).querySelectorAll('[data-open-plan]').forEach(b=>b.addEventListener('click',()=>openPlan(b.dataset.openPlan).catch(e=>message(errorText(e),true))));
     renderPlanSelect();
   }
   function renderReceipts() {
@@ -114,6 +113,7 @@
   function actorUI() {
     $('site-name').textContent=state.actor.site.name;$('actor-label').textContent=state.actor.name;
     $('sign-out').hidden=false;$('plan-editor').hidden=state.actor.role!=='coordinator';
+    $('coverage-nav').hidden=state.actor.role!=='coordinator';
     $('documents-nav').hidden=!state.actor.features?.reconciliation;
     $('slots-nav').hidden=!state.actor.features?.operations;
     $('notifications-panel').hidden=!state.actor.features?.operations;
@@ -121,22 +121,25 @@
     $('slot-editor').hidden=state.actor.role==='viewer';
     $('capture-form').querySelector('button[type=submit]').disabled=state.actor.role==='viewer';
   }
+  function clearRemoteViews() {
+    for(const id of ['receipt-detail','plan-detail','coverage-result','document-list','notification-list','supplier-history','slot-list','plan-list','closed-plan-list','receipt-list','exception-list'])$(id).replaceChildren();
+  }
   $('login-form').addEventListener('submit',async event=>{
     event.preventDefault();state.credential=$('credential').value.trim();$('credential').value='';
-    try{state.actor=await api('/me');await write('context',{id:'lastActor',actor:state.actor});actorUI();$('login-panel').hidden=true;await refresh();await renderQueue();show('today');connection();message('Объект открыт. Локальные записи доступны только для вашего профиля.');}
+    try{const actor=await api('/me');const changed=state.actor?.id!==actor.id;clearRemoteViews();state.actor=actor;if(changed){state.plans=[];state.receipts=[];state.total=0;resetCapture();}await write('context',{id:'lastActor',actor:state.actor});actorUI();$('login-panel').hidden=true;await refresh();await renderQueue();show('today');connection();message('Объект открыт. Локальные записи доступны только для вашего профиля.');}
     catch(e){state.credential='';connection();message(errorText(e),true);}
   });
   $('sign-out').addEventListener('click',async()=>{
     try{const drafts=await ownDrafts();if(drafts.some(d=>d.status!=='synced')&&!confirm('Есть неотправленные записи. Выйти и оставить их на этом устройстве до следующего входа тем же ключом?'))return;
       await remove('context','lastActor');await remove('context',`plans:${state.actor.site.id}`);
-      state.credential='';state.actor=null;state.plans=[];state.receipts=[];$('login-panel').hidden=false;$('sign-out').hidden=true;
+      clearRemoteViews();state.credential='';state.actor=null;state.plans=[];state.receipts=[];$('login-panel').hidden=false;$('sign-out').hidden=true;
       document.querySelectorAll('.view').forEach(v=>v.hidden=true);$('site-name').textContent='Войдите в свой объект';$('actor-label').textContent='Вход не выполнен';$('queue-count').textContent='0';resetCapture();connection();message('Вы вышли. Неотправленные записи сохранены для прежнего профиля.');
     }catch(e){message(errorText(e),true);}
   });
   $('plan-form').addEventListener('submit',async event=>{
     event.preventDefault();try{const body=Object.fromEntries(new FormData(event.target));body.lines=getLines('plan-lines');await api('/plans',{method:'POST',body});event.target.reset();$('plan-lines').replaceChildren();addLine('plan-lines');await refresh();message('План поставки создан.');}catch(e){message(errorText(e),true);}
   });
-  function resetCapture() {state.correction=null;state.location=null;$('capture-form').reset();$('capture-lines').replaceChildren();addLine('capture-lines');$('observed-at').value=localInput();$('capture-title').textContent='Зафиксировать прибытие';$('correction-reason-label').hidden=true;$('correction-reason').required=false;$('location-status').textContent='Не получена — запись всё равно можно сохранить';}
+  function resetCapture() {state.correction=null;state.location=null;$('capture-form').reset();$('capture-lines').replaceChildren();addLine('capture-lines');$('observed-at').value=localInput();$('capture-title').textContent='Зафиксировать прибытие';$('correction-reason-label').hidden=true;$('correction-reason').required=false;$('location-status').textContent='Не получена — запись всё равно можно сохранить';renderPlanSelect();}
   function fillFromPlan() {
     const plan=state.plans.find(p=>p.id===$('capture-plan').value);if(!plan)return;
     $('capture-ref').value=plan.reference;$('capture-provenance').value=plan.provenance;$('capture-lines').replaceChildren();plan.lines.forEach(l=>addLine('capture-lines',l));
@@ -157,10 +160,24 @@
       const operationId=crypto.randomUUID();
       const body=state.correction?{operation_id:operationId,expected_revision:state.correction.revision,reason:$('correction-reason').value.trim(),payload}:{receipt_id:crypto.randomUUID(),operation_id:operationId,payload};
       if(state.correction&&body.reason.length<3)throw new Error('Укажите причину исправления.');
-      const draft={id:operationId,actorId:state.actor.id,siteId:state.actor.site.id,body,receiptId:state.correction?.receiptId||body.receipt_id,correction:!!state.correction,files:files.map(f=>({name:f.name,type:f.type,blob:f})),uploadedFiles:[],status:'local',savedAt:new Date().toISOString(),error:null};
-      await write('drafts',draft);await navigator.storage?.persist?.();resetCapture();await renderQueue();show('queue');message('Сохранено на устройстве. Отправьте запись, когда появится связь.');
+      const draft={id:operationId,actorId:state.actor.id,siteId:state.actor.site.id,body,receiptId:state.correction?.receiptId||body.receipt_id,correction:!!state.correction,files:await Promise.all(files.map(evidenceFile)),uploadedFiles:[],status:'local',savedAt:new Date().toISOString(),error:null};
+      await write('drafts',draft);try{Promise.resolve(navigator.storage?.persist?.()).catch(()=>{});}catch{/* Persistence permission is optional; never wait for its prompt after a committed save. */}resetCapture();await renderQueue();show('queue');message('Сохранено на устройстве. Отправьте запись, когда появится связь.');
     }catch(e){message(errorText(e),true);}finally{button.disabled=state.actor?.role==='viewer';}
   });
+  async function evidenceFile(file) {
+    const bytes=await file.arrayBuffer(),b=new Uint8Array(bytes);
+    const isPNG=[137,80,78,71,13,10,26,10].every((v,i)=>b[i]===v);
+    const isPDF=[37,80,68,70,45].every((v,i)=>b[i]===v);
+    const type=isPNG?'image/png':b[0]===255&&b[1]===216&&b[2]===255?'image/jpeg':isPDF?'application/pdf':null;
+    if(!type)throw new Error('Используйте JPEG, PNG или PDF. Файл не распознан; запись ещё не сохранена.');
+    // ArrayBuffer avoids browser-specific IndexedDB Blob/File storage failures.
+    return {name:file.name,type,bytes};
+  }
+  function draftBlob(file) {
+    if(file.bytes instanceof ArrayBuffer)return new Blob([file.bytes],{type:file.type});
+    if(file.blob instanceof Blob)return file.blob; // Existing v1 drafts remain readable.
+    throw new Error('Файл черновика повреждён. Сохраните копию для восстановления.');
+  }
   async function renderQueue() {
     const drafts=await ownDrafts();$('queue-count').textContent=String(drafts.filter(d=>d.status!=='synced').length);
     $('queue-list').innerHTML=drafts.length?drafts.sort((a,b)=>b.savedAt.localeCompare(a.savedAt)).map(d=>`<div class="queue-row"><div><strong>${esc(d.body.payload.reference)}</strong> ${badge(d.body.payload.provenance,d.body.payload.provenance==='SIM'?'sim':'')}<p>${esc(dateText(d.savedAt))} · ${d.files.length} файл(ов) · ${d.correction?'исправление':'прибытие'}</p>${statusBadge(d.status)}${d.error?`<p class="danger">${esc(d.error)}</p>`:''}</div><div class="queue-actions">${d.status==='synced'?`<button class="secondary" data-open-draft="${d.receiptId}">Открыть запись</button>`:`<button class="secondary" data-sync-draft="${d.id}">Отправить</button>`}<button class="text-button" data-backup-draft="${d.id}">Скачать копию</button><button class="text-button danger" data-delete-draft="${d.id}">Удалить локально</button></div></div>`).join(''):'<div class="empty"><strong>Локальных записей нет</strong>Здесь появятся прибытия, сохранённые с этого устройства.</div>';
@@ -182,7 +199,7 @@
             const url=draft.correction?`/receipts/${draft.receiptId}/corrections`:'/receipts';
             const response=await api(url,{method:'POST',body:draft.body});draft.appliedRevision=response.applied_revision;await write('drafts',draft);
             for(let i=0;i<draft.files.length;i++){
-              if(draft.uploadedFiles.includes(i))continue;const form=new FormData();form.append('file',draft.files[i].blob,draft.files[i].name);
+              if(draft.uploadedFiles.includes(i))continue;const form=new FormData();form.append('file',draftBlob(draft.files[i]),draft.files[i].name);
               await api(`/receipts/${draft.receiptId}/revisions/${draft.appliedRevision}/attachments`,{method:'POST',body:form});draft.uploadedFiles.push(i);await write('drafts',draft);
             }
             draft.status='synced';draft.error=null;await write('drafts',draft);
@@ -203,7 +220,7 @@
     $('grant-card').hidden=!state.actor.features.partner_sharing||state.actor.role!=='coordinator';
     $('export-packet').addEventListener('click',async()=>{try{const result=await api(`/receipts/${id}/export`);download(new Blob([JSON.stringify(result,null,2)],{type:'application/json'}),`receipt-${id}.json`);}catch(e){message(errorText(e),true);}});
     $('print-packet').addEventListener('click',()=>window.print());
-    $('correct-packet').addEventListener('click',()=>{resetCapture();state.correction={receiptId:id,revision:packet.current_revision,payload:p};$('capture-plan').value=p.plan_id||'';$('capture-ref').value=p.reference;$('observed-at').value=localInput(new Date(p.observed_at));$('time-source').value=p.time_source;$('capture-provenance').value=p.provenance;$('condition').value=p.condition;$('capture-note').value=p.note;$('document-refs').value=p.document_references.join(', ');state.location=p.location;$('capture-lines').replaceChildren();p.lines.forEach(l=>addLine('capture-lines',l));$('capture-title').textContent=`Исправление · версия ${packet.current_revision+1}`;$('correction-reason-label').hidden=false;$('correction-reason').required=true;show('capture');message('Исходная версия сохранится. Для новой версии приложите актуальные файлы и получите новое подтверждение.');});
+    $('correct-packet').addEventListener('click',()=>{resetCapture();state.correction={receiptId:id,revision:packet.current_revision,payload:p};if(current.plan&&!state.plans.some(plan=>plan.id===current.plan.id))state.plans.push({...current.plan,status:'historical'});renderPlanSelect();$('capture-plan').value=p.plan_id||'';$('capture-ref').value=p.reference;$('observed-at').value=localInput(new Date(p.observed_at));$('time-source').value=p.time_source;$('capture-provenance').value=p.provenance;$('condition').value=p.condition;$('capture-note').value=p.note;$('document-refs').value=p.document_references.join(', ');state.location=p.location;if(p.location)$('location-status').textContent=`Геопозиция исходной версии · точность ±${Math.round(p.location.accuracy_m)} м`;$('capture-lines').replaceChildren();p.lines.forEach(l=>addLine('capture-lines',l));$('capture-title').textContent=`Исправление · версия ${packet.current_revision+1}`;$('correction-reason-label').hidden=false;$('correction-reason').required=true;show('capture');message('Исходная версия сохранится. Для новой версии приложите актуальные файлы и получите новое подтверждение.');});
     $('receipt-detail').querySelectorAll('[data-file]').forEach(b=>b.addEventListener('click',async()=>{try{const response=await api(`/attachments/${b.dataset.file}`,{raw:true});const type=response.headers.get('content-type');download(await response.blob(),`evidence-${b.dataset.file}.${type.includes('pdf')?'pdf':type.includes('png')?'png':'jpg'}`);}catch(e){message(errorText(e),true);}}));
     const priorDecision=current.attestations.at(-1);
     if(priorDecision){
@@ -216,6 +233,25 @@
     $('grant-form').addEventListener('submit',async event=>{event.preventDefault();try{const form=Object.fromEntries(new FormData(event.target));form.expires_at=new Date(form.expires_at).toISOString();const grant=await api('/grants',{method:'POST',body:{...form,receipt_id:id,expected_revision:packet.current_revision}});$('grant-result').textContent=`Ключ показан один раз. Передайте по согласованному защищённому каналу: ${grant.credential}`;$('grant-result').className='grant-secret';await renderGrants(id);}catch(e){message(errorText(e),true);}});
     if(!$('grant-card').hidden)await renderGrants(id);show('detail');
   }
+  async function openPlan(id) {
+    const data=await api(`/plans/${id}`),plan=data.plan,progress=data.progress;
+    const progressLabels={matched:'Количество совпало',partial:'Принято частично',not_accepted:'Не принято',over_accepted:'Принято сверх плана',unexpected_material_or_unit:'Другая строка, материал или единица'};
+    $('plan-detail').innerHTML=`<div class="page-heading"><div><p class="eyebrow">ПЛАН / ФАКТ</p><h1>${esc(plan.reference)}</h1><p>${esc(plan.supplier)} · ${esc(planDate(plan))}</p>${statusBadge(plan.status)} ${badge(plan.provenance,plan.provenance==='SIM'?'sim':'')}</div></div><div class="notice">${progress.receipt_count} приёмок · ${progress.pending_receipts} без действующего подтверждения. Суммы рассчитаны по текущим версиям. Совпадение количества не закрывает план автоматически.</div><div class="plan-progress">${progress.lines.map(l=>`<article class="card"><h2>${esc(l.material)} · ${esc(l.unit)}</h2><p class="hint">Строка ${esc(l.line_id)} · ${esc(progressLabels[l.status])}</p><dl class="quantity-grid"><div><dt>По плану</dt><dd>${esc(l.planned_quantity??'—')}</dd></div><div><dt>Прибыло</dt><dd>${esc(l.observed_quantity)}</dd></div><div><dt>Принято</dt><dd>${esc(l.accepted_quantity)}</dd></div><div><dt>Осталось принять</dt><dd>${esc(l.remaining_quantity??'—')}</dd></div></dl></article>`).join('')}</div><div class="card"><h2>Приёмки по этому плану</h2>${data.receipts.map(r=>`<div class="file-row"><span>${esc(dateText(r.observed_at))} · версия ${r.revision} · ${esc(labels[r.evidence_status])}</span><button class="row-button" data-plan-receipt="${r.receipt_id}">Открыть</button></div>`).join('')||'<p class="muted">Прибытия ещё не записаны.</p>'}</div>${state.actor.role==='coordinator'?`<details class="card"><summary>Решение координатора по плану</summary><p class="hint">Проверьте частичные приёмки, споры, файлы и расхождения перед завершением. Закрытие плана не подтверждает отдельные приёмки.</p><form id="plan-status-form" class="form-grid"><label>Статус<select name="status"><option value="completed">Завершён</option><option value="cancelled">Отменён</option></select></label><label>Причина<input name="reason" required minlength="3" maxlength="1000"></label><button class="primary" type="submit">Сохранить решение</button></form></details>`:''}`;
+    $('plan-detail').querySelectorAll('[data-plan-receipt]').forEach(b=>b.addEventListener('click',()=>openReceipt(b.dataset.planReceipt).catch(e=>message(errorText(e),true))));
+    $('plan-status-form')?.addEventListener('submit',async event=>{event.preventDefault();try{await api(`/plans/${id}/status`,{method:'POST',body:Object.fromEntries(new FormData(event.target))});await refresh();await openPlan(id);message('Решение по плану сохранено. История приёмок не изменена.');}catch(e){message(errorText(e),true);}});
+    $('message').hidden=true;show('plan');
+  }
+  $('coverage-form').addEventListener('submit',async event=>{
+    event.preventDefault();$('coverage-result').replaceChildren();
+    try {
+      const fields=Object.fromEntries(new FormData(event.target));
+      fields.start=new Date(fields.start).toISOString();fields.end=new Date(fields.end).toISOString();
+      const report=await api('/metrics?'+new URLSearchParams(fields));
+      const percent=value=>(value*100).toLocaleString('ru-RU',{maximumFractionDigits:1})+'%';
+      $('coverage-result').innerHTML=`<div class="stats"><div class="stat"><span>Независимый журнал</span><strong>${report.eligible_arrivals}</strong><small>всего подходящих прибытий</small></div><div class="stat"><span>Записано в приложении</span><strong>${report.recorded}</strong><small>${percent(report.recorded_coverage)} от журнала</small></div><div class="stat"><span>Полные с подтверждением</span><strong>${report.complete_confirmed}</strong><small>${percent(report.confirmed_coverage)} от журнала</small></div></div><div class="card"><p>Спорных: ${report.disputed}. Без связи с планом: ${report.unmatched}.</p><p>Основание знаменателя: ${esc(report.register_reference)}</p><p class="hint">Расчёт: ${esc(dateText(report.evaluated_at))}. Состояния текущих версий могут измениться после исправлений. SIM исключены. Количество физических прибытий из независимого журнала указывает координатор.</p><p class="hint">Полнота записи не означает выполнение всего плана. Время ввода, исходы споров и решение покупателя фиксируются отдельно.</p><button id="download-coverage" class="secondary">Скачать отчёт JSON</button></div>`;
+      $('download-coverage').addEventListener('click',()=>download(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),'sitepulse-coverage.json'));
+    }catch(e){message(errorText(e),true);}
+  });
   async function renderGrants(receiptId){const data=await api('/grants');$('grant-list').innerHTML=data.grants.filter(g=>g.receipt_id===receiptId).map(g=>`<div class="file-row"><span>${esc(g.recipient)} · ${g.revoked?'отозван':esc(dateText(g.expires_at))}</span>${g.revoked?'':`<button class="row-button" data-revoke="${g.id}">Отозвать</button>`}</div>`).join('');$('grant-list').querySelectorAll('[data-revoke]').forEach(b=>b.addEventListener('click',async()=>{try{await api(`/grants/${b.dataset.revoke}/revoke`,{method:'POST'});await renderGrants(receiptId);}catch(e){message(errorText(e),true);}}));}
   async function loadDocuments(){if(!state.actor?.features.reconciliation)return;const data=await api('/documents');$('document-list').innerHTML=data.documents.length?data.documents.map(d=>`<div class="queue-row"><div><strong>${esc(d.kind)} ${esc(d.number)}</strong><p>${esc(d.issuer)} · ${esc(d.issued_on)}</p><div id="recon-${d.id}"></div></div><button class="secondary" data-reconcile="${d.id}">Сверить</button></div>`).join(''):'<div class="empty">Документы ещё не добавлены</div>';$('document-list').querySelectorAll('[data-reconcile]').forEach(b=>b.addEventListener('click',async()=>{try{const result=await api(`/documents/${b.dataset.reconcile}/reconciliation`);$(`recon-${b.dataset.reconcile}`).textContent=result.lines.map(l=>`Строка ${l.line_id}: ${l.status} (${l.declared_quantity??'нет'} / ${l.received_quantity??'нет'})`).join('; ')+(result.requires_review?' · Нужна ручная проверка распределения и расхождений':' · Количества совпали; учётное подтверждение отдельно');}catch(e){message(errorText(e),true);}}));}
   async function loadSlots() {
@@ -261,9 +297,9 @@
   async function exportDrafts(onlyId=null) {
     try {
       const drafts=(await ownDrafts()).filter(d=>!onlyId||d.id===onlyId);
-      const estimate=drafts.reduce((sum,d)=>sum+JSON.stringify({...d,files:[]}).length*3+d.files.reduce((n,f)=>n+Math.ceil(f.blob.size/3)*4+1024,0),0);
+      const estimate=drafts.reduce((sum,d)=>sum+JSON.stringify({...d,files:[]}).length*3+d.files.reduce((n,f)=>n+Math.ceil(draftBlob(f).size/3)*4+1024,0),0);
       if(drafts.length>100||estimate>95*1024*1024)throw new Error('Очередь слишком велика для одного файла. Используйте «Скачать копию» у каждой записи.');
-      const records=await Promise.all(drafts.map(async d=>({...d,files:await Promise.all(d.files.map(async f=>({name:f.name,type:f.type,data:await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(f.blob);})})))})));
+      const records=await Promise.all(drafts.map(async d=>({...d,files:await Promise.all(d.files.map(async f=>({name:f.name,type:f.type,data:await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(draftBlob(f));})})))})));
       const blob=new Blob([JSON.stringify({format:'sitepulse-drafts-v1',siteId:state.actor.site.id,actorId:state.actor.id,records})],{type:'application/json'});
       if(blob.size>100*1024*1024)throw new Error('Скачайте копии отдельных записей — общий файл больше 100 МБ.');
       download(blob,onlyId?`sitepulse-draft-${onlyId}.json`:'sitepulse-private-drafts.json');
@@ -271,12 +307,12 @@
     }catch(e){message(errorText(e),true);}
   }
   $('export-drafts').addEventListener('click',()=>exportDrafts());
-  $('import-drafts').addEventListener('change',async event=>{try{const file=event.target.files[0];if(!file)return;if(file.size>100*1024*1024)throw new Error('Резервная копия больше 100 МБ.');const data=JSON.parse(await file.text());if(!state.actor||data.format!=='sitepulse-drafts-v1'||data.siteId!==state.actor.site.id||data.actorId!==state.actor.id||!Array.isArray(data.records)||data.records.length>100)throw new Error('Копия должна принадлежать вашему текущему профилю и объекту.');for(const d of data.records){if(d.actorId!==state.actor.id||d.siteId!==state.actor.site.id||d.id!==d.body?.operation_id||!d.body?.payload||!Array.isArray(d.files)||d.files.length>6)throw new Error('Неверная структура черновика.');if(await read('drafts',d.id))continue;const files=[];for(const f of d.files){if(!/^data:(image\/(png|jpeg)|application\/pdf);base64,/.test(f.data)||f.data.length>7*1024*1024)throw new Error('Неподдерживаемый файл в копии.');const bytes=Uint8Array.from(atob(f.data.split(',')[1]),c=>c.charCodeAt(0));files.push({name:f.name,type:f.type,blob:new Blob([bytes],{type:f.type})});}await write('drafts',{...d,files,status:'local',uploadedFiles:[],error:null});}await renderQueue();message('Черновики восстановлены. Повторная отправка использует прежние идентификаторы.');}catch(e){message(errorText(e),true);}finally{event.target.value='';}});
+  $('import-drafts').addEventListener('change',async event=>{try{const file=event.target.files[0];if(!file)return;if(file.size>100*1024*1024)throw new Error('Резервная копия больше 100 МБ.');const data=JSON.parse(await file.text());if(!state.actor||data.format!=='sitepulse-drafts-v1'||data.siteId!==state.actor.site.id||data.actorId!==state.actor.id||!Array.isArray(data.records)||data.records.length>100)throw new Error('Копия должна принадлежать вашему текущему профилю и объекту.');for(const d of data.records){if(d.actorId!==state.actor.id||d.siteId!==state.actor.site.id||d.id!==d.body?.operation_id||!d.body?.payload||!Array.isArray(d.files)||d.files.length>6)throw new Error('Неверная структура черновика.');if(await read('drafts',d.id))continue;const files=[];for(const f of d.files){if(!/^data:(image\/(png|jpeg)|application\/pdf);base64,/.test(f.data)||f.data.length>7*1024*1024)throw new Error('Неподдерживаемый файл в копии.');const bytes=Uint8Array.from(atob(f.data.split(',')[1]),c=>c.charCodeAt(0));files.push({name:f.name,type:f.data.slice(5,f.data.indexOf(';')),bytes:bytes.buffer});}await write('drafts',{...d,files,status:'local',uploadedFiles:[],error:null});}await renderQueue();message('Черновики восстановлены. Повторная отправка использует прежние идентификаторы.');}catch(e){message(errorText(e),true);}finally{event.target.value='';}});
   $('sync-all').addEventListener('click',()=>syncAll());$('refresh').addEventListener('click',()=>refresh().catch(e=>message(errorText(e),true)));$('load-more').addEventListener('click',()=>refresh(true).catch(e=>message(errorText(e),true)));
   for(const name of ['plan','capture','document'])$(`add-${name}-line`).addEventListener('click',()=>addLine(`${name}-lines`));
   window.addEventListener('online',connection);window.addEventListener('offline',connection);window.addEventListener('pagehide',stopCamera);
   window.addEventListener('unhandledrejection',event=>{message(errorText(event.reason),true);event.preventDefault();});
-  async function init(){bindNavigation();for(const name of ['plan','capture','document'])addLine(`${name}-lines`);$('observed-at').value=localInput();$('today-date').textContent=new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'});connection();try{const previous=await read('context','lastActor');if(previous){state.actor=previous.actor;state.plans=(await read('context',`plans:${state.actor.site.id}`))?.plans||[];actorUI();renderPlans();renderReceipts();await renderQueue();show('queue');message('Локальные записи восстановлены. Войдите снова для отправки; без сети можно продолжать фиксировать прибытия.');}}catch(e){message('Локальное хранилище недоступно. '+errorText(e),true);$('capture-form').querySelector('button[type=submit]').disabled=true;}
+  async function init(){bindNavigation();for(const name of ['plan','capture','document'])addLine(`${name}-lines`);$('observed-at').value=localInput();$('coverage-form').elements.start.value=localInput(new Date(Date.now()-30*86400000));$('coverage-form').elements.end.value=localInput();$('today-date').textContent=new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'});connection();try{const previous=await read('context','lastActor');if(previous){state.actor=previous.actor;state.plans=(await read('context',`plans:${state.actor.site.id}`))?.plans||[];actorUI();renderPlans();renderReceipts();await renderQueue();show('queue');message('Локальные записи восстановлены. Войдите снова для отправки; без сети можно продолжать фиксировать прибытия.');}}catch(e){message('Локальное хранилище недоступно. '+errorText(e),true);$('capture-form').querySelector('button[type=submit]').disabled=true;}
     try{const response=await fetch('/readyz',{cache:'no-store'});const data=await response.json();state.mode=data.mode==='customer'?'ОБЪЕКТ':'ЛОКАЛЬНЫЙ ПРОТОТИП';connection();}catch{$('mode-badge').textContent='БЕЗ СЕТИ';}
     if('serviceWorker' in navigator)navigator.serviceWorker.register('/receive-sw.js',{scope:'/'}).catch(e=>message('Офлайн-оболочка не установлена. '+errorText(e),true));
   }

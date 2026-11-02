@@ -20,6 +20,7 @@
       <button class="nav" data-view="receipts">Поставки <span>03</span></button>
       <button class="nav" data-view="exceptions">Расхождения <span>04</span></button>
       <button class="nav" data-view="queue">На устройстве <span id="queue-count">0</span></button>
+      <button class="nav" data-view="coverage" id="coverage-nav" hidden>Отчёт пилота <span>↗</span></button>
       <button class="nav" data-view="documents" id="documents-nav" hidden>Документы <span>05</span></button>
       <button class="nav" data-view="slots" id="slots-nav" hidden>Окна и ресурсы <span>06</span></button>
     </nav>
@@ -37,6 +38,7 @@
       <div class="stats" id="stats"></div>
       <div class="section-heading"><h2>Ожидаемые поставки</h2><button id="refresh" class="secondary">Обновить</button></div>
       <div id="plan-list" class="card"></div>
+      <details class="card"><summary>Завершённые и отменённые планы</summary><div id="closed-plan-list"></div></details>
       <details class="card" id="notifications-panel" hidden><summary>Уведомления и история поставщиков</summary><div id="notification-list"></div><div id="supplier-history"></div></details>
       <details id="plan-editor" class="card"><summary>Добавить план поставки</summary>
         <form id="plan-form" class="form-grid">
@@ -71,6 +73,16 @@
     <section id="view-receipts" class="view" hidden><div class="page-heading"><div><p class="eyebrow">ИСТОРИЯ</p><h1>Поставки</h1><p class="muted">Подтверждения, документы и изменения в одной записи.</p></div></div><div id="receipt-list" class="card"></div><button id="load-more" class="secondary" hidden>Показать ещё</button></section>
     <section id="view-exceptions" class="view" hidden><div class="page-heading"><div><p class="eyebrow">ТРЕБУЕТ ВНИМАНИЯ</p><h1>Расхождения</h1><p class="muted">Неполные и спорные записи. Причина и ответственность требуют проверки.</p></div></div><div id="exception-list" class="card"></div></section>
     <section id="view-queue" class="view" hidden><div class="page-heading"><div><p class="eyebrow">ЛОКАЛЬНЫЕ ЗАПИСИ</p><h1>На этом устройстве</h1><p class="muted">Не закрывайте доступ к устройству, пока записи не отправлены. Хранилище браузера не заменяет резервную копию.</p></div><button id="sync-all" class="primary">Отправить записи</button></div><div id="queue-list" class="card"></div><div class="form-actions"><button id="export-drafts" class="secondary">Скачать резервную копию черновиков</button><label class="secondary import-label">Восстановить черновики<input id="import-drafts" type="file" accept="application/json" hidden></label></div></section>
+    <section id="view-plan" class="view" hidden><button class="text-button" data-go="today">← Планы поставок</button><div id="plan-detail"></div></section>
+    <section id="view-coverage" class="view" hidden>
+      <div class="page-heading"><div><p class="eyebrow">НАБЛЮДЕНИЯ ПИЛОТА</p><h1>Полнота записей</h1><p class="muted">Сравните приёмки с независимым журналом всех прибытий, включая не внесённые в приложение.</p></div></div>
+      <form id="coverage-form" class="card form-grid">
+        <label>Начало — время устройства<input type="datetime-local" name="start" required></label><label>Конец, не включая — время устройства<input type="datetime-local" name="end" required></label>
+        <label>Прибытий по независимому журналу<input type="number" name="eligible_arrivals" min="1" step="1" required></label>
+        <label>Ссылка или номер независимого журнала<input name="register_reference" minlength="3" maxlength="200" required></label>
+        <p class="hint wide">Период до 93 дней. Проверьте повторный ввод одного физического прибытия. Учебные записи SIM не учитываются.</p><button class="primary" type="submit">Рассчитать по журналу</button>
+      </form><div id="coverage-result" aria-live="polite"></div>
+    </section>
     <section id="view-detail" class="view" hidden><button class="text-button" data-go="receipts">← Все поставки</button><div id="receipt-detail"></div></section>
     <section id="view-slots" class="view" hidden>
       <div class="page-heading"><div><p class="eyebrow">ПЛАНИРОВАНИЕ НА ОБЪЕКТЕ</p><h1>Окна и ресурсы</h1><p class="muted">Заявка становится бронью после решения координатора. Пересекающиеся брони одного ресурса отклоняются.</p></div></div>

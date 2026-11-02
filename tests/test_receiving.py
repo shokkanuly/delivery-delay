@@ -342,3 +342,66 @@ def test_concurrent_document_retry_is_one_record(receiving):
     assert len(client.get('/receiving/documents',headers=auth()).json()['documents']) == 1
     body['number']='CHANGED'
     assert client.post('/receiving/documents',headers=auth(),json=body).status_code == 409
+
+
+def test_plan_progress_exact_decimals_and_units():
+    from engines.receiving import plan_progress
+    planned = [{'line_id':'1','material':'Steel','quantity':'0.3','unit':'t'}]
+    receipts=[]
+    for quantity in ['0.1','0.2']:
+        receipts.append({'payload':{'lines':[{**planned[0],'quantity':quantity}]},
+                         'decision':{'decision':'confirmed','accepted':[{'line_id':'1','quantity':quantity}]}})
+    result=plan_progress(planned,receipts)
+    assert result['quantities_match'] and result['lines'][0]['accepted_quantity']=='0.3'
+    receipts.append({'payload':{'lines':[{**planned[0],'quantity':'100','unit':'kg'}]},
+                     'decision':{'decision':'confirmed','accepted':[{'line_id':'1','quantity':'100'}]}})
+    result=plan_progress(planned,receipts)
+    assert not result['quantities_match']
+    assert result['lines'][0]['accepted_quantity']=='0.3'
+    assert result['lines'][1]['status']=='unexpected_material_or_unit'
+    assert result['lines'][1]['planned_quantity'] is None
+    receipts[0]['decision']['decision']='disputed'
+    result=plan_progress(planned,receipts)
+    assert result['pending_receipts']==1 and result['lines'][0]['remaining_quantity']=='0.1'
+
+
+def test_plan_detail_split_receipts_current_revisions_and_site_scope(receiving):
+    client,auth,actors,site,plan,payload=receiving
+    first=deepcopy(payload);first['lines'][0]['quantity']='4.25'
+    _,packet1=record(receiving,first);confirm(receiving,packet1)
+    second=deepcopy(payload);second['lines'][0]['quantity']='6'
+    _,packet2=record(receiving,second)
+    route=f"/receiving/plans/{plan['id']}"
+    result=client.get(route,headers=auth('viewer')).json()
+    line=result['progress']['lines'][0]
+    assert line['observed_quantity']=='10.25' and line['accepted_quantity']=='4.25'
+    assert line['remaining_quantity']=='6.00' and result['progress']['pending_receipts']==1
+    confirm(receiving,packet2)
+    result=client.get(route,headers=auth()).json()
+    assert result['progress']['quantities_match']
+    # A new revision invalidates the old acceptance in the plan total.
+    correction={'operation_id':str(uuid4()),'expected_revision':1,'reason':'Reweighed partial load','payload':second}
+    assert client.post(f"/receiving/receipts/{packet2['receipt_id']}/corrections",headers=auth('receiver'),json=correction).status_code==200
+    result=client.get(route,headers=auth()).json()
+    assert result['progress']['receipt_count']==2 and not result['progress']['quantities_match']
+    assert result['progress']['lines'][0]['accepted_quantity']=='4.25'
+    other=client.post('/receiving/sites',json={'name':'Other site'}).json()
+    actor=client.post(f"/receiving/sites/{other['id']}/actors",json={'name':'Other viewer','role':'viewer'}).json()
+    assert client.get(route,headers={'Authorization':'Bearer '+actor['credential']}).status_code==404
+    assert client.get(route,headers={'Authorization':'Bearer invalid'}).status_code==401
+
+
+def test_coverage_report_excludes_sim_and_preserves_denominator_context(receiving):
+    client,auth,actors,site,plan,payload=receiving
+    _,packet=record(receiving);attach(receiving,packet);confirm(receiving,packet)
+    simulated=deepcopy(payload);simulated.update(plan_id=None,reference='SIM',provenance='SIM')
+    record(receiving,simulated)
+    params={'start':'2026-11-02T00:00:00+05:00','end':'2026-11-03T00:00:00+05:00',
+            'eligible_arrivals':2,'register_reference':'Independent gate sheet'}
+    report=client.get('/receiving/metrics',headers=auth(),params=params).json()
+    assert report['site_id']==site['id'] and report['evaluated_at']
+    assert report['recorded']==report['complete_confirmed']==1
+    assert report['confirmed_coverage']==0.5 and report['register_reference']==params['register_reference']
+    assert client.get('/receiving/metrics',headers=auth('receiver'),params=params).status_code==403
+    params['end']='2026-11-03T00:00:00'
+    assert client.get('/receiving/metrics',headers=auth(),params=params).status_code==422

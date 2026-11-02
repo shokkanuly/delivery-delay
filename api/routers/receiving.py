@@ -21,7 +21,7 @@ from api.security import (credential_hash, receiving_actor, receiving_coordinato
 from db.database import get_session
 from db.models import (EvidenceGrant, Receipt, ReceiptAttachment, ReceiptAttestation, ReceiptRevision,
                        ReceivingActor, ReceivingAudit, ReceivingDocument, ReceivingPlan, ReceivingSite)
-from engines.receiving import digest, reconciliation
+from engines.receiving import digest, reconciliation, plan_progress
 
 router = APIRouter(prefix="/receiving", tags=["receiving"])
 MAX_MEDIA = 5 * 1024 * 1024
@@ -109,6 +109,25 @@ def plan_status(plan_id: UUID, body: PlanStatusIn, actor=Depends(receiving_coord
     audit(db, actor, "plan." + body.status, row.id, {"reason": body.reason})
     db.commit()
     return {"id": row.id, "status": row.status}
+
+
+@router.get("/plans/{plan_id}")
+def plan_detail(plan_id: UUID, actor=Depends(receiving_actor), db: Session = Depends(get_session)):
+    plan = scoped(db, ReceivingPlan, plan_id, actor)
+    revisions = (db.query(ReceiptRevision).join(Receipt, Receipt.id == ReceiptRevision.receipt_id)
+                 .filter(Receipt.site_id == actor.site_id, ReceiptRevision.number == Receipt.revision,
+                         ReceiptRevision.payload["plan_id"].as_string() == plan.id)
+                 .order_by(ReceiptRevision.received_at, ReceiptRevision.id).all())
+    records = []
+    links = []
+    for revision in revisions:
+        decision = decision_for(db, revision)
+        records.append({"payload": revision.payload, "decision": decision.payload if decision else None})
+        links.append({"receipt_id": revision.receipt_id, "revision": revision.number,
+                      "observed_at": revision.payload["observed_at"],
+                      "evidence_status": decision.payload["decision"] if decision else "recorded"})
+    return {"plan": {"id": plan.id, "status": plan.status, **plan.payload},
+            "progress": plan_progress(plan.payload["lines"], records), "receipts": links}
 
 
 def retry_revision(db, actor, operation_id, request_digest):
@@ -432,7 +451,8 @@ def metrics(start: datetime, end: datetime, eligible_arrivals: int = Query(..., 
         unmatched += int(payload["plan_id"] is None)
     if recorded > eligible_arrivals:
         raise HTTPException(422, "Recorded receipts exceed independent arrivals; reconcile duplicates/denominator first")
-    return {"start": start.isoformat(), "end": end.isoformat(), "eligible_arrivals": eligible_arrivals,
+    return {"start": start.isoformat(), "end": end.isoformat(), "evaluated_at": now().isoformat(),
+            "site_id": actor.site_id, "eligible_arrivals": eligible_arrivals,
             "register_reference": register_reference, "recorded": recorded, "complete_confirmed": confirmed,
             "disputed": disputed, "unmatched": unmatched, "recorded_coverage": recorded / eligible_arrivals,
             "confirmed_coverage": confirmed / eligible_arrivals,
