@@ -159,7 +159,8 @@ def main():
                 packet = request(http, 'POST', f'/receiving/receipts/{receipt_id}/decisions',
                                  headers=receiver, json={'decision_id': str(uuid4()), 'expected_revision': 1,
                                  'decision': 'confirmed', 'accepted': [{'line_id': '1', 'quantity': '2.5'}]}).json()
-                assert packet['current']['complete_confirmed']
+                assert packet['current']['evidence_status'] == 'confirmed'
+                assert not packet['current']['complete_confirmed']  # SIM never counts as field coverage.
                 bundle = request(http, 'GET', f'/receiving/receipts/{receipt_id}/bundle', headers=viewer)
                 assert verify(io.BytesIO(bundle.content))['attachments'] == 1
                 passed('SIM plan, receipt, retry, private photo, confirmation and ZIP survive the proxy')
@@ -177,7 +178,8 @@ def main():
                             raise
                         time.sleep(1)
                 packet = request(http, 'GET', f'/receiving/receipts/{receipt_id}', headers=viewer).json()
-                assert packet['current']['complete_confirmed']
+                assert packet['current']['evidence_status'] == 'confirmed'
+                assert not packet['current']['complete_confirmed']  # SIM never counts as field coverage.
                 assert request(http, 'GET', f"/receiving/attachments/{attachment['id']}", headers=viewer).content == photo
                 passed('Receipt, attachment, credentials and local CA persist after container recreation')
                 request(http, 'POST', f"/receiving/actors/{actors['receiver']['id']}/revoke", headers=operator)
