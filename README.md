@@ -13,7 +13,7 @@
 
 ## Delivery evidence at the site
 
-The receiving workflow is implemented locally at **`/receive`**: plan a delivery, record arrival
+The receiving workflow is implemented at **`/receive`**: plan a delivery, record arrival
 and quantity, attach evidence, confirm or dispute the exact revision, and review/export its history, including a ZIP with every revision and its files.
 Offline drafts and media survive reload, interrupted uploads retry without duplicates, and corrections
 preserve earlier confirmations. Named access is scoped to a site. Coordinators can review totals across
@@ -24,7 +24,7 @@ read-only evidence grants and human-approved resource slots are disabled by defa
 Start with the [implementation status](docs/IMPLEMENTATION_STATUS.md), [receiving runbook](docs/RECEIVING_RUNBOOK.md),
 [product scope](docs/PRD.md), [roadmap](ROADMAP.md) and [30-day pilot protocol](docs/PILOT_PROPOSAL.md).
 The supplied [research packet](docs/research/README.md) is retained with its verification limits.
-The public demo links below refer to the historical audit prototype; these local changes have not been pushed or deployed.
+The public demo links below refer to the historical audit prototype; the receiving implementation is published in [draft PR #7](https://github.com/shokkanuly/delivery-delay/pull/7) and verified in CI; a live receiving deployment is still pending. See [Vercel setup](docs/VERCEL_DEPLOYMENT.md) and [remaining tasks](docs/REMAINING_TASKS.md).
 
 ## One export. One site. A supplier scorecard you can inspect.
 

@@ -110,7 +110,9 @@
     renderPlans();renderReceipts();
     if(planData.total>200)message('Показаны последние 200 планов. Для более ранней поставки используйте ручной номер.');
   }
+  function mediaLimit() { return state.actor?.limits?.media_bytes||5*1024*1024; }
   function actorUI() {
+    $('evidence-limit-hint').textContent=`JPEG, PNG или PDF · до ${mediaLimit()/(1024*1024)} МиБ каждый · до 6 файлов. Без файла запись сохранится с отметкой о неполноте.`;
     $('site-name').textContent=state.actor.site.name;$('actor-label').textContent=state.actor.name;
     $('sign-out').hidden=false;$('plan-editor').hidden=state.actor.role!=='coordinator';
     $('coverage-nav').hidden=state.actor.role!=='coordinator';
@@ -154,7 +156,7 @@
     event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;
     try{
       if(!state.actor)throw new Error('Нет локального профиля. Сначала войдите онлайн.');
-      const files=[...$('evidence-files').files];if(files.length>6||files.some(f=>f.size>5*1024*1024))throw new Error('До 6 файлов, каждый не более 5 МБ.');
+      const files=[...$('evidence-files').files];if(files.length>6||files.some(f=>f.size>mediaLimit()))throw new Error(`До 6 файлов, каждый не более ${mediaLimit()/(1024*1024)} МиБ.`);
       const selected=state.plans.find(p=>p.id===$('capture-plan').value);
       const payload={...(state.correction?.payload||{}),plan_id:selected?.id||null,reference:$('capture-ref').value.trim(),observed_at:new Date($('observed-at').value).toISOString(),time_source:$('time-source').value,location:state.location,provenance:$('capture-provenance').value,lines:getLines('capture-lines'),condition:$('condition').value,note:$('capture-note').value.trim(),document_references:$('document-refs').value.split(',').map(s=>s.trim()).filter(Boolean)};
       const operationId=crypto.randomUUID();
@@ -195,6 +197,7 @@
         for(const draft of await ownDrafts()) {
           if(draft.status==='synced'||(onlyId&&draft.id!==onlyId))continue;
           try{
+            if(draft.files.some(f=>draftBlob(f).size>mediaLimit()))throw new Error(`Файл больше лимита сервера ${mediaLimit()/(1024*1024)} МиБ. Черновик сохранён; скачайте копию для оператора.`);
             draft.status='uploading';draft.error=null;await write('drafts',draft);await renderQueue();
             const url=draft.correction?`/receipts/${draft.receiptId}/corrections`:'/receipts';
             const response=await api(url,{method:'POST',body:draft.body});draft.appliedRevision=response.applied_revision;await write('drafts',draft);

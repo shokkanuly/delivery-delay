@@ -4,14 +4,15 @@ from starlette.responses import JSONResponse
 
 
 class ReceivingBoundary:
-    def __init__(self, app):
+    def __init__(self, app, customer_only=False):
         self.app = app
+        self.customer_only = customer_only
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path = scope["path"]
-        customer = os.getenv("SITEPULSE_MODE") == "customer"
+        customer = self.customer_only or os.getenv("SITEPULSE_MODE") == "customer"
         allowed = (path in {"/", "/receive", "/receive-sw.js", "/readyz"}
                    or path.startswith("/receiving/")
                    or path in {"/static/receiving.js", "/static/receiving.css", "/static/receiving.html",

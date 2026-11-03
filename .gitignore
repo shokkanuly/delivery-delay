@@ -6,6 +6,7 @@ ml/artifacts/
 data/customer_uploads/
 .env
 .env.customer
+.vercel/
 .venv/
 venv/
 .DS_Store

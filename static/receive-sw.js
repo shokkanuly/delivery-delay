@@ -1,5 +1,5 @@
 'use strict';
-const CACHE='sitepulse-receiving-shell-v7';
+const CACHE='sitepulse-receiving-shell-v8';
 const ASSETS=['/receive','/static/receiving.js','/static/receiving.css','/static/design/tokens.css','/static/design/mark.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 self.addEventListener('activate',event=>event.waitUntil(Promise.all([

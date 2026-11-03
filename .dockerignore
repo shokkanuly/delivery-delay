@@ -5,6 +5,7 @@ __pycache__/
 ml/artifacts/
 .env
 .env.customer
+.vercel/
 var/
 test-results/
 .venv/

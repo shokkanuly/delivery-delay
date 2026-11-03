@@ -52,7 +52,7 @@ docker compose --env-file .env.customer -f docker-compose.customer.yml config -q
 docker compose --env-file .env.customer -f docker-compose.customer.yml up -d --build
 ```
 
-This configuration starts Postgres, the receiving API and Caddy. The API migrates on startup under a PostgreSQL advisory lock; it does not seed/train a model. Caddy's certificate issuance needs correct DNS and network access. Validate the real HTTPS URL, `/readyz`, named login, revocation, denied legacy routes, offline reload and recovery before allowing real intake. The configuration was prepared locally; no customer stack or TLS endpoint was deployed by this implementation session.
+This configuration starts Postgres, the receiving API and Caddy. The API migrates on startup under a PostgreSQL advisory lock; it does not seed/train a model. Caddy's certificate issuance needs correct DNS and network access. Validate the real HTTPS URL, `/readyz`, named login, revocation, denied legacy routes, offline reload and recovery before allowing real intake. The stack passed a disposable CI rehearsal with local TLS, persistence and container-native recovery. No actual customer stack or public TLS endpoint is established by that rehearsal. The user has also selected a [Vercel deployment](VERCEL_DEPLOYMENT.md) using the provided domain; its database and hosted acceptance checks remain separate.
 
 The API container does not contain PostgreSQL CLI backup tools. Run the Python backup helper from an authorised operator environment with `pg_dump`/`pg_restore` on PATH and secure DB connectivity, or use the database container commands below. Do not expose the database publicly merely to run backups.
 

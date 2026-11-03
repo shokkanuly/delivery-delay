@@ -4,6 +4,15 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## 2026-11-03 · Hosted deployment preparation
+
+- Full customer containers now run in CI with local TLS, SIM capture/export, recreation/persistence, credential revocation, and container-native dump/restore. All seven CI jobs passed at `ad0a98d`.
+- Prepared a receiving-only Vercel entrypoint with locked dependencies, persistent-PostgreSQL/operator-key startup guards and connection cleanup. Vercel file/ZIP limits are exposed to capture and preserve oversized drafts for recovery.
+- Validation: 268 Python tests passed with one default PostgreSQL opt-in skip. The minimal runtime passed the Chromium, Firefox and WebKit journeys locally; CI also exercises all three engines against that isolated runtime. Vercel team authorization, the actual persistent database and hosted acceptance remain open.
+- Added a concrete remaining-task register and Vercel deployment instructions; removed stale claims that the branch and CI were unpublished/unrun.
+
+---
+
 ## 2026-11-03 · Evidence handoff and restore integrity
 
 - Added complete receipt ZIP export with all revisions/files, a manifest, access checks, integrity checks and an audited snapshot. Added a standalone archive verifier that does not extract files.

@@ -75,8 +75,12 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements-dev.txt
+      - name: Install locked receiving-only server runtime
+        run: |
+          pip install uv==0.13.6
+          UV_PROJECT_ENVIRONMENT="$RUNNER_TEMP/receiving-runtime" uv sync --locked --no-install-project
       - run: python -m playwright install --with-deps ${{ matrix.browser }}
-      - run: python -m scripts.verify_receiving_browser --browser ${{ matrix.browser }}
+      - run: python -m scripts.verify_receiving_browser --browser ${{ matrix.browser }} --app vercel_app:app --server-python "$RUNNER_TEMP/receiving-runtime/bin/python"
         env:
           OMP_NUM_THREADS: "1"
       - uses: actions/upload-artifact@v4
@@ -120,4 +124,4 @@ jobs:
               conn.execute('CREATE DATABASE sitepulse_migrations')
               conn.execute('CREATE DATABASE sitepulse_restore')
           PY
-      - run: python -m pytest tests/test_receiving.py tests/test_receiving_operations.py -q
+      - run: python -m pytest tests/test_receiving.py tests/test_receiving_operations.py tests/test_receiving_hosting.py -q

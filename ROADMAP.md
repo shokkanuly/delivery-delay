@@ -1,7 +1,7 @@
 # SitePulse — delivery-evidence roadmap
 
-Updated 2 November 2026. **Software implemented and locally rehearsed; field/deployment gates remain open.**
-[Current implementation status](docs/IMPLEMENTATION_STATUS.md) · [Operator runbook](docs/RECEIVING_RUNBOOK.md).
+Updated 3 November 2026. **Software implemented and verified locally and in CI; field/deployment gates remain open.**
+[Remaining task register](docs/REMAINING_TASKS.md) · [Current implementation status](docs/IMPLEMENTATION_STATUS.md) · [Operator runbook](docs/RECEIVING_RUNBOOK.md).
 [Product scope](docs/PRD.md) · [Source-backed backlog](docs/plans/delivery-evidence-reshape.md) ·
 [Pilot protocol](docs/PILOT_PROPOSAL.md).
 

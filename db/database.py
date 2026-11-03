@@ -10,6 +10,7 @@ import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
 
 def _normalize(url: str) -> str:
@@ -31,7 +32,9 @@ DATABASE_URL = _normalize(os.getenv("DATABASE_URL", "sqlite:///./delivery.db"))
 # SQLite needs this flag to be usable across FastAPI's threads.
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
-engine = create_engine(DATABASE_URL, future=True, connect_args=_connect_args)
+_pool_options = {"poolclass": NullPool} if os.getenv("VERCEL") == "1" else {}
+engine = create_engine(DATABASE_URL, future=True, connect_args=_connect_args,
+                       pool_pre_ping=True, **_pool_options)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 

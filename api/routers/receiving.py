@@ -34,6 +34,13 @@ MAX_ATTACHMENTS = 6
 MAX_BUNDLE_BYTES = 100 * 1024 * 1024
 
 
+def evidence_limits():
+    # Leave room below Vercel's 4.5 MB request/response ceiling, including multipart metadata.
+    hosted = os.getenv("VERCEL") == "1"
+    return {"media_bytes": min(MAX_MEDIA, 4 * 1024 * 1024) if hosted else MAX_MEDIA,
+            "bundle_bytes": min(MAX_BUNDLE_BYTES, 4 * 1024 * 1024) if hosted else MAX_BUNDLE_BYTES}
+
+
 def feature(name):
     if os.getenv(name, "0") != "1":
         raise HTTPException(403, "Extension disabled until its pilot/design-partner gate is agreed")
@@ -77,6 +84,7 @@ def me(actor=Depends(receiving_actor), db: Session = Depends(get_session)):
     site = db.get(ReceivingSite, actor.site_id)
     return {"id": actor.id, "name": actor.name, "role": actor.role,
             "site": {"id": site.id, "name": site.name, "timezone": site.timezone},
+            "limits": evidence_limits(),
             "features": {"reconciliation": os.getenv("SITEPULSE_ENABLE_RECONCILIATION") == "1",
                          "partner_sharing": os.getenv("SITEPULSE_ENABLE_PARTNER_SHARING") == "1",
                          "operations": os.getenv("SITEPULSE_ENABLE_OPERATIONS") == "1"}}
@@ -220,9 +228,10 @@ def correct_receipt(receipt_id: UUID, body: ReceiptCorrectionIn, actor=Depends(r
 @router.post("/receipts/{receipt_id}/revisions/{number}/attachments", status_code=201)
 def upload_attachment(receipt_id: UUID, number: int, file: UploadFile = File(...),
                       actor=Depends(receiving_writer), db: Session = Depends(get_session)):
-    content = file.file.read(MAX_MEDIA + 1)
-    if not content or len(content) > MAX_MEDIA:
-        raise HTTPException(413, "Evidence must be 1 byte to 5 MB")
+    limit = evidence_limits()["media_bytes"]
+    content = file.file.read(limit + 1)
+    if not content or len(content) > limit:
+        raise HTTPException(413, f"Evidence must be 1 byte to {limit // (1024 * 1024)} MiB on this deployment")
     content_type = ("image/jpeg" if content.startswith(b"\xff\xd8\xff") else
                     "image/png" if content.startswith(b"\x89PNG\r\n\x1a\n") else
                     "application/pdf" if content.startswith(b"%PDF-") else None)
@@ -255,6 +264,8 @@ def upload_attachment(receipt_id: UUID, number: int, file: UploadFile = File(...
 @router.get("/attachments/{attachment_id}")
 def download_attachment(attachment_id: UUID, actor=Depends(receiving_actor), db: Session = Depends(get_session)):
     item = scoped(db, ReceiptAttachment, attachment_id, actor)
+    if len(item.content) > evidence_limits()["media_bytes"]:
+        raise HTTPException(413, "File exceeds this hosting limit; preserve it and export from the operator's full container installation")
     audit(db, actor, "attachment.downloaded", item.id)
     db.commit()
     extension = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}[item.content_type]
@@ -306,8 +317,9 @@ def export_bundle(receipt_id: UUID, actor=Depends(receiving_actor), db: Session 
     packet = receipt_packet(db, receipt)
     packet_bytes = json.dumps(packet, ensure_ascii=False, indent=2).encode("utf-8")
     files = [(revision["number"], file) for revision in packet["revisions"] for file in revision["attachments"]]
-    if len(packet_bytes) + sum(file["size"] for _, file in files) > MAX_BUNDLE_BYTES or len(files) > 1000:
-        raise HTTPException(413, "Evidence bundle exceeds 100 MiB or 1000 files; export JSON and download revision files separately")
+    limit = evidence_limits()["bundle_bytes"]
+    if len(packet_bytes) + sum(file["size"] for _, file in files) > limit or len(files) > 1000:
+        raise HTTPException(413, "Evidence bundle exceeds this deployment's size or file limit; export JSON and download revision files separately")
     archive = tempfile.TemporaryFile()
     try:
         manifest = {"format": "sitepulse-receipt-bundle-v1", "receipt_id": receipt.id,
@@ -340,6 +352,8 @@ def export_bundle(receipt_id: UUID, actor=Depends(receiving_actor), db: Session 
                                       "sha256": hashlib.sha256(instructions).hexdigest()})
             bundle.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"))
         size = archive.tell()
+        if size > limit:
+            raise HTTPException(413, "Evidence bundle exceeds this deployment's size limit; export JSON and download revision files separately")
         archive.seek(0)
         audit(db, actor, "receipt.bundle_exported", receipt.id,
               {"revision": receipt.revision, "attachments": len(files), "bytes": size})

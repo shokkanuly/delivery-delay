@@ -30,6 +30,9 @@ PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--browser',choices=['chromium','firefox','webkit'],default='chromium')
+    parser.add_argument('--app', choices=['api.main:app', 'vercel_app:app'], default='api.main:app')
+    parser.add_argument('--server-python', default=sys.executable,
+                        help='Optional isolated runtime interpreter; browser tooling stays in this environment')
     args=parser.parse_args()
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         with socket.socket() as sock:
@@ -41,7 +44,7 @@ def main():
                    SITEPULSE_ADMIN_KEY=key, OMP_NUM_THREADS='1',
                    SITEPULSE_ENABLE_OPERATIONS='1', SITEPULSE_ENABLE_RECONCILIATION='1')
         log = open(Path(tmp) / 'server.log', 'w')
-        process = subprocess.Popen([sys.executable, '-m', 'uvicorn', 'api.main:app', '--host', '127.0.0.1', '--port', str(port)], cwd=ROOT, env=env, stdout=log, stderr=log)
+        process = subprocess.Popen([args.server_python, '-m', 'uvicorn', args.app, '--host', '127.0.0.1', '--port', str(port)], cwd=ROOT, env=env, stdout=log, stderr=log)
         out = ROOT / 'test-results' / 'receiving'
         if args.browser!='chromium':
             out=out/args.browser
@@ -294,7 +297,7 @@ def main():
 
                     assert not errors, errors
                     browser.close()
-                result = {'passed': True, 'browser':args.browser, 'checks': checks, 'data': 'synthetic browser rehearsal only'}
+                result = {'passed': True, 'browser':args.browser, 'app':args.app, 'checks': checks, 'data': 'synthetic browser rehearsal only'}
                 (out / 'browser-report.json').write_text(json.dumps(result, indent=2))
                 print(json.dumps(result, indent=2))
         finally:
