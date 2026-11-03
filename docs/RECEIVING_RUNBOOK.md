@@ -136,4 +136,12 @@ Browser runs use disposable synthetic databases and isolated profiles. On macOS 
 
 PostgreSQL test opt-ins: `SITEPULSE_TEST_RECEIVING_POSTGRES_URL` allows disposable random schemas; `SITEPULSE_TEST_POSTGRES_URL` must be an empty migration-rehearsal DB; `SITEPULSE_TEST_RESTORE_URL` must be an empty restore DB. Never point them at customer data. CI declares isolated services for these checks.
 
+The full customer-container rehearsal needs Docker Compose v2 and `httpx`:
+
+```bash
+python -m scripts.verify_customer_stack
+```
+
+It resolves the actual customer Compose configuration with newly generated test secrets, a random project name and new volumes. Only the proxy is exposed, on ephemeral loopback ports. Caddy issues a local `localhost` certificate; only the test client trusts its root, without changing the operating system's trust store. The rehearsal checks receipt/media capture and export over TLS, container recreation with retained data, revocation, and container-native dump/restore. It then removes its own containers and volumes. It never reads `.env.customer`. The secret-free result is written to `test-results/receiving/customer-stack.json`; CI uploads that report. This is not public certificate issuance or actual customer-host acceptance. The mechanics follow [Docker's resolved configuration](https://docs.docker.com/reference/cli/docker/compose/config/) and [Caddy's local HTTPS](https://caddyserver.com/docs/automatic-https).
+
 Before field intake, agree retention for server evidence, browser drafts, exports and backups, including who can authorise deletion and exceptions for disputed records. No automatic evidence purge is enabled. After policy approval, carry out documented operator maintenance with a verified backup and audit of what was removed. Test on the pilot phone using the [field checklist](pilot/field-checklist.md) and record actual results in the pilot evidence log.

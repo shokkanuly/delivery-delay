@@ -39,8 +39,12 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Validate compose config
         run: |
           cp .env.example .env
@@ -48,6 +52,15 @@ jobs:
           docker compose --env-file .env.customer.example -f docker-compose.customer.yml config -q
       - name: Build the image
         run: docker build -t delivery-delay:ci .
+      - name: Rehearse customer containers, TLS, persistence and recovery
+        run: |
+          pip install httpx
+          python -m scripts.verify_customer_stack --image delivery-delay:ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: customer-stack-evidence
+          path: test-results/receiving/customer-stack.json
 
   receiving-browser:
     runs-on: ubuntu-latest
