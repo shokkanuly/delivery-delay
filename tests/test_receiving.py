@@ -1,0 +1,479 @@
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+
+import pytest
+
+from engines.receiving import digest, reconciliation, receipt_summary
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"synthetic-test-evidence"
+
+
+@pytest.fixture
+def receiving(api_client, monkeypatch):
+    monkeypatch.setenv("SITEPULSE_ENABLE_RECONCILIATION", "1")
+    monkeypatch.setenv("SITEPULSE_ENABLE_PARTNER_SHARING", "1")
+    client = api_client
+    site = client.post('/receiving/sites', json={'name': 'Private site'}).json()
+    actors = {}
+    for role in ['coordinator', 'receiver', 'viewer']:
+        response = client.post(f"/receiving/sites/{site['id']}/actors", json={'name': role, 'role': role})
+        assert response.status_code == 201, response.text
+        actors[role] = response.json()
+    auth = lambda role='coordinator': {'Authorization': 'Bearer ' + actors[role]['credential']}
+    plan_body = {'reference': 'TTN-1', 'supplier': 'Supplier', 'promised_date': '2026-11-02',
+                 'provenance': 'REAL', 'lines': [{'line_id': '1', 'material': 'Rebar', 'quantity': '10.25', 'unit': 't'}]}
+    plan = client.post('/receiving/plans', headers=auth(), json=plan_body)
+    assert plan.status_code == 201, plan.text
+    payload = {'plan_id': plan.json()['id'], 'reference': 'TTN-1', 'observed_at': '2026-11-02T10:00:00+05:00',
+               'time_source': 'device', 'provenance': 'REAL', 'lines': plan_body['lines'], 'condition': 'ok'}
+    return client, auth, actors, site, plan.json(), payload
+
+
+def record(setup, payload=None):
+    client, auth, actors, site, plan, default = setup
+    body = {'receipt_id': str(uuid4()), 'operation_id': str(uuid4()), 'payload': payload or default}
+    result = client.post('/receiving/receipts', headers=auth('receiver'), json=body)
+    assert result.status_code == 201, result.text
+    return body, result.json()['receipt']
+
+
+def attach(setup, packet):
+    client, auth, *_ = setup
+    response = client.post(f"/receiving/receipts/{packet['receipt_id']}/revisions/{packet['current_revision']}/attachments",
+                           headers=auth('receiver'), files={'file': ('photo.png', PNG, 'image/png')})
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def confirm(setup, packet, role='receiver', decision='confirmed', reason=''):
+    client, auth, *_ = setup
+    body = {'decision_id': str(uuid4()), 'expected_revision': packet['current_revision'], 'decision': decision,
+            'accepted': [{'line_id': x['line_id'], 'quantity': x['quantity']} for x in packet['current']['payload']['lines']],
+            'reason': reason}
+    result = client.post(f"/receiving/receipts/{packet['receipt_id']}/decisions", headers=auth(role), json=body)
+    assert result.status_code == 200, result.text
+    return body, result.json()
+
+
+def test_capture_does_not_need_prediction_and_complete_confirmed_is_stricter(receiving, temp_db):
+    body, packet = record(receiving)
+    assert packet['current']['evidence_status'] == 'recorded'
+    _, packet = confirm(receiving, packet)
+    assert packet['current']['evidence_status'] == 'confirmed'
+    assert not packet['current']['complete_confirmed']
+    assert 'attachment' in packet['current']['missing']
+    with temp_db['Session']() as db:
+        assert db.query(temp_db['models'].PredictionLog).count() == 0
+
+
+def test_complete_flow_and_manifest(receiving):
+    client, auth, *_ = receiving
+    _, packet = record(receiving)
+    media = attach(receiving, packet)
+    _, packet = confirm(receiving, packet)
+    assert packet['current']['complete_confirmed']
+    assert not packet['current']['location_available']
+    assert packet['current']['payload']['lines'][0]['quantity'] == '10.25'
+    exported = client.get(f"/receiving/receipts/{packet['receipt_id']}/export", headers=auth()).json()
+    sha = exported.pop('manifest_sha256')
+    assert sha == digest(exported)
+    assert client.get(f"/receiving/attachments/{media['id']}", headers=auth()).content == PNG
+
+
+def test_idempotency_and_changed_content_conflict(receiving):
+    client, auth, *_ = receiving
+    body, _ = record(receiving)
+    assert client.post('/receiving/receipts', headers=auth('receiver'), json=body).json()['duplicate']
+    body['payload']['condition'] = 'damaged'
+    assert client.post('/receiving/receipts', headers=auth('receiver'), json=body).status_code == 409
+    assert client.get('/receiving/receipts', headers=auth()).json()['total'] == 1
+
+
+def test_concurrent_identical_receipt_retries(receiving):
+    client, auth, *_, payload = receiving
+    body = {'receipt_id': str(uuid4()), 'operation_id': str(uuid4()), 'payload': payload}
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda _: client.post('/receiving/receipts', headers=auth('receiver'), json=body), range(4)))
+    assert [r.status_code for r in results] == [201] * 4
+    assert sum(not r.json()['duplicate'] for r in results) == 1
+    assert client.get('/receiving/receipts', headers=auth()).json()['total'] == 1
+
+
+def test_correction_preserves_original_and_drops_confirmation(receiving):
+    client, auth, *_ = receiving
+    body, packet = record(receiving)
+    attach(receiving, packet)
+    decision, packet = confirm(receiving, packet)
+    corrected = deepcopy(body['payload'])
+    corrected['lines'][0]['quantity'] = '8.5'
+    correction = {'operation_id': str(uuid4()), 'expected_revision': 1, 'reason': 'Recounted load', 'payload': corrected}
+    url = f"/receiving/receipts/{packet['receipt_id']}/corrections"
+    response = client.post(url, headers=auth('receiver'), json=correction)
+    assert response.status_code == 200, response.text
+    packet = response.json()['receipt']
+    assert packet['current_revision'] == 2
+    assert packet['revisions'][0]['superseded']
+    assert packet['revisions'][0]['attestations'][0]['decision'] == 'confirmed'
+    assert packet['current']['attestations'] == []
+    assert not packet['current']['complete_confirmed']
+    decision['decision_id'] = str(uuid4())
+    assert client.post(f"/receiving/receipts/{packet['receipt_id']}/decisions", headers=auth('receiver'), json=decision).status_code == 409
+    assert client.post(url, headers=auth('receiver'), json=correction).json()['duplicate']
+
+
+def test_site_and_role_boundaries_include_media_and_exports(receiving):
+    client, auth, actors, *_ = receiving
+    body, packet = record(receiving)
+    media = attach(receiving, packet)
+    assert client.post('/receiving/receipts', headers=auth('viewer'), json=body).status_code == 403
+    assert client.get('/receiving/receipts').status_code == 401
+    other = client.post('/receiving/sites', json={'name': 'Other'}).json()
+    outsider = client.post(f"/receiving/sites/{other['id']}/actors", json={'name': 'Outsider', 'role': 'coordinator'}).json()
+    headers = {'Authorization': 'Bearer ' + outsider['credential']}
+    for path in [f"/receipts/{packet['receipt_id']}", f"/receipts/{packet['receipt_id']}/export", f"/attachments/{media['id']}"]:
+        assert client.get('/receiving' + path, headers=headers).status_code == 404
+    assert client.get('/receiving/receipts', headers=headers).json()['receipts'] == []
+    body['receipt_id'] = str(uuid4())
+    body['operation_id'] = str(uuid4())
+    assert client.post('/receiving/receipts', headers=headers, json=body).status_code == 404
+    client.post(f"/receiving/actors/{actors['receiver']['id']}/revoke")
+    assert client.get('/receiving/me', headers=auth('receiver')).status_code == 401
+
+
+@pytest.mark.parametrize('change', [
+    {'observed_at': '2026-11-02T10:00:00'},
+    {'location': {'latitude': 200, 'longitude': 0, 'accuracy_m': 1}},
+    {'lines': [{'line_id': '1', 'material': 'Rebar', 'quantity': '-1', 'unit': 't'}]},
+    {'lines': [{'line_id': '1', 'material': 'Rebar', 'quantity': 'NaN', 'unit': 't'}]},
+    {'unloading_at': '2026-11-01T00:00:00Z'},
+])
+def test_invalid_receipt_inputs(receiving, change):
+    client, auth, *_, payload = receiving
+    response = client.post('/receiving/receipts', headers=auth('receiver'), json={
+        'receipt_id': str(uuid4()), 'operation_id': str(uuid4()), 'payload': {**payload, **change}})
+    assert response.status_code == 422
+
+
+def test_unmatched_partial_and_dispute_workflow(receiving):
+    client, auth, *_, payload = receiving
+    payload = {**payload, 'plan_id': None, 'reference': 'Unexpected'}
+    _, packet = record(receiving, payload)
+    _, packet = confirm(receiving, packet, decision='disputed', reason='Quantity uncertain')
+    assert packet['current']['evidence_status'] == 'disputed'
+    _, packet = confirm(receiving, packet, role='coordinator', reason='Recount verified')
+    assert not packet['current']['complete_confirmed']
+    assert 'delivery_match' in packet['current']['missing']
+
+
+def test_media_retry_and_attestation_freeze(receiving):
+    client, auth, *_ = receiving
+    _, packet = record(receiving)
+    media = attach(receiving, packet)
+    assert attach(receiving, packet)['duplicate']
+    confirm(receiving, packet)
+    url = f"/receiving/receipts/{packet['receipt_id']}/revisions/1/attachments"
+    assert client.post(url, headers=auth('receiver'), files={'file': ('new.png', PNG + b'new')}).status_code == 409
+    assert client.post(url, headers=auth('receiver'), files={'file': ('bad.html', b'<script>bad</script>')}).status_code == 415
+
+
+def test_simulated_receipts_cannot_be_promoted_or_shared(receiving):
+    client, auth, *_, payload = receiving
+    payload = {**payload, 'plan_id': None, 'provenance': 'SIM'}
+    body, packet = record(receiving, payload)
+    correction = {'operation_id': str(uuid4()), 'expected_revision': 1, 'reason': 'Try promotion',
+                  'payload': {**payload, 'provenance': 'REAL'}}
+    assert client.post(f"/receiving/receipts/{packet['receipt_id']}/corrections", headers=auth(), json=correction).status_code == 422
+    attach(receiving, packet)
+    _, packet = confirm(receiving, packet)
+    assert not packet['current']['complete_confirmed']
+
+
+def test_partner_scope_revocation_and_correction_invalidate_access(receiving):
+    client, auth, *_ = receiving
+    body, packet = record(receiving)
+    attach(receiving, packet)
+    confirm(receiving, packet)
+    grant_body = {'receipt_id': packet['receipt_id'], 'expected_revision': 1, 'recipient': 'Design partner',
+                  'purpose': 'Evaluate receipt', 'consent_reference': 'Written consent 001',
+                  'expires_at': (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()}
+    grant = client.post('/receiving/grants', headers=auth(), json=grant_body)
+    assert grant.status_code == 201, grant.text
+    key = {'X-Evidence-Key': grant.json()['credential']}
+    shared = client.get('/receiving/shared-evidence', headers=key)
+    assert shared.status_code == 200
+    assert not {'location', 'recorded_by', 'attestations', 'note', 'attachments'} & shared.json().keys()
+    assert client.get('/receiving/receipts', headers=key).status_code == 401
+    correction = {'operation_id': str(uuid4()), 'expected_revision': 1, 'reason': 'Recheck', 'payload': body['payload']}
+    assert client.post(f"/receiving/receipts/{packet['receipt_id']}/corrections", headers=auth(), json=correction).status_code == 200
+    assert client.get('/receiving/shared-evidence', headers=key).status_code == 409
+    client.post(f"/receiving/grants/{grant.json()['id']}/revoke", headers=auth())
+    assert client.get('/receiving/shared-evidence', headers=key).status_code == 401
+
+
+def test_reconciliation_and_independent_coverage_denominator(receiving):
+    client, auth, actors, site, plan, payload = receiving
+    _, packet = record(receiving)
+    attach(receiving, packet)
+    confirm(receiving, packet)
+    doc = {'document_id': str(uuid4()), 'plan_id': plan['id'], 'kind': 'TTN', 'number': '123',
+           'issuer': 'Supplier', 'issued_on': '2026-11-01', 'lines': payload['lines']}
+    assert client.post('/receiving/documents', headers=auth(), json=doc).status_code == 201
+    result = client.get(f"/receiving/documents/{doc['document_id']}/reconciliation", headers=auth()).json()
+    assert result['lines'][0]['status'] == 'matched'
+    params = {'start': '2026-11-02T00:00:00+05:00', 'end': '2026-11-03T00:00:00+05:00',
+              'eligible_arrivals': 4, 'register_reference': 'Gate log 02 Nov'}
+    metrics = client.get('/receiving/metrics', headers=auth(), params=params).json()
+    assert metrics['recorded_coverage'] == metrics['confirmed_coverage'] == 0.25
+    assert metrics['eligible_arrivals'] == 4
+
+
+def test_pure_evidence_rules_known_answers():
+    payload = {'plan_id': 'a', 'provenance': 'REAL', 'lines': [{'line_id': '1', 'quantity': '2.5'}]}
+    summary = receipt_summary(payload, {'decision': 'confirmed', 'accepted': [{'line_id': '1', 'quantity': '2'}]}, 1)
+    assert summary['partial_acceptance'] and summary['complete_confirmed']
+    line = {'line_id': '1', 'quantity': '2', 'material': 'Steel', 'unit': 't'}
+    assert reconciliation([line], [{**line, 'unit': 'kg'}])[0]['status'] == 'material_or_unit_mismatch'
+    assert reconciliation([line], [line, {**line, 'unit': 'kg'}])[0]['status'] == 'ambiguous_receipt_lines'
+
+
+def test_extensions_default_closed(receiving, monkeypatch):
+    client, auth, *_ = receiving
+    monkeypatch.delenv('SITEPULSE_ENABLE_RECONCILIATION')
+    monkeypatch.delenv('SITEPULSE_ENABLE_PARTNER_SHARING')
+    assert client.get('/receiving/documents', headers=auth()).status_code == 403
+    assert client.get('/receiving/shared-evidence').status_code == 403
+
+
+def test_concurrent_correction_retries_and_partial_review(receiving):
+    client, auth, *_ = receiving
+    _, packet = record(receiving)
+    attach(receiving, packet)
+    body = {'decision_id': str(uuid4()), 'expected_revision': 1, 'decision': 'confirmed',
+            'accepted': [{'line_id': '1', 'quantity': '9'}]}
+    response = client.post(f"/receiving/receipts/{packet['receipt_id']}/decisions", headers=auth('receiver'), json=body)
+    assert response.json()['current']['needs_review']
+    correction = {'operation_id': str(uuid4()), 'expected_revision': 1,
+                  'reason': 'Synthetic correction test', 'payload': packet['current']['payload']}
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda _: client.post(f"/receiving/receipts/{packet['receipt_id']}/corrections",
+                              headers=auth('receiver'), json=correction), range(4)))
+    assert [r.status_code for r in results] == [200] * 4
+    assert sum(not r.json()['duplicate'] for r in results) == 1
+
+
+def test_optional_slots_overlap_roles_versions_and_notifications(receiving, monkeypatch):
+    client, auth, actors, site, plan, payload = receiving
+    assert client.get('/receiving/resources', headers=auth()).status_code == 403
+    monkeypatch.setenv('SITEPULSE_ENABLE_OPERATIONS', '1')
+    assert client.post('/receiving/resources', headers=auth('receiver'), json={'name':'Crane-1','kind':'crane'}).status_code == 403
+    resource = client.post('/receiving/resources', headers=auth(), json={'name':'Crane-1','kind':'crane'}).json()
+    assert len(client.get('/receiving/resources', headers=auth()).json()['resources']) == 1
+    assert client.post('/receiving/resources', headers=auth(), json={'name':'Crane-1','kind':'crane'}).status_code == 409
+    slots = []
+    for _ in range(2):
+        body = {'slot_id':str(uuid4()), 'resource_id':resource['id'], 'plan_id':plan['id'],
+                'start_at':'2026-11-02T10:00:00+05:00', 'end_at':'2026-11-02T11:00:00+05:00'}
+        response = client.post('/receiving/slots', headers=auth('receiver'), json=body)
+        assert response.status_code == 201, response.text
+        slots.append(response.json())
+        assert client.post('/receiving/slots', headers=auth('receiver'), json=body).status_code == 201
+        body['end_at'] = '2026-11-02T12:00:00+05:00'
+        assert client.post('/receiving/slots', headers=auth('receiver'), json=body).status_code == 409
+    assert len(client.get('/receiving/slots', headers=auth()).json()['slots']) == 2
+    decision = {'expected_version':1, 'action':'approve', 'reason':'Confirmed by coordinator'}
+    assert client.post(f"/receiving/slots/{slots[0]['id']}/decision", headers=auth('receiver'), json=decision).status_code == 403
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(lambda slot: client.post(f"/receiving/slots/{slot['id']}/decision", headers=auth(), json=decision), slots))
+    assert sorted(r.status_code for r in responses) == [200,409]
+    approved = next(r.json() for r in responses if r.status_code == 200)
+    assert client.post(f"/receiving/slots/{approved['id']}/decision", headers=auth(), json=decision).status_code == 409
+    notices = client.get('/receiving/notifications', headers=auth()).json()
+    assert notices['unread'] == 2  # retries never duplicate notifications
+    notification_id = notices['notifications'][0]['id']
+    assert client.post(f'/receiving/notifications/{notification_id}/read', headers=auth('receiver')).status_code == 404
+    for _ in range(2):
+        assert client.post(f'/receiving/notifications/{notification_id}/read', headers=auth()).status_code == 200
+    assert client.get('/receiving/notifications', headers=auth()).json()['unread'] == 1
+    assert client.get('/receiving/notifications', headers=auth('receiver')).json()['unread'] == 1
+    assert client.get('/receiving/supplier-history', headers=auth()).json()['suppliers'] == []
+    _, packet = record(receiving)
+    attach(receiving, packet)
+    confirm(receiving, packet)
+    history = client.get('/receiving/supplier-history', headers=auth()).json()['suppliers']
+    assert history[0]['receipts'] == history[0]['on_time'] == 1
+    assert 0 < history[0]['ci_low'] < 1 and history[0]['ci_high'] == 1
+    assert client.post(f"/receiving/slots/{approved['id']}/decision", headers=auth(),
+                       json={'action':'cancel','expected_version':2,'reason':'No longer required'}).status_code == 200
+    pending = next(s for s in slots if s['id'] != approved['id'])
+    assert client.post(f"/receiving/slots/{pending['id']}/decision", headers=auth(), json=decision).status_code == 200
+
+
+def test_plan_closure_audit_and_superseded_media_retry(receiving):
+    client, auth, actors, site, plan, payload = receiving
+    _, packet = record(receiving)
+    media = attach(receiving, packet)
+    assert packet['current']['plan']['supplier'] == 'Supplier'
+    assert client.post(f"/receiving/plans/{plan['id']}/status", headers=auth('receiver'),
+                       json={'status':'completed','reason':'Partial load reviewed'}).status_code == 403
+    closed = client.post(f"/receiving/plans/{plan['id']}/status", headers=auth(),
+                         json={'status':'completed','reason':'All partial loads reconciled'})
+    assert closed.json()['status'] == 'completed'
+    correction = {'operation_id':str(uuid4()),'expected_revision':1,'reason':'Observed quantity corrected',
+                  'payload':packet['current']['payload']}
+    assert client.post(f"/receiving/receipts/{packet['receipt_id']}/corrections", headers=auth('receiver'),json=correction).status_code == 200
+    url = f"/receiving/receipts/{packet['receipt_id']}/revisions/1/attachments"
+    duplicate = client.post(url, headers=auth('receiver'), files={'file':('synthetic.png',PNG,'image/png')})
+    assert duplicate.json()['id'] == media['id'] and duplicate.json()['duplicate']
+    assert client.post(url, headers=auth('receiver'), files={'file':('changed.png',PNG+b'changed','image/png')}).status_code == 409
+    assert client.get('/receiving/audit', headers=auth('viewer')).status_code == 403
+    events = client.get('/receiving/audit', headers=auth()).json()['events']
+    assert any(e['action']=='plan.completed' and e['details']['reason']=='All partial loads reconciled' for e in events)
+
+
+def test_concurrent_document_retry_is_one_record(receiving):
+    client, auth, actors, site, plan, payload = receiving
+    body = {'document_id':str(uuid4()), 'plan_id':plan['id'], 'kind':'TTN', 'number':'DOC-RETRY',
+            'issuer':'Synthetic issuer','issued_on':'2026-11-02','lines':payload['lines']}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        responses=list(pool.map(lambda _: client.post('/receiving/documents', headers=auth(), json=body), range(3)))
+    assert [r.status_code for r in responses] == [201]*3
+    assert len(client.get('/receiving/documents',headers=auth()).json()['documents']) == 1
+    body['number']='CHANGED'
+    assert client.post('/receiving/documents',headers=auth(),json=body).status_code == 409
+
+
+def test_plan_progress_exact_decimals_and_units():
+    from engines.receiving import plan_progress
+    planned = [{'line_id':'1','material':'Steel','quantity':'0.3','unit':'t'}]
+    receipts=[]
+    for quantity in ['0.1','0.2']:
+        receipts.append({'payload':{'lines':[{**planned[0],'quantity':quantity}]},
+                         'decision':{'decision':'confirmed','accepted':[{'line_id':'1','quantity':quantity}]}})
+    result=plan_progress(planned,receipts)
+    assert result['quantities_match'] and result['lines'][0]['accepted_quantity']=='0.3'
+    receipts.append({'payload':{'lines':[{**planned[0],'quantity':'100','unit':'kg'}]},
+                     'decision':{'decision':'confirmed','accepted':[{'line_id':'1','quantity':'100'}]}})
+    result=plan_progress(planned,receipts)
+    assert not result['quantities_match']
+    assert result['lines'][0]['accepted_quantity']=='0.3'
+    assert result['lines'][1]['status']=='unexpected_material_or_unit'
+    assert result['lines'][1]['planned_quantity'] is None
+    receipts[0]['decision']['decision']='disputed'
+    result=plan_progress(planned,receipts)
+    assert result['pending_receipts']==1 and result['lines'][0]['remaining_quantity']=='0.1'
+
+
+def test_plan_detail_split_receipts_current_revisions_and_site_scope(receiving):
+    client,auth,actors,site,plan,payload=receiving
+    first=deepcopy(payload);first['lines'][0]['quantity']='4.25'
+    _,packet1=record(receiving,first);confirm(receiving,packet1)
+    second=deepcopy(payload);second['lines'][0]['quantity']='6'
+    _,packet2=record(receiving,second)
+    route=f"/receiving/plans/{plan['id']}"
+    result=client.get(route,headers=auth('viewer')).json()
+    line=result['progress']['lines'][0]
+    assert line['observed_quantity']=='10.25' and line['accepted_quantity']=='4.25'
+    assert line['remaining_quantity']=='6.00' and result['progress']['pending_receipts']==1
+    confirm(receiving,packet2)
+    result=client.get(route,headers=auth()).json()
+    assert result['progress']['quantities_match']
+    # A new revision invalidates the old acceptance in the plan total.
+    correction={'operation_id':str(uuid4()),'expected_revision':1,'reason':'Reweighed partial load','payload':second}
+    assert client.post(f"/receiving/receipts/{packet2['receipt_id']}/corrections",headers=auth('receiver'),json=correction).status_code==200
+    result=client.get(route,headers=auth()).json()
+    assert result['progress']['receipt_count']==2 and not result['progress']['quantities_match']
+    assert result['progress']['lines'][0]['accepted_quantity']=='4.25'
+    other=client.post('/receiving/sites',json={'name':'Other site'}).json()
+    actor=client.post(f"/receiving/sites/{other['id']}/actors",json={'name':'Other viewer','role':'viewer'}).json()
+    assert client.get(route,headers={'Authorization':'Bearer '+actor['credential']}).status_code==404
+    assert client.get(route,headers={'Authorization':'Bearer invalid'}).status_code==401
+
+
+def test_coverage_report_excludes_sim_and_preserves_denominator_context(receiving):
+    client,auth,actors,site,plan,payload=receiving
+    _,packet=record(receiving);attach(receiving,packet);confirm(receiving,packet)
+    simulated=deepcopy(payload);simulated.update(plan_id=None,reference='SIM',provenance='SIM')
+    record(receiving,simulated)
+    params={'start':'2026-11-02T00:00:00+05:00','end':'2026-11-03T00:00:00+05:00',
+            'eligible_arrivals':2,'register_reference':'Independent gate sheet'}
+    report=client.get('/receiving/metrics',headers=auth(),params=params).json()
+    assert report['site_id']==site['id'] and report['evaluated_at']
+    assert report['recorded']==report['complete_confirmed']==1
+    assert report['confirmed_coverage']==0.5 and report['register_reference']==params['register_reference']
+    assert client.get('/receiving/metrics',headers=auth('receiver'),params=params).status_code==403
+    params['end']='2026-11-03T00:00:00'
+    assert client.get('/receiving/metrics',headers=auth(),params=params).status_code==422
+
+
+def test_bundle_contains_all_revisions_and_verified_attachment_bytes(receiving, tmp_path):
+    import hashlib
+    import json
+    import zipfile
+    from scripts.verify_receipt_bundle import verify
+    client,auth,*_=receiving
+    body,packet=record(receiving)
+    old_media=attach(receiving,packet);confirm(receiving,packet)
+    correction={'operation_id':str(uuid4()),'expected_revision':1,'reason':'Reweighed delivery','payload':body['payload']}
+    revised=client.post(f"/receiving/receipts/{packet['receipt_id']}/corrections",headers=auth('receiver'),json=correction).json()['receipt']
+    new_media=attach(receiving,revised)
+    response=client.get(f"/receiving/receipts/{packet['receipt_id']}/bundle",headers=auth('viewer'))
+    assert response.status_code==200 and response.headers['content-type']=='application/zip'
+    assert response.headers['cache-control']=='no-store'
+    path=tmp_path/'receipt.zip';path.write_bytes(response.content)
+    assert verify(path)['attachments']==2 and verify(path)['revisions']==2
+    with zipfile.ZipFile(path) as archive:
+        manifest=json.loads(archive.read('manifest.json'))
+        exported=json.loads(archive.read('receipt.json'))
+        assert exported['revisions'][0]['superseded'] and exported['revisions'][0]['attestations']
+        assert not exported['current']['attestations']
+        for number,media in [(1,old_media),(2,new_media)]:
+            name=f"attachments/revision-{number}/{media['id']}.png"
+            assert archive.read(name)==PNG
+            entry=next(f for f in manifest['files'] if f['path']==name)
+            assert entry['sha256']==hashlib.sha256(PNG).hexdigest()
+    audit=client.get('/receiving/audit',headers=auth()).json()['events']
+    event=next(e for e in audit if e['action']=='receipt.bundle_exported')
+    assert event['details']['attachments']==2 and event['details']['revision']==2
+
+
+def test_bundle_checks_access_corruption_and_size_before_export(receiving, temp_db, monkeypatch):
+    import api.routers.receiving as receiving_router
+    client,auth,actors,*_=receiving
+    _,packet=record(receiving);media=attach(receiving,packet)
+    route=f"/receiving/receipts/{packet['receipt_id']}/bundle"
+    other=client.post('/receiving/sites',json={'name':'Other site'}).json()
+    viewer=client.post(f"/receiving/sites/{other['id']}/actors",json={'name':'Other viewer','role':'viewer'}).json()
+    assert client.get(route,headers={'Authorization':'Bearer '+viewer['credential']}).status_code==404
+    assert client.get(route,headers={'Authorization':'Bearer invalid'}).status_code==401
+    monkeypatch.setattr(receiving_router,'MAX_BUNDLE_BYTES',1)
+    assert client.get(route,headers=auth()).status_code==413
+    monkeypatch.setattr(receiving_router,'MAX_BUNDLE_BYTES',100*1024*1024)
+    with temp_db['Session']() as db:
+        item=db.get(temp_db['models'].ReceiptAttachment,media['id']);item.content=PNG+b'tampered';db.commit()
+    assert client.get(route,headers=auth()).status_code==409
+    assert not any(e['action']=='receipt.bundle_exported' for e in client.get('/receiving/audit',headers=auth()).json()['events'])
+
+
+def test_bundle_verifier_rejects_tampering_and_unsafe_paths(receiving, tmp_path):
+    import io
+    import zipfile
+    from scripts.verify_receipt_bundle import verify
+    client,auth,*_=receiving
+    _,packet=record(receiving);attach(receiving,packet)
+    response=client.get(f"/receiving/receipts/{packet['receipt_id']}/bundle",headers=auth())
+    assert response.status_code==200
+    with zipfile.ZipFile(io.BytesIO(response.content)) as original:
+        entries={name:original.read(name) for name in original.namelist()}
+    changed=tmp_path/'changed.zip'
+    with zipfile.ZipFile(changed,'w') as archive:
+        for name,content in entries.items():
+            archive.writestr(name,b'changed bytes' if name.startswith('attachments/') else content)
+    with pytest.raises(ValueError,match='digest mismatch'):
+        verify(changed)
+    unsafe=tmp_path/'unsafe.zip'
+    with zipfile.ZipFile(unsafe,'w') as archive:
+        archive.writestr('../outside.txt','never extract')
+    with pytest.raises(ValueError,match='Unsafe'):
+        verify(unsafe)

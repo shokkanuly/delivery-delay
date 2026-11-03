@@ -12,6 +12,7 @@ DASH_PORT=8501
 export SITEPULSE_ADMIN_KEY="${SITEPULSE_ADMIN_KEY:-$("$PY" -c 'import secrets; print(secrets.token_urlsafe(24))')}"
 
 # 1. Ensure a model artifact exists (seed the DB + train if not).
+"$PY" -m db.migrate
 if [ ! -f ml/artifacts/model.joblib ]; then
   echo "No model artifact found — preparing data and training..."
   [ -f delivery.db ] || "$PY" -m db.seed

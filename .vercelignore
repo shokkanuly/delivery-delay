@@ -1,0 +1,16 @@
+.git/
+.venv/
+venv/
+.env*
+*.db
+*.sqlite3
+var/
+test-results/
+__pycache__/
+**/__pycache__/
+*.pyc
+ml/artifacts/
+data/customer_uploads/
+# Vercel uses pyproject.toml; the full ML/Streamlit environment is not deployed.
+requirements.txt
+requirements-dev.txt

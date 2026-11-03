@@ -1,5 +1,10 @@
 # SitePulse — MVP reshape: architecture, system design and build roadmap (2026-10-19)
 
+> Historical implementation record. On 2 November 2026 the
+> [delivery-evidence plan](delivery-evidence-reshape.md) superseded this document's unfinished
+> stage order and future product priorities. Completed stages and notes below are preserved.
+> The new planning pass did not implement migrations or any later stage.
+
 Status: `[ ]` todo · `[~]` in progress · `[x]` done. Work **one stage per Claude Code session**, in order.
 Mark the stage `[~]` when you start, `[x]` when its *Done when* passes, and write mid-build notes in §7.
 

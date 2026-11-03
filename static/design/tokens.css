@@ -3,7 +3,7 @@
    (light theme); the Streamlit dashboard inlines it with the dark block
    promoted to :root (see dashboard/app.py::_design_tokens). Rules: DESIGN.md. */
 
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+/* Use installed fonts/system fallbacks: receiving must work offline without external calls. */
 
 :root {
   /* Neutrals — one Zinc ramp, no warm/cool mixing */

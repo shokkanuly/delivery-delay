@@ -1,5 +1,16 @@
 # Research → product decisions
 
+## November direction
+
+The [31 October research input](research/README.md) broadens the hypothesis from historical
+supplier analysis to evidence captured at receiving. The [new plan](plans/delivery-evidence-reshape.md)
+keeps the working audit but prioritises one site's receipt/confirmation flow before document
+reconciliation, bank sharing or energy measurement. This is a product hypothesis, not new
+customer validation. External rates, rules, competitors and deadlines were not rechecked in
+this planning pass; the packet is preserved as an attributed input snapshot.
+
+## October baseline (preserved)
+
 Updated 20 October 2026. This is a synthesis of the founder-provided research notes and
 `SitePulse_IdeaMiners_2026.pdf`, not independent customer validation or an official judging rubric.
 The original private attachments are not copied into this public repository.

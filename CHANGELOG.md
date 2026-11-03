@@ -4,6 +4,42 @@ This document contains internal development logs, hackathon milestones, UI refac
 
 ---
 
+## 2026-11-03 · Hosted deployment preparation
+
+- Full customer containers now run in CI with local TLS, SIM capture/export, recreation/persistence, credential revocation, and container-native dump/restore. All seven CI jobs passed at `ad0a98d`.
+- Prepared a receiving-only Vercel entrypoint with locked dependencies, persistent-PostgreSQL/operator-key startup guards and connection cleanup. Vercel file/ZIP limits are exposed to capture and preserve oversized drafts for recovery.
+- Validation: 268 Python tests passed with one default PostgreSQL opt-in skip. The minimal runtime passed the Chromium, Firefox and WebKit journeys locally; CI also exercises all three engines against that isolated runtime. Vercel team authorization, the actual persistent database and hosted acceptance remain open.
+- Added a concrete remaining-task register and Vercel deployment instructions; removed stale claims that the branch and CI were unpublished/unrun.
+
+---
+
+## 2026-11-03 · Evidence handoff and restore integrity
+
+- Added complete receipt ZIP export with all revisions/files, a manifest, access checks, integrity checks and an audited snapshot. Added a standalone archive verifier that does not extract files.
+- Made local backup restoration atomic: malformed content, conflicting IDs and storage failures leave the queue unchanged; matching records retain upload progress.
+- Validation: 263 Python tests passed (one PostgreSQL opt-in test skipped in the default run); all 28 receiving tests passed on PostgreSQL. Chromium, Firefox and WebKit passed ZIP download/verification and atomic restore fault injection. No external deployment or pilot is claimed.
+
+---
+
+## 2026-11-02 · Receiving workflow continuation
+
+- Added exact plan/actual totals for partial receipts, closed-plan review and a coordinator pilot coverage report/export.
+- Fixed corrections losing their plan association after closure, optional persistence permission failures obscuring successful saves, and stale private views on account/site changes.
+- Replaced new IndexedDB photo Blob storage with bytes after a WebKit failure; retained compatibility with old drafts. Expanded browser rehearsals and CI to three engines.
+- Validation: 260 Python tests passed, one opt-in PostgreSQL test skipped in the default run; all 25 receiving tests passed on PostgreSQL. Chromium, Firefox and WebKit rehearsals passed, including pending/denied persistence prompts. Field/deployment gates are unchanged.
+
+---
+
+## 2026-11-02 · Delivery evidence implementation
+
+- Added a separate site-scoped receiving workflow: named access, plans, arrival/quantity/media, confirmation/dispute, immutable revisions, audit/export, offline draft/media sync and recovery.
+- Added additive migrations, private customer mode, backup/restore tooling and an isolated deployment configuration. Optional document reconciliation, restricted evidence grants and coordinator-approved slots remain disabled by default.
+- Preserved the historical audit, signed gate intake and ML contracts. Updated product scope, roadmap, pilot templates and operator handoff to distinguish software verification from field acceptance.
+- Validation: 257 Python tests passed (one PostgreSQL opt-in test skipped in the default run); 25 PostgreSQL checks plus the additional document-retry regression passed. Chromium offline/recovery and phone-layout rehearsal, Caddy configuration validation, synthetic-report consistency and the ML correctness demo passed.
+- Local implementation only: no push, customer deployment, interviews, physical-phone acceptance or completed 30-day pilot is claimed. See `docs/IMPLEMENTATION_STATUS.md`.
+
+---
+
 ## 2026-10-20 · Research-backed evaluation readiness
 
 - Refocused the README, product scope, pitch and pilot proposal on a one-site supplier audit, with a three-minute judge guide and a research/evidence register.

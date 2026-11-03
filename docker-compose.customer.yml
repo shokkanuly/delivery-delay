@@ -1,0 +1,52 @@
+# One isolated customer stack. Run only on the agreed customer host.
+# docker compose --env-file .env.customer -f docker-compose.customer.yml up -d --build
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: sitepulse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a unique database password}
+      POSTGRES_DB: sitepulse
+    volumes: ["customer_db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sitepulse -d sitepulse"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  api:
+    build: .
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set the customer Postgres URL}
+      SITEPULSE_MODE: customer
+      SITEPULSE_ADMIN_KEY: ${SITEPULSE_ADMIN_KEY:?Set a unique operator key}
+      SITEPULSE_ENABLE_RECONCILIATION: "0"
+      SITEPULSE_ENABLE_PARTNER_SHARING: "0"
+      SITEPULSE_ENABLE_OPERATIONS: "0"
+      SITEPULSE_CORS_ORIGINS: ""
+    depends_on:
+      db:
+        condition: service_healthy
+    expose: ["8000"]
+    command: ["sh", "scripts/start_api.sh"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  proxy:
+    image: caddy:2
+    environment:
+      SITEPULSE_DOMAIN: ${SITEPULSE_DOMAIN:?Set the customer domain}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./ops/Caddyfile:/etc/caddy/Caddyfile:ro
+      - customer_tls:/data
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  customer_db:
+  customer_tls:

@@ -39,3 +39,40 @@ def cors_origins() -> list[str]:
     (same origin); only the Streamlit dashboard needs CORS."""
     raw = os.getenv("SITEPULSE_CORS_ORIGINS", "http://localhost:8501,http://127.0.0.1:8501")
     return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+def credential_hash(value: str) -> str:
+    import hashlib
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+# Receiving credentials identify one person at one site; no admin-key fallback.
+from fastapi import Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from db.database import get_session
+from db.models import ReceivingActor
+
+_receiving_bearer = HTTPBearer(auto_error=False)
+
+
+def receiving_actor(credentials: HTTPAuthorizationCredentials | None = Depends(_receiving_bearer),
+                    db: Session = Depends(get_session)) -> ReceivingActor:
+    if credentials is None or len(credentials.credentials) > 256:
+        raise HTTPException(401, "Named receiving credential required")
+    actor = db.query(ReceivingActor).filter_by(key_hash=credential_hash(credentials.credentials), active=True).first()
+    if actor is None:
+        raise HTTPException(401, "Receiving credential invalid or revoked")
+    return actor
+
+
+def receiving_writer(actor: ReceivingActor = Depends(receiving_actor)) -> ReceivingActor:
+    if actor.role not in {"receiver", "coordinator"}:
+        raise HTTPException(403, "Receiver or coordinator role required")
+    return actor
+
+
+def receiving_coordinator(actor: ReceivingActor = Depends(receiving_actor)) -> ReceivingActor:
+    if actor.role != "coordinator":
+        raise HTTPException(403, "Coordinator role required")
+    return actor

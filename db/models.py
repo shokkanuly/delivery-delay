@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import JSON
 
@@ -256,3 +256,161 @@ class AuditEvent(Base):
     action = Column(String, nullable=False, index=True)
     target = Column(String)
     details = Column(JSON)
+
+
+# Customer receiving is deliberately separate from public demo/reference tables.
+class ReceivingSite(Base):
+    __tablename__ = "receiving_sites"
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    timezone = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceivingActor(Base):
+    __tablename__ = "receiving_actors"
+    id = Column(String, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    role = Column(String, nullable=False)
+    key_hash = Column(String, nullable=False, unique=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceivingPlan(Base):
+    __tablename__ = "receiving_plans"
+    __table_args__ = (UniqueConstraint("site_id", "reference", name="uq_receiving_plan_ref"),)
+    id = Column(String, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    reference = Column(String, nullable=False)
+    payload = Column(JSON, nullable=False)
+    status = Column(String, nullable=False, default="expected")
+    created_by = Column(String, ForeignKey("receiving_actors.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class Receipt(Base):
+    __tablename__ = "receipts"
+    id = Column(String, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    revision = Column(Integer, nullable=False, default=1)
+    mutation = Column(Integer, nullable=False, default=0)
+    created_by = Column(String, ForeignKey("receiving_actors.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceiptRevision(Base):
+    __tablename__ = "receipt_revisions"
+    __table_args__ = (UniqueConstraint("receipt_id", "number", name="uq_receipt_revision"),
+                      UniqueConstraint("site_id", "operation_id", name="uq_receipt_operation"))
+    id = Column(String, primary_key=True)
+    receipt_id = Column(String, ForeignKey("receipts.id"), nullable=False, index=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False)
+    operation_id = Column(String, nullable=False)
+    number = Column(Integer, nullable=False)
+    payload = Column(JSON, nullable=False)
+    digest = Column(String, nullable=False)
+    request_digest = Column(String, nullable=False)
+    actor_id = Column(String, ForeignKey("receiving_actors.id"), nullable=False)
+    reason = Column(String, nullable=True)
+    received_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceiptAttachment(Base):
+    __tablename__ = "receipt_attachments"
+    __table_args__ = (UniqueConstraint("revision_id", "digest", name="uq_receipt_attachment"),)
+    id = Column(String, primary_key=True)
+    revision_id = Column(String, ForeignKey("receipt_revisions.id"), nullable=False, index=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False)
+    actor_id = Column(String, ForeignKey("receiving_actors.id"), nullable=False)
+    digest = Column(String, nullable=False)
+    content_type = Column(String, nullable=False)
+    size = Column(Integer, nullable=False)
+    content = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceiptAttestation(Base):
+    __tablename__ = "receipt_attestations"
+    id = Column(String, primary_key=True)
+    revision_id = Column(String, ForeignKey("receipt_revisions.id"), nullable=False, index=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False)
+    actor_id = Column(String, ForeignKey("receiving_actors.id"), nullable=False)
+    payload = Column(JSON, nullable=False)
+    digest = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceivingAudit(Base):
+    __tablename__ = "receiving_audit"
+    id = Column(Integer, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    actor_id = Column(String, nullable=False)
+    action = Column(String, nullable=False)
+    target = Column(String, nullable=False)
+    details = Column(JSON, nullable=False)
+    at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceivingDocument(Base):
+    __tablename__ = "receiving_documents"
+    id = Column(String, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    plan_id = Column(String, ForeignKey("receiving_plans.id"), nullable=False)
+    payload = Column(JSON, nullable=False)
+    actor_id = Column(String, ForeignKey("receiving_actors.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class EvidenceGrant(Base):
+    __tablename__ = "evidence_grants"
+    id = Column(String, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    receipt_id = Column(String, ForeignKey("receipts.id"), nullable=False)
+    revision = Column(Integer, nullable=False)
+    key_hash = Column(String, nullable=False, unique=True)
+    recipient = Column(String, nullable=False)
+    purpose = Column(String, nullable=False)
+    consent_reference = Column(String, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked = Column(Boolean, nullable=False, default=False)
+    actor_id = Column(String, ForeignKey("receiving_actors.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceivingResource(Base):
+    __tablename__ = "receiving_resources"
+    __table_args__ = (UniqueConstraint("site_id", "name", name="uq_receiving_resource_name"),)
+    id = Column(String, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    kind = Column(String, nullable=False)
+    mutation = Column(Integer, nullable=False, default=0)
+
+
+class ReceivingSlot(Base):
+    __tablename__ = "receiving_slots"
+    id = Column(String, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    resource_id = Column(String, ForeignKey("receiving_resources.id"), nullable=False, index=True)
+    plan_id = Column(String, ForeignKey("receiving_plans.id"), nullable=True)
+    start_at = Column(DateTime(timezone=True), nullable=False)
+    end_at = Column(DateTime(timezone=True), nullable=False)
+    status = Column(String, nullable=False, default="requested")
+    version = Column(Integer, nullable=False, default=1)
+    actor_id = Column(String, ForeignKey("receiving_actors.id"), nullable=False)
+    request_digest = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ReceivingNotification(Base):
+    __tablename__ = "receiving_notifications"
+    __table_args__ = (UniqueConstraint("actor_id", "event_key", name="uq_receiving_notification"),)
+    id = Column(String, primary_key=True)
+    site_id = Column(String, ForeignKey("receiving_sites.id"), nullable=False, index=True)
+    actor_id = Column(String, ForeignKey("receiving_actors.id"), nullable=False, index=True)
+    event_key = Column(String, nullable=False)
+    payload = Column(JSON, nullable=False)
+    read_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)

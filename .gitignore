@@ -5,10 +5,15 @@ __pycache__/
 ml/artifacts/
 data/customer_uploads/
 .env
+.env.customer
+.vercel/
 .venv/
 venv/
 .DS_Store
 var/audits/
+var/receiving/
+var/backups/
+test-results/
 
 # Local verification and editor caches
 .pytest_cache/

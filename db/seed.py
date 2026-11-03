@@ -74,12 +74,19 @@ def _load_deliveries(csv_path: str | None, n: int, seed_val: int) -> pd.DataFram
 
 
 def seed(n: int = 1200, seed_val: int = 7, csv_path: str | None = None) -> dict:
-    Base.metadata.drop_all(bind=engine, tables=[m.__table__ for m in OWNED_TABLES])
+    import os
+    if os.getenv("SITEPULSE_MODE") == "customer":
+        raise RuntimeError("Synthetic seeding is disabled in customer mode")
     init_db()
     df = _load_deliveries(csv_path, n, seed_val)
 
     session = SessionLocal()
     try:
+        # Keep the versioned schema intact. Reset only demo-owned rows, children first.
+        owned = {m.__table__ for m in OWNED_TABLES}
+        for table in reversed(Base.metadata.sorted_tables):
+            if table in owned:
+                session.execute(table.delete())
         # ---- projects: prefer the master CSV, else derive from delivery sites
         projects_csv = _read("projects.csv")
         if projects_csv is not None:

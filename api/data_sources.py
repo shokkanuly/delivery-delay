@@ -16,7 +16,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.database import SessionLocal
+from db import database
 from db.models import (
     BookingRequest,
     BuildPhase,
@@ -73,7 +73,7 @@ def read_reference(name: str, db: Session | None = None) -> pd.DataFrame:
     if mapping is not None:
         model, columns = mapping
         own_session = db is None
-        session = db or SessionLocal()
+        session = db or database.SessionLocal()
         try:
             df = _rows(session, model, columns)
         finally:

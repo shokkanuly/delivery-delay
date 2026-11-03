@@ -15,6 +15,7 @@ uvicorn[standard]>=0.27
 pydantic>=2.6
 python-multipart>=0.0.9        # CSV upload for /predict/batch
 sqlalchemy>=2.0
+alembic>=1.13,<2
 streamlit>=1.30
 requests>=2.31
 joblib>=1.3

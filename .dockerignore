@@ -4,6 +4,10 @@ __pycache__/
 *.sqlite3
 ml/artifacts/
 .env
+.env.customer
+.vercel/
+var/
+test-results/
 .venv/
 venv/
 .git/

@@ -11,6 +11,21 @@
 **[Try the demo](https://logistics-api-production-2e47.up.railway.app/#audit) · [3-minute judge guide](docs/JUDGES.md) · [Research → decisions](docs/RESEARCH.md)**
 </div>
 
+## Delivery evidence at the site
+
+The receiving workflow is implemented at **`/receive`**: plan a delivery, record arrival
+and quantity, attach evidence, confirm or dispute the exact revision, and review/export its history, including a ZIP with every revision and its files.
+Offline drafts and media survive reload, interrupted uploads retry without duplicates, and corrections
+preserve earlier confirmations. Named access is scoped to a site. Coordinators can review totals across
+partial receipts and export coverage reports against an independent arrivals register. Optional document matching,
+read-only evidence grants and human-approved resource slots are disabled by default.
+
+**Software rehearsed with synthetic data; no customer deployment or completed field pilot is claimed.**
+Start with the [implementation status](docs/IMPLEMENTATION_STATUS.md), [receiving runbook](docs/RECEIVING_RUNBOOK.md),
+[product scope](docs/PRD.md), [roadmap](ROADMAP.md) and [30-day pilot protocol](docs/PILOT_PROPOSAL.md).
+The supplied [research packet](docs/research/README.md) is retained with its verification limits.
+The public demo links below refer to the historical audit prototype; the receiving implementation is published in [draft PR #7](https://github.com/shokkanuly/delivery-delay/pull/7) and verified in CI; a live receiving deployment is still pending. See [Vercel setup](docs/VERCEL_DEPLOYMENT.md) and [remaining tasks](docs/REMAINING_TASKS.md).
+
 ## One export. One site. A supplier scorecard you can inspect.
 
 SitePulse helps a construction contractor review delivery reliability from a 1C/CSV history:
@@ -48,9 +63,9 @@ real customer data requires the Kazakhstan/on-prem deployment described in the p
 | Supplier and supplier × material scorecards | Delivery counts, on-time share, Wilson 95% interval, late-day median/p90 and a shared 90-day trend. |
 | Historical model comparison | Chronological 70/30 split; date ties stay together; unresolved training outcomes are purged. Risk bands appear only if the model beats the supplier-average baseline. |
 | Exposure in tenge | Required contract/rental inputs; no assumed customer rates. Exposure is not proven savings. |
-| Equipment scheduling and phase checks | CP-SAT no-overlap invariant and deterministic phase-date rules, covered by tests. Fixed-time assignment is implemented; human booking approval is planned. |
+| Equipment scheduling and phase checks | CP-SAT no-overlap invariant and deterministic phase-date rules, covered by tests. Legacy fixed-time assignment remains available; optional receiving slots add human approval and overlap checks. |
 | Arrival evidence loop | Signed, idempotent gate-event intake, review queue, prediction/outcome logs and accuracy endpoints. No connected live gate is claimed. |
-| Operator workflow | Migrations, role-based approval, daily at-risk view/outbound notifications and customer hosting remain [planned](ROADMAP.md). |
+| Receiving workflow | Migrations, named access, evidence/revisions, offline capture, confirmation, export and optional extensions implemented; [verification and remaining field gates](docs/IMPLEMENTATION_STATUS.md). Customer stack configuration prepared, not deployed. |
 
 ## Evidence, without inflated claims
 
@@ -92,11 +107,28 @@ generates an ephemeral key for its processes.
 Docker alternative: copy `.env.example` to `.env`, set your own admin key, then run
 `docker compose up --build`. Keep `.env`, databases and trained artifacts out of Git.
 
+### Run the receiving rehearsal
+
+With the virtual environment active and dependencies installed:
+
+```bash
+mkdir -p var/receiving
+export DATABASE_URL=sqlite:///./var/receiving/preview.db
+export SITEPULSE_MODE=customer
+python -m scripts.receiving_demo
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8765
+```
+
+Open `http://127.0.0.1:8765/receive`. Enter the private local credential from
+`var/receiving/preview-access.json`. The plans are SIM; no model training is needed.
+See the [runbook](docs/RECEIVING_RUNBOOK.md) for provisioning, customer hosting, flags and recovery.
+
 ## Product and commercial hypothesis
 
-First candidate: a contractor in the Karaganda region with 1–3 active sites and an exportable
-1C history. Start with a free historical audit, then agree a one-site, 30-day pilot and its
-success criteria. The founder's **150,000–300,000 ₸ per active site/month** subscription range
+First candidate: a contractor with one accessible pilot site and an accountable receiving team.
+The earlier Karaganda/1C-history entry route remains an option; select the site by actual access
+and need. Offer a historical audit when useful, then agree a one-site, 30-day receiving pilot
+after field readiness. The founder's **150,000–300,000 ₸ per active site/month** subscription range
 is a hypothesis to test, not a validated price or a binding offer. Suppliers are not the payer.
 
 Voyage Control is an established delivery/equipment-booking alternative; spreadsheets, phone
